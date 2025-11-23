@@ -575,7 +575,7 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, remaining })
                             <textarea 
                                 className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none resize-none"
                                 rows={3}
-                                placeholder="Thanks for helping me with the filming!"
+                                placeholder="Thanks for helping me with the math homework!"
                                 value={message}
                                 onChange={e => setMessage(e.target.value)}
                             />
