@@ -6,13 +6,12 @@ import {
   runTransaction, arrayUnion, arrayRemove 
 } from 'firebase/firestore';
 import { 
-  getAuth, signInAnonymously, onAuthStateChanged, updateProfile, signInWithCustomToken,
-  signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut
+  getAuth, signInAnonymously, onAuthStateChanged, updateProfile, signInWithCustomToken
 } from 'firebase/auth';
 import { 
   Trophy, Gift, Activity, MessageSquare, 
   LogOut, UserPlus, Heart, Zap, Search, CheckCircle, Target, Sparkles,
-  Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock
+  Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera
 } from 'lucide-react';
 
 // --- CONFIGURATION START ---
@@ -63,7 +62,7 @@ const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'yum-donut-school';
 // 3. Shop Inventory
 const SHOP_ITEMS = [
     { id: 'snack_2', name: 'Double Snack Attack', cost: 15, icon: '🍫', desc: 'Buy a second snack from the box.', type: 'physical' },
-    { id: 'vip_schedule', name: 'VIP Schedule Bump', cost: 25, icon: '📅', desc: "Bump your show to the top of the 'let's work on it' list.", type: 'physical' },
+    { id: 'vip_schedule', name: 'VIP Schedule Bump', cost: 25, icon: '📅', desc: 'Priority, first-choice booking spot for the week.', type: 'physical' },
     { id: 'comfy_chair', name: 'Comfy Chair Rental', cost: 30, icon: '🪑', desc: 'Rent the good chair for a week.', type: 'physical' },
     { id: 'rainbow_name', name: 'Rainbow Name', cost: 60, icon: '🌈', desc: 'Your name glows on the leaderboard!', type: 'digital' },
     { id: 'gold_pass', name: 'The GOLD Pass', cost: 100, icon: '🎫', desc: 'A physical, laminated Gold VIP Lanyard.', type: 'physical' },
@@ -148,6 +147,15 @@ export default function YumDonutApp() {
 
   // Auth & Profile Listener
   useEffect(() => {
+    const initAuth = async () => {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+             await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+             await signInAnonymously(auth);
+        }
+    }
+    initAuth();
+    
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
@@ -156,7 +164,7 @@ export default function YumDonutApp() {
           if (docSnap.exists()) {
             setMyProfile(docSnap.data());
           } else {
-            // Profile might be missing on first load, handled in login logic
+            setMyProfile(null); 
           }
           setLoading(false);
         });
@@ -211,78 +219,52 @@ export default function YumDonutApp() {
 
   // --- Actions ---
 
-  const handleLoginOrRegister = async (name, password) => {
-    if (!name || !password) return;
+  const handleCreateProfile = async (name) => {
+    if (!name.trim()) return;
     setLoading(true);
-    
-    // Create a fake email based on the name to satisfy Firebase
-    const email = `${name.replace(/\s+/g, '').toLowerCase()}@yumdonut.school`;
-
     try {
-        // Try to sign in first
-        await signInWithEmailAndPassword(auth, email, password);
-        showNotification(`Welcome back, ${name}!`);
+      const uid = user.uid;
+      const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', name);
+      const publicDoc = await getDoc(publicRef);
+      
+      let currentBalance = 0;
+      let currentGiven = 0;
+      let avatarColor = `hsl(${Math.random() * 360}, 70%, 50%)`;
+      let rainbowName = false;
+
+      if (publicDoc.exists()) {
+          const data = publicDoc.data();
+          currentBalance = data.balance || 0;
+          currentGiven = data.lifetime_given || 0;
+          if (data.avatar_color) avatarColor = data.avatar_color;
+          if (data.rainbow_name) rainbowName = data.rainbow_name;
+      }
+
+      const initialPrivateData = {
+        name: name,
+        balance: currentBalance, 
+        given_today: 0,
+        last_given_date: new Date().toDateString(),
+        avatar_color: avatarColor
+      };
+
+      await setDoc(doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data'), initialPrivateData);
+      
+      await setDoc(publicRef, {
+        name: name,
+        balance: currentBalance,
+        lifetime_given: currentGiven,
+        avatar_color: avatarColor,
+        rainbow_name: rainbowName,
+        claimed: true,
+        uid: uid 
+      }, { merge: true });
+
     } catch (error) {
-        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found') {
-            // If user doesn't exist, try to register
-            try {
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                const uid = userCredential.user.uid;
-                
-                // Initialize Profile Data
-                const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', name);
-                const publicDoc = await getDoc(publicRef);
-                
-                let currentBalance = 0;
-                let currentGiven = 0;
-                let avatarColor = `hsl(${Math.random() * 360}, 70%, 50%)`;
-                let rainbowName = false;
-
-                if (publicDoc.exists()) {
-                    const data = publicDoc.data();
-                    currentBalance = data.balance || 0;
-                    currentGiven = data.lifetime_given || 0;
-                    if (data.avatar_color) avatarColor = data.avatar_color;
-                    if (data.rainbow_name) rainbowName = data.rainbow_name;
-                }
-
-                const initialPrivateData = {
-                    name: name,
-                    balance: currentBalance, 
-                    given_today: 0,
-                    last_given_date: new Date().toDateString(),
-                    avatar_color: avatarColor
-                };
-
-                await setDoc(doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data'), initialPrivateData);
-                
-                await setDoc(publicRef, {
-                    name: name,
-                    balance: currentBalance,
-                    lifetime_given: currentGiven,
-                    avatar_color: avatarColor,
-                    rainbow_name: rainbowName,
-                    claimed: true,
-                    uid: uid 
-                }, { merge: true });
-
-                showNotification(`Account created for ${name}!`);
-
-            } catch (createError) {
-                console.error(createError);
-                showNotification("Could not create account. Password too short?", "error");
-            }
-        } else {
-            console.error(error);
-            showNotification("Login failed. Check password.", "error");
-        }
+      console.error("Error creating profile:", error);
+      showNotification("Failed to create profile", "error");
     }
     setLoading(false);
-  };
-
-  const handleLogout = () => {
-      signOut(auth);
-      setView('give');
   };
 
   const handleGiveDonut = async (recipientName, message) => {
@@ -575,8 +557,10 @@ export default function YumDonutApp() {
     </div>
   );
 
-  if (!user || !myProfile) {
-    return <LoginScreen onLogin={handleLoginOrRegister} existingUsers={users} />;
+  if (!user) return <div>Authenticating...</div>;
+
+  if (!myProfile) {
+    return <LoginScreen onCreate={handleCreateProfile} existingUsers={users} />;
   }
 
   return (
@@ -588,7 +572,7 @@ export default function YumDonutApp() {
             </div>
             <div>
                 <h1 className="font-bold text-lg text-slate-900 leading-tight">YumDonut</h1>
-                <p className="text-xs text-slate-500">Berkley TV Recognition</p>
+                <p className="text-xs text-slate-500">School Recognition</p>
             </div>
         </div>
         
@@ -600,10 +584,8 @@ export default function YumDonutApp() {
                 </p>
              </div>
              <div 
-                className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-inner cursor-pointer hover:opacity-80 transition-opacity"
+                className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-inner"
                 style={{ backgroundColor: myProfile.avatar_color }}
-                title="Click to Logout"
-                onClick={handleLogout}
              >
                 {myProfile.name.charAt(0).toUpperCase()}
              </div>
@@ -701,106 +683,6 @@ export default function YumDonutApp() {
 }
 
 // --- Sub-Components ---
-
-function LoginScreen({ onLogin, existingUsers }) {
-  const [search, setSearch] = useState("");
-  const [selectedName, setSelectedName] = useState(null);
-  const [password, setPassword] = useState("");
-
-  const availableNames = SCHOOL_ROSTER.filter(name => {
-    return name.toLowerCase().includes(search.toLowerCase());
-  });
-
-  // Helper to check status
-  const isClaimed = (name) => {
-      const user = existingUsers.find(u => u.name === name);
-      return user && user.claimed;
-  };
-
-  const handleLogin = () => {
-      if (selectedName && password) {
-          onLogin(selectedName, password);
-      }
-  };
-
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4">
-      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center border-t-8 border-pink-500">
-        <div className="text-6xl mb-4">{EMOJI}</div>
-        <h1 className="text-2xl font-bold mb-2 text-slate-800">Welcome to YumDonut</h1>
-        <p className="text-slate-500 mb-6">Select your name to Login or Register.</p>
-        
-        {!selectedName ? (
-            <div className="space-y-4 text-left">
-                <div className="relative">
-                    <Search className="absolute left-3 top-3 text-slate-400" size={20} />
-                    <input 
-                    type="text" 
-                    className="w-full pl-10 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-pink-500 outline-none transition"
-                    placeholder="Search your name..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    />
-                </div>
-
-                <div className="h-48 overflow-y-auto border border-slate-100 rounded-lg bg-slate-50 p-2 space-y-1">
-                    {availableNames.length === 0 ? (
-                        <div className="text-center text-slate-400 py-4 text-sm">No names found.</div>
-                    ) : (
-                        availableNames.map(name => {
-                            const claimed = isClaimed(name);
-                            return (
-                                <button
-                                    key={name}
-                                    onClick={() => setSelectedName(name)}
-                                    className="w-full text-left px-4 py-2 rounded-md text-sm font-medium hover:bg-white hover:shadow-sm text-slate-600 transition-all flex justify-between items-center"
-                                >
-                                    <span>{name}</span>
-                                    {claimed && <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded border border-slate-200">Login</span>}
-                                    {!claimed && <span className="text-[10px] bg-green-100 text-green-600 px-2 py-0.5 rounded border border-green-200">Register</span>}
-                                </button>
-                            );
-                        })
-                    )}
-                </div>
-            </div>
-        ) : (
-            <div className="space-y-4 text-left animate-in fade-in slide-in-from-right-4">
-                <div className="flex items-center justify-between bg-pink-50 p-3 rounded-lg">
-                    <div className="flex items-center gap-2">
-                        <span className="font-bold text-pink-700">{selectedName}</span>
-                        {isClaimed(selectedName) ? 
-                            <span className="text-[10px] bg-white text-slate-500 px-2 rounded border">Login</span> : 
-                            <span className="text-[10px] bg-green-100 text-green-600 px-2 rounded border border-green-200">New Account</span>
-                        }
-                    </div>
-                    <button onClick={() => { setSelectedName(null); setPassword(""); }} className="text-xs text-pink-400 hover:text-pink-600">Change</button>
-                </div>
-                <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
-                        {isClaimed(selectedName) ? "Enter Password" : "Create Password"}
-                    </label>
-                    <div className="relative">
-                        <Lock className="absolute left-3 top-3 text-slate-400" size={18} />
-                        <input 
-                            type="password" 
-                            className="w-full pl-10 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-pink-500 outline-none"
-                            placeholder={isClaimed(selectedName) ? "Your password..." : "Create a new password"}
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-                        />
-                    </div>
-                </div>
-                <Button variant="primary" className="w-full py-3 text-lg" onClick={handleLogin} disabled={!password}>
-                    {isClaimed(selectedName) ? "Login" : "Create Account"}
-                </Button>
-            </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 function ShopView({ items, userBalance, onPurchase, currentUserPublic }) {
     return (
@@ -1016,6 +898,85 @@ function GoalView({ goalData, userBalance, onContribute, currentUserName, onActi
              </Card>
         </div>
     );
+}
+
+// ... LoginScreen, GiveView, FeedView, LeaderboardView, NavBtn ...
+function LoginScreen({ onCreate, existingUsers }) {
+  const [search, setSearch] = useState("");
+  const [selectedName, setSelectedName] = useState(null);
+
+  const availableNames = SCHOOL_ROSTER.filter(name => {
+    const userDoc = existingUsers.find(u => u.name === name);
+    const isClaimed = userDoc && userDoc.claimed; 
+    const matchesSearch = name.toLowerCase().includes(search.toLowerCase());
+    return !isClaimed && matchesSearch;
+  });
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4">
+      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center border-t-8 border-pink-500">
+        <div className="text-6xl mb-4">{EMOJI}</div>
+        <h1 className="text-2xl font-bold mb-2 text-slate-800">Welcome to YumDonut</h1>
+        <p className="text-slate-500 mb-6">Find your name to get started.</p>
+        
+        <div className="space-y-4 text-left">
+          <div className="relative">
+            <Search className="absolute left-3 top-3 text-slate-400" size={20} />
+            <input 
+              type="text" 
+              className="w-full pl-10 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-pink-500 outline-none transition"
+              placeholder="Search your name..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+
+          <div className="h-48 overflow-y-auto border border-slate-100 rounded-lg bg-slate-50 p-2 space-y-1">
+             {availableNames.length === 0 ? (
+                <div className="text-center text-slate-400 py-4 text-sm">
+                   {search ? "No names found." : "All names taken!"}
+                </div>
+             ) : (
+                availableNames.map(name => {
+                    const ghostUser = existingUsers.find(u => u.name === name);
+                    const pendingDonuts = ghostUser ? ghostUser.balance : 0;
+                    return (
+                        <button
+                            key={name}
+                            onClick={() => setSelectedName(name)}
+                            className={`w-full text-left px-4 py-2 rounded-md text-sm font-medium transition-all flex justify-between items-center ${
+                                selectedName === name 
+                                ? 'bg-pink-500 text-white shadow-md' 
+                                : 'hover:bg-white hover:shadow-sm text-slate-600'
+                            }`}
+                        >
+                            <span>{name}</span>
+                            <div className="flex items-center gap-2">
+                                {pendingDonuts > 0 && (
+                                    <span className="text-[10px] bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">
+                                        {pendingDonuts} {EMOJI} waiting
+                                    </span>
+                                )}
+                                {selectedName === name && <CheckCircle size={16} />}
+                            </div>
+                        </button>
+                    );
+                })
+             )}
+          </div>
+
+          <Button 
+            variant="primary" 
+            className="w-full py-3 text-lg" 
+            onClick={() => onCreate(selectedName)}
+            disabled={!selectedName}
+          >
+            I am {selectedName || "..."}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function GiveView({ roster, existingUsers, currentUserName, onGive, remaining }) {
