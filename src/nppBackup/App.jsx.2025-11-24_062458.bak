@@ -18,8 +18,7 @@ import {
 // --- CONFIGURATION START ---
 
 // 1. Firebase Configuration
-// We are now enforcing YOUR keys to prevent "System Token" conflicts
-const firebaseConfig = {
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
   apiKey: "AIzaSyAnjuK_F8ZO3WqTfCEeXEF5J84CG8Irjq4",
   authDomain: "yum-donut-school.firebaseapp.com",
   projectId: "yum-donut-school",
@@ -59,8 +58,7 @@ const SCHOOL_ROSTER = [
 const DAILY_LIMIT = 5;
 const GOAL_TARGET = 50; 
 const EMOJI = "🍩";
-// We force the App ID to your project name to ensure paths match your database rules
-const APP_ID = 'yum-donut-school'; 
+const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'yum-donut-school'; 
 
 // 3. Shop Inventory
 const SHOP_ITEMS = [
@@ -151,7 +149,18 @@ export default function YumDonutApp() {
   // Auth & Profile Listener
   useEffect(() => {
     const initAuth = async () => {
-        // We removed the system token check to avoid permission errors with your custom keys
+        // 1. Try System Token (Crucial for Chat Preview Environment to avoid permission errors)
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+             try {
+                 await signInWithCustomToken(auth, __initial_auth_token);
+                 return; // If successful, stop here
+             } catch (e) {
+                 console.error("System auth failed", e);
+             }
+        }
+
+        // 2. Fallback: Anonymous (Guest Mode for Public Web)
+        // Only try if not already signed in (to avoid overwriting persistence)
         if (!auth.currentUser) {
             try {
                 await signInAnonymously(auth);
@@ -170,7 +179,8 @@ export default function YumDonutApp() {
           if (docSnap.exists()) {
             setMyProfile(docSnap.data());
           } else {
-            setMyProfile(null); // Profile missing (Guest Mode or New User)
+            // Profile missing (Guest Mode or New User)
+            setMyProfile(null);
           }
           setLoading(false);
         }, (error) => {
@@ -232,6 +242,7 @@ export default function YumDonutApp() {
     if (!name || !password) return;
     setLoading(true);
     
+    // Create a fake email based on the name to satisfy Firebase
     const email = `${name.replace(/\s+/g, '').toLowerCase()}@yumdonut.school`;
 
     try {
@@ -1145,7 +1156,7 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, remaining })
                             disabled={!selectedUser || !message}
                             className="w-full py-3 text-lg"
                         >
-                            Give {EMOJI} <span className="text-sm opacity-80 ml-1">({remaining} left)</span>
+                            Give {EMOJI}
                         </Button>
                     </>
                 )}
