@@ -6,12 +6,12 @@ import {
   runTransaction, arrayUnion, arrayRemove 
 } from 'firebase/firestore';
 import { 
-  getAuth, signInAnonymously, onAuthStateChanged, updateProfile, signInWithCustomToken
+  getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken
 } from 'firebase/auth';
 import { 
-  Trophy, Gift, Activity, MessageSquare, 
+  Trophy, Gift, Activity, 
   LogOut, UserPlus, Heart, Zap, Search, CheckCircle, Target, Sparkles,
-  Briefcase, Flame, CheckSquare, XCircle
+  Briefcase, Flame, CheckSquare
 } from 'lucide-react';
 
 // --- CONFIGURATION START ---
@@ -68,8 +68,11 @@ const db = getFirestore(app);
 
 // --- Helpers ---
 
+// Custom Confetti Effect (No external library needed)
 const triggerConfetti = () => {
   const count = 40;
+  const defaults = { origin: { y: 0.7 } };
+
   for(let i=0; i<count; i++) {
     const el = document.createElement('div');
     el.innerText = EMOJI;
@@ -82,6 +85,7 @@ const triggerConfetti = () => {
     el.style.transition = 'transform 1s ease-out, opacity 1s ease-out';
     document.body.appendChild(el);
 
+    // Animate
     const angle = Math.random() * Math.PI * 2;
     const velocity = Math.random() * 200 + 50;
     const tx = Math.cos(angle) * velocity;
@@ -110,8 +114,7 @@ const Button = ({ onClick, disabled, children, variant = "primary", className = 
     primary: "bg-pink-500 hover:bg-pink-600 text-white shadow-lg shadow-pink-200 disabled:bg-pink-300 disabled:shadow-none",
     secondary: "bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:bg-slate-50",
     outline: "border-2 border-slate-200 hover:border-pink-500 hover:text-pink-500 text-slate-600",
-    success: "bg-green-500 hover:bg-green-600 text-white shadow-lg shadow-green-200 disabled:bg-green-300",
-    danger: "bg-red-50 hover:bg-red-100 text-red-600 border border-red-200"
+    success: "bg-green-500 hover:bg-green-600 text-white shadow-lg shadow-green-200 disabled:bg-green-300"
   };
   return (
     <button onClick={onClick} disabled={disabled} className={`${base} ${styles[variant]} ${className}`}>
@@ -130,7 +133,7 @@ export default function YumDonutApp() {
   // Data State
   const [users, setUsers] = useState([]);
   const [transactions, setTransactions] = useState([]);
-  const [bounties, setBounties] = useState([]); 
+  const [bounties, setBounties] = useState([]); // New State for Jobs
   const [goalData, setGoalData] = useState({ current: 0, contributors: {} });
   const [myProfile, setMyProfile] = useState(null);
   const [notification, setNotification] = useState(null);
@@ -170,12 +173,14 @@ export default function YumDonutApp() {
   useEffect(() => {
     if (!user) return;
 
+    // 1. Users
     const usersQuery = query(collection(db, 'artifacts', APP_ID, 'public', 'data', 'users'));
     const unsubUsers = onSnapshot(usersQuery, (snapshot) => {
       const usersList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setUsers(usersList);
     });
 
+    // 2. Feed
     const feedQuery = query(
       collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), 
       orderBy('timestamp', 'desc'), 
@@ -186,6 +191,7 @@ export default function YumDonutApp() {
       setTransactions(feedList);
     });
 
+    // 3. Goal
     const goalRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'goals', 'frosted-friday');
     const unsubGoal = onSnapshot(goalRef, (docSnap) => {
         if (docSnap.exists()) {
@@ -195,6 +201,7 @@ export default function YumDonutApp() {
         }
     });
 
+    // 4. Bounties (Jobs)
     const bountiesQuery = query(collection(db, 'artifacts', APP_ID, 'public', 'data', 'bounties'), orderBy('createdAt', 'desc'));
     const unsubBounties = onSnapshot(bountiesQuery, (snapshot) => {
         const bList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -203,9 +210,6 @@ export default function YumDonutApp() {
 
     return () => { unsubUsers(); unsubFeed(); unsubGoal(); unsubBounties(); };
   }, [user]);
-
-  // Derived State
-  const openBountyCount = bounties.filter(b => b.status === 'open').length;
 
   // --- Actions ---
 
@@ -266,7 +270,7 @@ export default function YumDonutApp() {
     }
 
     try {
-        triggerConfetti(); 
+        triggerConfetti(); // POP!
 
         await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
             fromName: myProfile.name,
@@ -318,7 +322,9 @@ export default function YumDonutApp() {
   };
 
   const handleReaction = async (txId, currentLikes) => {
+      // Prevent double liking locally
       if (currentLikes && currentLikes.includes(myProfile.name)) return;
+
       const txRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'transactions', txId);
       await updateDoc(txRef, {
           likes: arrayUnion(myProfile.name)
@@ -408,16 +414,7 @@ export default function YumDonutApp() {
           createdBy: myProfile.name,
           createdAt: serverTimestamp()
       });
-      // Auto-Announce
-      await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
-          fromName: "Job Board",
-          toName: "EVERYONE",
-          message: `📢 New Job Posted: ${title} (${reward} ${EMOJI})`,
-          timestamp: serverTimestamp(),
-          emoji: "📢",
-          likes: []
-      });
-      showNotification("Job Posted & Announced!");
+      showNotification("Job Posted!");
   };
 
   const handleClaimBounty = async (bountyId) => {
@@ -430,18 +427,9 @@ export default function YumDonutApp() {
       showNotification("Job Claimed! Good luck.");
   };
 
-  const handleUnclaimBounty = async (bountyId) => {
-      const bountyRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'bounties', bountyId);
-      await updateDoc(bountyRef, {
-          status: 'open',
-          claimantName: null,
-          claimantId: null
-      });
-      showNotification("Job is open again.");
-  };
-
   const handlePayBounty = async (bountyId, claimantName, reward) => {
       try {
+          // 1. Pay the user (Mint new donuts, don't subtract from Admin)
           const recipientRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', claimantName);
           const recipientDoc = await getDoc(recipientRef);
           
@@ -451,9 +439,11 @@ export default function YumDonutApp() {
               });
           }
 
+          // 2. Close Bounty
           const bountyRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'bounties', bountyId);
           await updateDoc(bountyRef, { status: 'paid' });
 
+          // 3. Announce
           await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
               fromName: "Mr Rayner",
               toName: claimantName,
@@ -535,16 +525,11 @@ export default function YumDonutApp() {
                  <button
                     key={tab}
                     onClick={() => setView(tab)}
-                    className={`px-4 py-2 font-medium text-sm capitalize border-b-2 transition-colors whitespace-nowrap relative ${
+                    className={`px-4 py-2 font-medium text-sm capitalize border-b-2 transition-colors whitespace-nowrap ${
                         view === tab ? 'border-pink-500 text-pink-600' : 'border-transparent text-slate-500 hover:text-slate-700'
                     }`}
                  >
                     {tab}
-                    {tab === 'jobs' && openBountyCount > 0 && (
-                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm">
-                            {openBountyCount}
-                        </span>
-                    )}
                  </button>
              ))}
         </div>
@@ -563,10 +548,8 @@ export default function YumDonutApp() {
             <BountiesView 
                 bounties={bounties}
                 currentUser={myProfile}
-                userId={user.uid}
                 onCreate={handleCreateBounty}
                 onClaim={handleClaimBounty}
-                onUnclaim={handleUnclaimBounty}
                 onPay={handlePayBounty}
             />
         )}
@@ -593,7 +576,7 @@ export default function YumDonutApp() {
 
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-3 flex justify-between z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
         <NavBtn icon={Gift} label="Give" active={view === 'give'} onClick={() => setView('give')} />
-        <NavBtn icon={Briefcase} label="Jobs" active={view === 'jobs'} onClick={() => setView('jobs')} badge={openBountyCount} />
+        <NavBtn icon={Briefcase} label="Jobs" active={view === 'jobs'} onClick={() => setView('jobs')} />
         <NavBtn icon={Target} label="Goal" active={view === 'goal'} onClick={() => setView('goal')} />
         <NavBtn icon={Activity} label="Feed" active={view === 'feed'} onClick={() => setView('feed')} />
       </div>
@@ -603,7 +586,7 @@ export default function YumDonutApp() {
 
 // --- Sub-Components ---
 
-function BountiesView({ bounties, currentUser, userId, onCreate, onClaim, onUnclaim, onPay }) {
+function BountiesView({ bounties, currentUser, onCreate, onClaim, onPay }) {
     const [newTitle, setNewTitle] = useState("");
     const [newReward, setNewReward] = useState(5);
     const isAdmin = currentUser.name === "Mr Rayner";
@@ -640,73 +623,44 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onClaim, onUncl
             )}
 
             <div className="space-y-3">
-                <h3 className="font-bold text-slate-700 ml-1 flex justify-between items-center">
-                    <span>Active Jobs</span>
-                    <span className="text-xs font-normal text-slate-400">Latest first</span>
-                </h3>
+                <h3 className="font-bold text-slate-700 ml-1">Active Jobs</h3>
                 {activeBounties.length === 0 && <div className="text-center text-slate-400 py-8">No active jobs right now.</div>}
                 
-                {activeBounties.map(b => {
-                    // Logic to see if the current user is the one who claimed it
-                    const isMyClaim = b.claimantId === userId;
-
-                    return (
-                        <Card key={b.id} className="flex justify-between items-center border-l-4 border-l-pink-500">
-                            <div className="flex-grow min-w-0 mr-2">
-                                <h4 className="font-bold text-slate-800 break-words">{b.title}</h4>
-                                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                    <span className="bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">
-                                        {b.reward} {EMOJI} Reward
-                                    </span>
-                                    {b.status === 'claimed' && (
-                                        <span className="text-xs text-slate-500 flex items-center gap-1 whitespace-nowrap">
-                                            <CheckSquare size={12}/> Claimed by {b.claimantName}
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                            
-                            <div className="flex gap-2 flex-shrink-0">
-                                {/* OPEN Status */}
-                                {b.status === 'open' && (
-                                    <Button variant="outline" onClick={() => onClaim(b.id)}>
-                                        Claim
-                                    </Button>
-                                )}
-
-                                {/* CLAIMED Status - Admin Actions */}
-                                {b.status === 'claimed' && isAdmin && (
-                                    <>
-                                        <button 
-                                            onClick={() => onUnclaim(b.id)}
-                                            className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                            title="Revoke Claim"
-                                        >
-                                            <XCircle size={20} />
-                                        </button>
-                                        <Button variant="success" onClick={() => onPay(b.id, b.claimantName, b.reward)} className="whitespace-nowrap">
-                                            Pay & Close
-                                        </Button>
-                                    </>
-                                )}
-
-                                {/* CLAIMED Status - Student Actions (Self-Unclaim) */}
-                                {b.status === 'claimed' && isMyClaim && !isAdmin && (
-                                    <Button variant="danger" onClick={() => onUnclaim(b.id)} className="text-xs px-2 whitespace-nowrap">
-                                        Cancel Claim
-                                    </Button>
-                                )}
-
-                                {/* CLAIMED Status - Other Students (View Only) */}
-                                {b.status === 'claimed' && !isMyClaim && !isAdmin && (
-                                    <span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500 self-center whitespace-nowrap">
-                                        Busy
+                {activeBounties.map(b => (
+                    <Card key={b.id} className="flex justify-between items-center border-l-4 border-l-pink-500">
+                        <div>
+                            <h4 className="font-bold text-slate-800">{b.title}</h4>
+                            <div className="flex items-center gap-2 mt-1">
+                                <span className="bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full text-xs font-bold">
+                                    {b.reward} {EMOJI} Reward
+                                </span>
+                                {b.status === 'claimed' && (
+                                    <span className="text-xs text-slate-500 flex items-center gap-1">
+                                        <CheckSquare size={12}/> Claimed by {b.claimantName}
                                     </span>
                                 )}
                             </div>
-                        </Card>
-                    );
-                })}
+                        </div>
+                        
+                        <div>
+                            {b.status === 'open' && (
+                                <Button variant="outline" onClick={() => onClaim(b.id)}>
+                                    Claim
+                                </Button>
+                            )}
+                            {b.status === 'claimed' && isAdmin && (
+                                <Button variant="success" onClick={() => onPay(b.id, b.claimantName, b.reward)}>
+                                    Pay & Close
+                                </Button>
+                            )}
+                            {b.status === 'claimed' && !isAdmin && (
+                                <span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500">
+                                    In Progress
+                                </span>
+                            )}
+                        </div>
+                    </Card>
+                ))}
             </div>
         </div>
     );
@@ -779,7 +733,6 @@ function GoalView({ goalData, userBalance, onContribute, currentUserName, onActi
     );
 }
 
-// ... LoginScreen, GiveView, FeedView, LeaderboardView, NavBtn ...
 function LoginScreen({ onCreate, existingUsers }) {
   const [search, setSearch] = useState("");
   const [selectedName, setSelectedName] = useState(null);
@@ -1012,6 +965,7 @@ function FeedView({ transactions, onReact }) {
                                 {tx.timestamp ? new Date(tx.timestamp.toDate()).toLocaleString() : 'Just now'}
                             </p>
                             
+                            {/* Reactions */}
                             <button 
                                 onClick={() => onReact(tx.id, tx.likes)}
                                 className="absolute bottom-3 left-16 text-xs bg-slate-50 hover:bg-orange-50 border border-slate-200 px-2 py-1 rounded-full flex items-center gap-1 transition-colors"
@@ -1073,19 +1027,12 @@ function LeaderboardView({ users, roster }) {
     );
 }
 
-const NavBtn = ({ icon: Icon, label, active, onClick, badge }) => (
+const NavBtn = ({ icon: Icon, label, active, onClick }) => (
     <button 
         onClick={onClick}
-        className={`flex flex-col items-center gap-1 w-16 transition-colors relative ${active ? 'text-pink-500' : 'text-slate-400 hover:text-slate-600'}`}
+        className={`flex flex-col items-center gap-1 w-16 transition-colors ${active ? 'text-pink-500' : 'text-slate-400 hover:text-slate-600'}`}
     >
-        <div className="relative">
-            <Icon size={24} strokeWidth={active ? 2.5 : 2} />
-            {badge > 0 && (
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold h-4 w-4 flex items-center justify-center rounded-full shadow-sm">
-                    {badge}
-                </span>
-            )}
-        </div>
+        <Icon size={24} strokeWidth={active ? 2.5 : 2} />
         <span className="text-[10px] font-medium">{label}</span>
     </button>
 );
