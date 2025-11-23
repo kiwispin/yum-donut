@@ -1,22 +1,22 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp } from 'firebase/app';
 import { 
   getFirestore, collection, addDoc, query, orderBy, limit, 
   onSnapshot, doc, updateDoc, setDoc, getDoc, serverTimestamp, 
-  runTransaction, arrayUnion, arrayRemove 
+  runTransaction, where 
 } from 'firebase/firestore';
 import { 
-  getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken
+  getAuth, signInAnonymously, onAuthStateChanged, updateProfile, signInWithCustomToken
 } from 'firebase/auth';
 import { 
-  Trophy, Gift, Activity, 
-  LogOut, UserPlus, Heart, Zap, Search, CheckCircle, Target, Sparkles,
-  Briefcase, Flame, CheckSquare
+  Trophy, Gift, Activity, MessageSquare, 
+  LogOut, UserPlus, Heart, Zap, Search, CheckCircle, Target, Sparkles
 } from 'lucide-react';
 
 // --- CONFIGURATION START ---
 
 // 1. Firebase Configuration
+// We use your REAL keys here as the default fallback.
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
   apiKey: "AIzaSyAnjuK_F8ZO3WqTfCEeXEF5J84CG8Irjq4",
   authDomain: "yum-donut-school.firebaseapp.com",
@@ -26,7 +26,7 @@ const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__f
   appId: "1:910400935670:web:8f196e7da498d67ca17ed7"
 };
 
-// 2. School Roster
+// 2. School Roster (Edit this list anytime!)
 const SCHOOL_ROSTER = [
   "Mr Rayner",
   "Jacey",
@@ -55,8 +55,9 @@ const SCHOOL_ROSTER = [
 ];
 
 const DAILY_LIMIT = 5;
-const GOAL_TARGET = 50; 
+const GOAL_TARGET = 50; // Frosted Friday Target
 const EMOJI = "🍩";
+// If running in chat, use dynamic app id, otherwise use the fixed string
 const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'yum-donut-school'; 
 
 // --- CONFIGURATION END ---
@@ -65,40 +66,6 @@ const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'yum-donut-school';
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-
-// --- Helpers ---
-
-// Custom Confetti Effect (No external library needed)
-const triggerConfetti = () => {
-  const count = 40;
-  const defaults = { origin: { y: 0.7 } };
-
-  for(let i=0; i<count; i++) {
-    const el = document.createElement('div');
-    el.innerText = EMOJI;
-    el.style.position = 'fixed';
-    el.style.left = Math.random() * 100 + 'vw';
-    el.style.top = Math.random() * 100 + 'vh';
-    el.style.fontSize = (Math.random() * 20 + 10) + 'px';
-    el.style.pointerEvents = 'none';
-    el.style.zIndex = '9999';
-    el.style.transition = 'transform 1s ease-out, opacity 1s ease-out';
-    document.body.appendChild(el);
-
-    // Animate
-    const angle = Math.random() * Math.PI * 2;
-    const velocity = Math.random() * 200 + 50;
-    const tx = Math.cos(angle) * velocity;
-    const ty = Math.sin(angle) * velocity;
-
-    requestAnimationFrame(() => {
-      el.style.transform = `translate(${tx}px, ${ty}px) rotate(${Math.random()*360}deg)`;
-      el.style.opacity = '0';
-    });
-
-    setTimeout(() => el.remove(), 1000);
-  }
-};
 
 // --- Components ---
 
@@ -133,7 +100,6 @@ export default function YumDonutApp() {
   // Data State
   const [users, setUsers] = useState([]);
   const [transactions, setTransactions] = useState([]);
-  const [bounties, setBounties] = useState([]); // New State for Jobs
   const [goalData, setGoalData] = useState({ current: 0, contributors: {} });
   const [myProfile, setMyProfile] = useState(null);
   const [notification, setNotification] = useState(null);
@@ -184,7 +150,7 @@ export default function YumDonutApp() {
     const feedQuery = query(
       collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), 
       orderBy('timestamp', 'desc'), 
-      limit(25)
+      limit(20)
     );
     const unsubFeed = onSnapshot(feedQuery, (snapshot) => {
       const feedList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -201,14 +167,7 @@ export default function YumDonutApp() {
         }
     });
 
-    // 4. Bounties (Jobs)
-    const bountiesQuery = query(collection(db, 'artifacts', APP_ID, 'public', 'data', 'bounties'), orderBy('createdAt', 'desc'));
-    const unsubBounties = onSnapshot(bountiesQuery, (snapshot) => {
-        const bList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setBounties(bList);
-    });
-
-    return () => { unsubUsers(); unsubFeed(); unsubGoal(); unsubBounties(); };
+    return () => { unsubUsers(); unsubFeed(); unsubGoal(); };
   }, [user]);
 
   // --- Actions ---
@@ -270,15 +229,12 @@ export default function YumDonutApp() {
     }
 
     try {
-        triggerConfetti(); // POP!
-
         await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
             fromName: myProfile.name,
             toName: recipientName,
             message: message,
             timestamp: serverTimestamp(),
-            emoji: EMOJI,
-            likes: []
+            emoji: EMOJI
         });
 
         const senderPrivateRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
@@ -321,16 +277,6 @@ export default function YumDonutApp() {
     }
   };
 
-  const handleReaction = async (txId, currentLikes) => {
-      // Prevent double liking locally
-      if (currentLikes && currentLikes.includes(myProfile.name)) return;
-
-      const txRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'transactions', txId);
-      await updateDoc(txRef, {
-          likes: arrayUnion(myProfile.name)
-      });
-  };
-
   const handleContributeToGoal = async () => {
       if (!myProfile || myProfile.balance < 1) {
           showNotification("You don't have enough donuts to contribute!", "error");
@@ -361,8 +307,7 @@ export default function YumDonutApp() {
                   toName: "Frosted Friday",
                   message: "Contributed to the goal!",
                   timestamp: serverTimestamp(),
-                  emoji: "🚀",
-                  likes: []
+                  emoji: "🚀"
               });
           });
           
@@ -372,7 +317,6 @@ export default function YumDonutApp() {
           });
 
           showNotification("Contributed 1 donut to Frosted Friday!");
-          triggerConfetti();
 
       } catch (e) {
           console.error(e);
@@ -380,85 +324,35 @@ export default function YumDonutApp() {
       }
   };
 
+  // NEW: Only Mr Rayner can trigger this
   const handleActivateFrostedFriday = async () => {
       try {
           const goalRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'goals', 'frosted-friday');
-          await updateDoc(goalRef, { current: 0 });
           
-          await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
-              fromName: "Mr Rayner",
-              toName: "EVERYONE",
-              message: "🚨 FROSTED FRIDAY IS ON! The goal was met! 🍩🎉",
-              timestamp: serverTimestamp(),
-              emoji: "🚨",
-              likes: []
+          await runTransaction(db, async (transaction) => {
+              const goalDoc = await transaction.get(goalRef);
+              if (!goalDoc.exists()) throw "Goal does not exist!";
+              
+              // Reset to 0
+              transaction.update(goalRef, { current: 0 });
+              
+              // Announce it
+              const txRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
+              transaction.set(txRef, {
+                  fromName: "Mr Rayner",
+                  toName: "EVERYONE",
+                  message: "🚨 FROSTED FRIDAY IS ON! The goal was met! 🍩🎉",
+                  timestamp: serverTimestamp(),
+                  emoji: "🚨"
+              });
           });
 
           showNotification("Frosted Friday Activated! Goal reset.");
-          triggerConfetti();
           setView('feed');
 
       } catch (e) {
           console.error(e);
           showNotification("Failed to activate.", "error");
-      }
-  };
-
-  // --- Bounty Actions ---
-
-  const handleCreateBounty = async (title, reward) => {
-      await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'bounties'), {
-          title,
-          reward: parseInt(reward),
-          status: 'open',
-          createdBy: myProfile.name,
-          createdAt: serverTimestamp()
-      });
-      showNotification("Job Posted!");
-  };
-
-  const handleClaimBounty = async (bountyId) => {
-      const bountyRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'bounties', bountyId);
-      await updateDoc(bountyRef, {
-          status: 'claimed',
-          claimantName: myProfile.name,
-          claimantId: user.uid
-      });
-      showNotification("Job Claimed! Good luck.");
-  };
-
-  const handlePayBounty = async (bountyId, claimantName, reward) => {
-      try {
-          // 1. Pay the user (Mint new donuts, don't subtract from Admin)
-          const recipientRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', claimantName);
-          const recipientDoc = await getDoc(recipientRef);
-          
-          if (recipientDoc.exists()) {
-              await updateDoc(recipientRef, {
-                  balance: (recipientDoc.data().balance || 0) + reward
-              });
-          }
-
-          // 2. Close Bounty
-          const bountyRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'bounties', bountyId);
-          await updateDoc(bountyRef, { status: 'paid' });
-
-          // 3. Announce
-          await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
-              fromName: "Mr Rayner",
-              toName: claimantName,
-              message: `Completed the bounty: ${reward} Donuts awarded!`,
-              timestamp: serverTimestamp(),
-              emoji: "💰",
-              likes: []
-          });
-
-          triggerConfetti();
-          showNotification("Bounty Paid!");
-
-      } catch (e) {
-          console.error(e);
-          showNotification("Payment failed", "error");
       }
   };
 
@@ -520,12 +414,12 @@ export default function YumDonutApp() {
             </div>
         )}
 
-        <div className="flex overflow-x-auto space-x-2 border-b border-slate-200 mb-4 pb-1">
-             {['give', 'jobs', 'goal', 'feed', 'leaderboard'].map(tab => (
+        <div className="hidden md:flex space-x-2 border-b border-slate-200 mb-4">
+             {['give', 'goal', 'feed', 'leaderboard'].map(tab => (
                  <button
                     key={tab}
                     onClick={() => setView(tab)}
-                    className={`px-4 py-2 font-medium text-sm capitalize border-b-2 transition-colors whitespace-nowrap ${
+                    className={`px-4 py-2 font-medium text-sm capitalize border-b-2 transition-colors ${
                         view === tab ? 'border-pink-500 text-pink-600' : 'border-transparent text-slate-500 hover:text-slate-700'
                     }`}
                  >
@@ -544,16 +438,6 @@ export default function YumDonutApp() {
             />
         )}
 
-        {view === 'jobs' && (
-            <BountiesView 
-                bounties={bounties}
-                currentUser={myProfile}
-                onCreate={handleCreateBounty}
-                onClaim={handleClaimBounty}
-                onPay={handlePayBounty}
-            />
-        )}
-
         {view === 'goal' && (
             <GoalView 
                 goalData={goalData} 
@@ -565,7 +449,7 @@ export default function YumDonutApp() {
         )}
         
         {view === 'feed' && (
-            <FeedView transactions={transactions} onReact={handleReaction} />
+            <FeedView transactions={transactions} />
         )}
         
         {view === 'leaderboard' && (
@@ -576,95 +460,15 @@ export default function YumDonutApp() {
 
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-3 flex justify-between z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
         <NavBtn icon={Gift} label="Give" active={view === 'give'} onClick={() => setView('give')} />
-        <NavBtn icon={Briefcase} label="Jobs" active={view === 'jobs'} onClick={() => setView('jobs')} />
         <NavBtn icon={Target} label="Goal" active={view === 'goal'} onClick={() => setView('goal')} />
         <NavBtn icon={Activity} label="Feed" active={view === 'feed'} onClick={() => setView('feed')} />
+        <NavBtn icon={Trophy} label="Leaders" active={view === 'leaderboard'} onClick={() => setView('leaderboard')} />
       </div>
     </div>
   );
 }
 
 // --- Sub-Components ---
-
-function BountiesView({ bounties, currentUser, onCreate, onClaim, onPay }) {
-    const [newTitle, setNewTitle] = useState("");
-    const [newReward, setNewReward] = useState(5);
-    const isAdmin = currentUser.name === "Mr Rayner";
-
-    const activeBounties = bounties.filter(b => b.status !== 'paid');
-
-    return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {isAdmin && (
-                <Card className="bg-pink-50 border-pink-100">
-                    <h3 className="font-bold text-pink-700 mb-3 flex items-center gap-2">
-                        <Briefcase size={20}/> Post New Job
-                    </h3>
-                    <div className="flex gap-2 flex-col md:flex-row">
-                        <input 
-                            className="flex-grow p-2 rounded-lg border border-pink-200"
-                            placeholder="Job Description (e.g. Film Assembly)"
-                            value={newTitle}
-                            onChange={e => setNewTitle(e.target.value)}
-                        />
-                        <div className="flex gap-2">
-                            <input 
-                                type="number"
-                                className="w-20 p-2 rounded-lg border border-pink-200"
-                                value={newReward}
-                                onChange={e => setNewReward(e.target.value)}
-                            />
-                            <Button onClick={() => { onCreate(newTitle, newReward); setNewTitle(""); }}>
-                                Post
-                            </Button>
-                        </div>
-                    </div>
-                </Card>
-            )}
-
-            <div className="space-y-3">
-                <h3 className="font-bold text-slate-700 ml-1">Active Jobs</h3>
-                {activeBounties.length === 0 && <div className="text-center text-slate-400 py-8">No active jobs right now.</div>}
-                
-                {activeBounties.map(b => (
-                    <Card key={b.id} className="flex justify-between items-center border-l-4 border-l-pink-500">
-                        <div>
-                            <h4 className="font-bold text-slate-800">{b.title}</h4>
-                            <div className="flex items-center gap-2 mt-1">
-                                <span className="bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full text-xs font-bold">
-                                    {b.reward} {EMOJI} Reward
-                                </span>
-                                {b.status === 'claimed' && (
-                                    <span className="text-xs text-slate-500 flex items-center gap-1">
-                                        <CheckSquare size={12}/> Claimed by {b.claimantName}
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                        
-                        <div>
-                            {b.status === 'open' && (
-                                <Button variant="outline" onClick={() => onClaim(b.id)}>
-                                    Claim
-                                </Button>
-                            )}
-                            {b.status === 'claimed' && isAdmin && (
-                                <Button variant="success" onClick={() => onPay(b.id, b.claimantName, b.reward)}>
-                                    Pay & Close
-                                </Button>
-                            )}
-                            {b.status === 'claimed' && !isAdmin && (
-                                <span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500">
-                                    In Progress
-                                </span>
-                            )}
-                        </div>
-                    </Card>
-                ))}
-            </div>
-        </div>
-    );
-}
 
 function GoalView({ goalData, userBalance, onContribute, currentUserName, onActivate }) {
     const percent = Math.min(100, ((goalData.current || 0) / GOAL_TARGET) * 100);
@@ -733,6 +537,8 @@ function GoalView({ goalData, userBalance, onContribute, currentUserName, onActi
     );
 }
 
+// ... LoginScreen, GiveView, FeedView, LeaderboardView, NavBtn ...
+// (These are unchanged from previous version but included for completeness in React file)
 function LoginScreen({ onCreate, existingUsers }) {
   const [search, setSearch] = useState("");
   const [selectedName, setSelectedName] = useState(null);
@@ -929,7 +735,7 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, remaining })
     );
 }
 
-function FeedView({ transactions, onReact }) {
+function FeedView({ transactions }) {
     return (
         <div className="space-y-4 animate-in fade-in duration-500">
             <h2 className="text-xl font-bold text-slate-800 px-1">Recent Activity</h2>
@@ -940,11 +746,11 @@ function FeedView({ transactions, onReact }) {
                 </div>
             ) : (
                 transactions.map(tx => (
-                    <Card key={tx.id} className="flex gap-4 relative">
+                    <Card key={tx.id} className="flex gap-4">
                         <div className="flex-shrink-0 mt-1 bg-pink-100 text-pink-500 p-2 rounded-full h-10 w-10 flex items-center justify-center text-lg shadow-sm">
                             {tx.emoji || EMOJI}
                         </div>
-                        <div className="flex-grow pb-6">
+                        <div className="flex-grow">
                             <div className="flex flex-wrap items-baseline gap-x-1 mb-1">
                                 <span className="font-bold text-slate-900">{tx.fromName}</span>
                                 {tx.toName === "Frosted Friday" || tx.toName === "EVERYONE" ? (
@@ -958,23 +764,12 @@ function FeedView({ transactions, onReact }) {
                                     </>
                                 )}
                             </div>
-                            <p className="text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-100 italic text-sm">
+                            <p className="text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-100 italic">
                                 "{tx.message}"
                             </p>
                             <p className="text-xs text-slate-400 mt-2 text-right">
                                 {tx.timestamp ? new Date(tx.timestamp.toDate()).toLocaleString() : 'Just now'}
                             </p>
-                            
-                            {/* Reactions */}
-                            <button 
-                                onClick={() => onReact(tx.id, tx.likes)}
-                                className="absolute bottom-3 left-16 text-xs bg-slate-50 hover:bg-orange-50 border border-slate-200 px-2 py-1 rounded-full flex items-center gap-1 transition-colors"
-                            >
-                                <Flame size={12} className={tx.likes?.length ? "text-orange-500 fill-orange-500" : "text-slate-400"} />
-                                <span className={tx.likes?.length ? "text-orange-600 font-bold" : "text-slate-500"}>
-                                    {tx.likes?.length || 0}
-                                </span>
-                            </button>
                         </div>
                     </Card>
                 ))
