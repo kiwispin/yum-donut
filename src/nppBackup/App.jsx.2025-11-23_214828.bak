@@ -11,7 +11,7 @@ import {
 import { 
   Trophy, Gift, Activity, MessageSquare, 
   LogOut, UserPlus, Heart, Zap, Search, CheckCircle, Target, Sparkles,
-  Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera
+  Briefcase, Flame, CheckSquare, XCircle
 } from 'lucide-react';
 
 // --- CONFIGURATION START ---
@@ -58,16 +58,6 @@ const DAILY_LIMIT = 5;
 const GOAL_TARGET = 50; 
 const EMOJI = "🍩";
 const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'yum-donut-school'; 
-
-// 3. Shop Inventory
-const SHOP_ITEMS = [
-    { id: 'snack_2', name: 'Double Snack Attack', cost: 15, icon: '🍫', desc: 'Buy a second snack from the box.', type: 'physical' },
-    { id: 'vip_schedule', name: 'VIP Schedule Bump', cost: 25, icon: '📅', desc: 'Priority booking for editing PCs.', type: 'physical' },
-    { id: 'comfy_chair', name: 'Comfy Chair Rental', cost: 30, icon: '🪑', desc: 'Rent the good chair for a week.', type: 'physical' },
-    { id: 'rainbow_name', name: 'Rainbow Name', cost: 60, icon: '🌈', desc: 'Your name glows on the leaderboard!', type: 'digital' },
-    { id: 'gold_pass', name: 'The GOLD Pass', cost: 100, icon: '🎫', desc: 'A physical, laminated Gold VIP Lanyard.', type: 'physical' },
-    { id: 'name_camera', name: 'Name a Camera', cost: 500, icon: '🎥', desc: 'Permanently name a DJI or Sony camera!', type: 'physical' },
-];
 
 // --- CONFIGURATION END ---
 
@@ -230,14 +220,12 @@ export default function YumDonutApp() {
       let currentBalance = 0;
       let currentGiven = 0;
       let avatarColor = `hsl(${Math.random() * 360}, 70%, 50%)`;
-      let rainbowName = false;
 
       if (publicDoc.exists()) {
           const data = publicDoc.data();
           currentBalance = data.balance || 0;
           currentGiven = data.lifetime_given || 0;
           if (data.avatar_color) avatarColor = data.avatar_color;
-          if (data.rainbow_name) rainbowName = data.rainbow_name;
       }
 
       const initialPrivateData = {
@@ -255,7 +243,6 @@ export default function YumDonutApp() {
         balance: currentBalance,
         lifetime_given: currentGiven,
         avatar_color: avatarColor,
-        rainbow_name: rainbowName,
         claimed: true,
         uid: uid 
       }, { merge: true });
@@ -411,66 +398,6 @@ export default function YumDonutApp() {
       }
   };
 
-  const handlePurchase = async (item) => {
-      if (!myProfile || myProfile.balance < item.cost) {
-          showNotification("Not enough donuts!", "error");
-          return;
-      }
-
-      // Prevent re-buying one-time digital items
-      const currentUserPublic = users.find(u => u.name === myProfile.name);
-      if (item.type === 'digital' && item.id === 'rainbow_name' && currentUserPublic?.rainbow_name) {
-          showNotification("You already own this!", "error");
-          return;
-      }
-
-      try {
-          const publicUserRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
-          
-          await runTransaction(db, async (transaction) => {
-              const userDoc = await transaction.get(publicUserRef);
-              if (!userDoc.exists()) throw "User missing";
-
-              const currentBal = userDoc.data().balance || 0;
-              if (currentBal < item.cost) throw "Not enough funds";
-
-              // Deduct cost
-              const updates = { balance: currentBal - item.cost };
-              
-              // Apply Digital Effect immediately
-              if (item.type === 'digital' && item.id === 'rainbow_name') {
-                  updates.rainbow_name = true;
-              }
-
-              transaction.update(publicUserRef, updates);
-
-              // Log transaction (This alerts Mr Rayner for physical items)
-              const txRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
-              transaction.set(txRef, {
-                  fromName: myProfile.name,
-                  toName: "The Shop",
-                  message: `Purchased: ${item.name}`,
-                  timestamp: serverTimestamp(),
-                  emoji: "🛍️",
-                  likes: []
-              });
-          });
-
-          // Update private balance for local state
-          const privateUserRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
-          await updateDoc(privateUserRef, {
-              balance: myProfile.balance - item.cost
-          });
-
-          showNotification(`Bought ${item.name}!`);
-          triggerConfetti();
-
-      } catch (e) {
-          console.error(e);
-          showNotification("Purchase failed.", "error");
-      }
-  };
-
   // --- Bounty Actions ---
 
   const handleCreateBounty = async (title, reward) => {
@@ -481,6 +408,7 @@ export default function YumDonutApp() {
           createdBy: myProfile.name,
           createdAt: serverTimestamp()
       });
+      // Auto-Announce
       await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
           fromName: "Job Board",
           toName: "EVERYONE",
@@ -603,7 +531,7 @@ export default function YumDonutApp() {
         )}
 
         <div className="flex overflow-x-auto space-x-2 border-b border-slate-200 mb-4 pb-1">
-             {['give', 'jobs', 'shop', 'goal', 'feed', 'leaderboard'].map(tab => (
+             {['give', 'jobs', 'goal', 'feed', 'leaderboard'].map(tab => (
                  <button
                     key={tab}
                     onClick={() => setView(tab)}
@@ -643,15 +571,6 @@ export default function YumDonutApp() {
             />
         )}
 
-        {view === 'shop' && (
-            <ShopView 
-                items={SHOP_ITEMS}
-                userBalance={myProfile.balance}
-                onPurchase={handlePurchase}
-                currentUserPublic={users.find(u => u.name === myProfile.name)}
-            />
-        )}
-
         {view === 'goal' && (
             <GoalView 
                 goalData={goalData} 
@@ -675,7 +594,7 @@ export default function YumDonutApp() {
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-3 flex justify-between z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
         <NavBtn icon={Gift} label="Give" active={view === 'give'} onClick={() => setView('give')} />
         <NavBtn icon={Briefcase} label="Jobs" active={view === 'jobs'} onClick={() => setView('jobs')} badge={openBountyCount} />
-        <NavBtn icon={ShoppingBag} label="Shop" active={view === 'shop'} onClick={() => setView('shop')} />
+        <NavBtn icon={Target} label="Goal" active={view === 'goal'} onClick={() => setView('goal')} />
         <NavBtn icon={Activity} label="Feed" active={view === 'feed'} onClick={() => setView('feed')} />
       </div>
     </div>
@@ -683,51 +602,6 @@ export default function YumDonutApp() {
 }
 
 // --- Sub-Components ---
-
-function ShopView({ items, userBalance, onPurchase, currentUserPublic }) {
-    return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <Card className="bg-gradient-to-r from-purple-500 to-pink-500 text-white">
-                <h2 className="text-2xl font-bold flex items-center gap-2">
-                    <ShoppingBag /> The Donut Shop
-                </h2>
-                <p className="opacity-90">Spend your hard-earned donuts on rewards!</p>
-                <div className="mt-4 text-sm font-bold bg-white/20 inline-block px-3 py-1 rounded-full">
-                    Your Balance: {userBalance} {EMOJI}
-                </div>
-            </Card>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {items.map(item => {
-                    const canAfford = userBalance >= item.cost;
-                    const isOwned = item.type === 'digital' && item.id === 'rainbow_name' && currentUserPublic?.rainbow_name;
-
-                    return (
-                        <Card key={item.id} className="flex flex-col justify-between relative overflow-hidden border-2 border-slate-100 hover:border-pink-200 transition-colors">
-                            {isOwned && <div className="absolute top-2 right-2 text-green-500"><CheckCircle /></div>}
-                            <div>
-                                <div className="text-4xl mb-2">{item.icon}</div>
-                                <h3 className="font-bold text-lg text-slate-800">{item.name}</h3>
-                                <p className="text-sm text-slate-500 mb-4">{item.desc}</p>
-                            </div>
-                            
-                            <div className="flex justify-between items-center mt-2">
-                                <span className="font-bold text-pink-600">{item.cost} {EMOJI}</span>
-                                <Button 
-                                    onClick={() => onPurchase(item)} 
-                                    disabled={!canAfford || isOwned}
-                                    className={!canAfford ? "opacity-50" : ""}
-                                >
-                                    {isOwned ? "Owned" : "Buy"}
-                                </Button>
-                            </div>
-                        </Card>
-                    );
-                })}
-            </div>
-        </div>
-    );
-}
 
 function BountiesView({ bounties, currentUser, userId, onCreate, onClaim, onUnclaim, onPay }) {
     const [newTitle, setNewTitle] = useState("");
@@ -773,6 +647,7 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onClaim, onUncl
                 {activeBounties.length === 0 && <div className="text-center text-slate-400 py-8">No active jobs right now.</div>}
                 
                 {activeBounties.map(b => {
+                    // Logic to see if the current user is the one who claimed it
                     const isMyClaim = b.claimantId === userId;
 
                     return (
@@ -792,12 +667,14 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onClaim, onUncl
                             </div>
                             
                             <div className="flex gap-2 flex-shrink-0">
+                                {/* OPEN Status */}
                                 {b.status === 'open' && (
                                     <Button variant="outline" onClick={() => onClaim(b.id)}>
                                         Claim
                                     </Button>
                                 )}
 
+                                {/* CLAIMED Status - Admin Actions */}
                                 {b.status === 'claimed' && isAdmin && (
                                     <>
                                         <button 
@@ -813,12 +690,14 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onClaim, onUncl
                                     </>
                                 )}
 
+                                {/* CLAIMED Status - Student Actions (Self-Unclaim) */}
                                 {b.status === 'claimed' && isMyClaim && !isAdmin && (
                                     <Button variant="danger" onClick={() => onUnclaim(b.id)} className="text-xs px-2 whitespace-nowrap">
                                         Cancel Claim
                                     </Button>
                                 )}
 
+                                {/* CLAIMED Status - Other Students (View Only) */}
                                 {b.status === 'claimed' && !isMyClaim && !isAdmin && (
                                     <span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500 self-center whitespace-nowrap">
                                         Busy
@@ -1115,10 +994,9 @@ function FeedView({ transactions, onReact }) {
                         <div className="flex-grow pb-6">
                             <div className="flex flex-wrap items-baseline gap-x-1 mb-1">
                                 <span className="font-bold text-slate-900">{tx.fromName}</span>
-                                {tx.toName === "Frosted Friday" || tx.toName === "EVERYONE" || tx.toName === "The Shop" ? (
+                                {tx.toName === "Frosted Friday" || tx.toName === "EVERYONE" ? (
                                     <span className="text-slate-500 text-sm ml-1">
-                                        {tx.message.includes("activated") ? "announced" : 
-                                         tx.message.includes("Purchased") ? "went shopping" : "contributed to"}
+                                        {tx.message.includes("activated") ? "announced" : "contributed to"}
                                     </span>
                                 ) : (
                                     <>
@@ -1157,8 +1035,7 @@ function LeaderboardView({ users, roster }) {
         return {
             name: name,
             balance: userData ? userData.balance : 0,
-            avatar_color: userData ? userData.avatar_color : '#cbd5e1',
-            rainbow_name: userData ? userData.rainbow_name : false
+            avatar_color: userData ? userData.avatar_color : '#cbd5e1'
         };
     }).sort((a, b) => b.balance - a.balance);
 
@@ -1181,9 +1058,7 @@ function LeaderboardView({ users, roster }) {
                             </div>
                         </div>
                         <div className="flex-grow min-w-0">
-                            <p className={`font-bold truncate ${u.rainbow_name ? 'animate-text-rainbow bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-500 to-red-500' : 'text-slate-800'}`}>
-                                {u.name}
-                            </p>
+                            <p className="font-bold text-slate-800 truncate">{u.name}</p>
                             <p className="text-xs text-slate-500">{u.balance} donuts received</p>
                         </div>
                         <div className="text-right pl-2">
