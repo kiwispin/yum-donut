@@ -10,13 +10,15 @@ import {
 } from 'firebase/auth';
 import { 
   Trophy, Gift, Activity, MessageSquare, 
-  LogOut, UserPlus, Heart, Zap, Search, CheckCircle, Target, Sparkles
+  LogOut, UserPlus, Heart, Zap, Search, CheckCircle
 } from 'lucide-react';
 
 // --- CONFIGURATION START ---
 
 // 1. Firebase Configuration
-// We use your REAL keys here as the default fallback.
+// IMPORTANT: When running here in the chat, we use a system config (__firebase_config).
+// When you copy this to Vercel/GitHub, this variable won't exist, so it falls back to the object.
+// You MUST replace the values in the object below with your real keys from Firebase Console when deploying.
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
   apiKey: "AIzaSyAnjuK_F8ZO3WqTfCEeXEF5J84CG8Irjq4",
   authDomain: "yum-donut-school.firebaseapp.com",
@@ -55,7 +57,6 @@ const SCHOOL_ROSTER = [
 ];
 
 const DAILY_LIMIT = 5;
-const GOAL_TARGET = 50; // Frosted Friday Target
 const EMOJI = "🍩";
 // If running in chat, use dynamic app id, otherwise use the fixed string
 const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'yum-donut-school'; 
@@ -80,8 +81,7 @@ const Button = ({ onClick, disabled, children, variant = "primary", className = 
   const styles = {
     primary: "bg-pink-500 hover:bg-pink-600 text-white shadow-lg shadow-pink-200 disabled:bg-pink-300 disabled:shadow-none",
     secondary: "bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:bg-slate-50",
-    outline: "border-2 border-slate-200 hover:border-pink-500 hover:text-pink-500 text-slate-600",
-    success: "bg-green-500 hover:bg-green-600 text-white shadow-lg shadow-green-200 disabled:bg-green-300"
+    outline: "border-2 border-slate-200 hover:border-pink-500 hover:text-pink-500 text-slate-600"
   };
   return (
     <button onClick={onClick} disabled={disabled} className={`${base} ${styles[variant]} ${className}`}>
@@ -95,17 +95,17 @@ const Button = ({ onClick, disabled, children, variant = "primary", className = 
 export default function YumDonutApp() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState('give'); 
+  const [view, setView] = useState('give'); // 'give', 'feed', 'leaderboard'
   
   // Data State
   const [users, setUsers] = useState([]);
   const [transactions, setTransactions] = useState([]);
-  const [goalData, setGoalData] = useState({ current: 0, contributors: {} });
   const [myProfile, setMyProfile] = useState(null);
   const [notification, setNotification] = useState(null);
 
   // Auth & Profile Listener
   useEffect(() => {
+    // Robust Auth: Check for system token first (needed for preview), fallback to anonymous
     const initAuth = async () => {
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
              await signInWithCustomToken(auth, __initial_auth_token);
@@ -118,12 +118,13 @@ export default function YumDonutApp() {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
+        // Listen to my specific profile data (balance, daily limits)
         const userRef = doc(db, 'artifacts', APP_ID, 'users', currentUser.uid, 'profile', 'data');
         const unsubProfile = onSnapshot(userRef, (docSnap) => {
           if (docSnap.exists()) {
             setMyProfile(docSnap.data());
           } else {
-            setMyProfile(null); 
+            setMyProfile(null); // User needs to create profile
           }
           setLoading(false);
         });
@@ -135,18 +136,19 @@ export default function YumDonutApp() {
     return () => unsubscribe();
   }, []);
 
-  // Global Listeners
+  // Global Listeners (Users & Feed)
   useEffect(() => {
     if (!user) return;
 
-    // 1. Users
+    // Listen to all users (for search/leaderboard)
     const usersQuery = query(collection(db, 'artifacts', APP_ID, 'public', 'data', 'users'));
     const unsubUsers = onSnapshot(usersQuery, (snapshot) => {
+      // We map docs by ID which is now the NAME
       const usersList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setUsers(usersList);
     });
 
-    // 2. Feed
+    // Listen to recent transactions (Feed)
     const feedQuery = query(
       collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), 
       orderBy('timestamp', 'desc'), 
@@ -157,17 +159,7 @@ export default function YumDonutApp() {
       setTransactions(feedList);
     });
 
-    // 3. Goal
-    const goalRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'goals', 'frosted-friday');
-    const unsubGoal = onSnapshot(goalRef, (docSnap) => {
-        if (docSnap.exists()) {
-            setGoalData(docSnap.data());
-        } else {
-            setDoc(goalRef, { current: 0, contributors: {} });
-        }
-    });
-
-    return () => { unsubUsers(); unsubFeed(); unsubGoal(); };
+    return () => { unsubUsers(); unsubFeed(); };
   }, [user]);
 
   // --- Actions ---
@@ -177,34 +169,37 @@ export default function YumDonutApp() {
     setLoading(true);
     try {
       const uid = user.uid;
+      
+      // 1. Check if a public profile already exists for this name (from offline gifts)
+      // We are now using the NAME as the Document ID for public data to allow pre-seeding
       const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', name);
       const publicDoc = await getDoc(publicRef);
       
       let currentBalance = 0;
-      let currentGiven = 0;
       let avatarColor = `hsl(${Math.random() * 360}, 70%, 50%)`;
 
       if (publicDoc.exists()) {
           const data = publicDoc.data();
           currentBalance = data.balance || 0;
-          currentGiven = data.lifetime_given || 0;
           if (data.avatar_color) avatarColor = data.avatar_color;
       }
 
       const initialPrivateData = {
         name: name,
-        balance: currentBalance, 
+        balance: currentBalance, // Sync private balance with public
         given_today: 0,
         last_given_date: new Date().toDateString(),
         avatar_color: avatarColor
       };
 
+      // 2. Private Profile (for limits & ownership)
       await setDoc(doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data'), initialPrivateData);
       
+      // 3. Public Profile (Create or Merge)
+      // We add 'claimed: true' so we know a real user owns this name now
       await setDoc(publicRef, {
         name: name,
         balance: currentBalance,
-        lifetime_given: currentGiven,
         avatar_color: avatarColor,
         claimed: true,
         uid: uid 
@@ -220,6 +215,7 @@ export default function YumDonutApp() {
   const handleGiveDonut = async (recipientName, message) => {
     if (!myProfile) return;
     
+    // Check Daily Limit
     const today = new Date().toDateString();
     let currentGiven = myProfile.last_given_date === today ? myProfile.given_today : 0;
 
@@ -229,6 +225,7 @@ export default function YumDonutApp() {
     }
 
     try {
+        // 1. Create Transaction Record
         await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
             fromName: myProfile.name,
             toName: recipientName,
@@ -237,20 +234,15 @@ export default function YumDonutApp() {
             emoji: EMOJI
         });
 
-        const senderPrivateRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
-        await updateDoc(senderPrivateRef, {
+        // 2. Update Sender (My) Private Data
+        const senderRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
+        await updateDoc(senderRef, {
             given_today: currentGiven + 1,
             last_given_date: today
         });
 
-        const senderPublicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
-        const senderPublicDoc = await getDoc(senderPublicRef);
-        if (senderPublicDoc.exists()) {
-             await updateDoc(senderPublicRef, {
-                lifetime_given: (senderPublicDoc.data().lifetime_given || 0) + 1
-             });
-        }
-
+        // 3. Update Recipient Public Balance (By Name Key)
+        // If the doc doesn't exist yet, we create it (Offline Gift!)
         const recipientRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', recipientName);
         const recipientDoc = await getDoc(recipientRef);
         
@@ -259,11 +251,11 @@ export default function YumDonutApp() {
                 balance: (recipientDoc.data().balance || 0) + 1
             });
         } else {
+            // Create "Ghost" Account for user who hasn't logged in yet
             await setDoc(recipientRef, {
                 name: recipientName,
                 balance: 1,
-                lifetime_given: 0,
-                avatar_color: `hsl(${Math.random() * 360}, 60%, 80%)`,
+                avatar_color: `hsl(${Math.random() * 360}, 60%, 80%)`, // Light pastel for ghosts
                 claimed: false
             });
         }
@@ -275,85 +267,6 @@ export default function YumDonutApp() {
         console.error(e);
         showNotification("Failed to send donut. Try again.", "error");
     }
-  };
-
-  const handleContributeToGoal = async () => {
-      if (!myProfile || myProfile.balance < 1) {
-          showNotification("You don't have enough donuts to contribute!", "error");
-          return;
-      }
-
-      try {
-          const publicUserRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
-          const goalRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'goals', 'frosted-friday');
-
-          await runTransaction(db, async (transaction) => {
-              const userDoc = await transaction.get(publicUserRef);
-              const goalDoc = await transaction.get(goalRef);
-
-              if (!userDoc.exists()) throw "User does not exist!";
-              
-              const newBalance = (userDoc.data().balance || 0) - 1;
-              if (newBalance < 0) throw "Not enough donuts!";
-
-              const goalCurrent = (goalDoc.data()?.current || 0) + 1;
-              
-              transaction.update(publicUserRef, { balance: newBalance });
-              transaction.update(goalRef, { current: goalCurrent });
-              
-              const txRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
-              transaction.set(txRef, {
-                  fromName: myProfile.name,
-                  toName: "Frosted Friday",
-                  message: "Contributed to the goal!",
-                  timestamp: serverTimestamp(),
-                  emoji: "🚀"
-              });
-          });
-          
-          const privateUserRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
-          await updateDoc(privateUserRef, {
-              balance: myProfile.balance - 1
-          });
-
-          showNotification("Contributed 1 donut to Frosted Friday!");
-
-      } catch (e) {
-          console.error(e);
-          showNotification("Contribution failed.", "error");
-      }
-  };
-
-  // NEW: Only Mr Rayner can trigger this
-  const handleActivateFrostedFriday = async () => {
-      try {
-          const goalRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'goals', 'frosted-friday');
-          
-          await runTransaction(db, async (transaction) => {
-              const goalDoc = await transaction.get(goalRef);
-              if (!goalDoc.exists()) throw "Goal does not exist!";
-              
-              // Reset to 0
-              transaction.update(goalRef, { current: 0 });
-              
-              // Announce it
-              const txRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
-              transaction.set(txRef, {
-                  fromName: "Mr Rayner",
-                  toName: "EVERYONE",
-                  message: "🚨 FROSTED FRIDAY IS ON! The goal was met! 🍩🎉",
-                  timestamp: serverTimestamp(),
-                  emoji: "🚨"
-              });
-          });
-
-          showNotification("Frosted Friday Activated! Goal reset.");
-          setView('feed');
-
-      } catch (e) {
-          console.error(e);
-          showNotification("Failed to activate.", "error");
-      }
   };
 
   const showNotification = (msg, type = "success") => {
@@ -372,11 +285,13 @@ export default function YumDonutApp() {
   if (!user) return <div>Authenticating...</div>;
 
   if (!myProfile) {
+    // Pass users so we know who is already claimed
     return <LoginScreen onCreate={handleCreateProfile} existingUsers={users} />;
   }
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-20 md:pb-0">
+      {/* Mobile-friendly Header */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-10 px-4 py-3 flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-2">
             <div className="bg-pink-100 p-2 rounded-lg">
@@ -404,8 +319,10 @@ export default function YumDonutApp() {
         </div>
       </div>
 
+      {/* Main Content Area */}
       <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-6">
         
+        {/* Notification Toast */}
         {notification && (
             <div className={`fixed top-4 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full shadow-xl z-50 animate-bounce ${
                 notification.type === 'error' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'
@@ -414,37 +331,39 @@ export default function YumDonutApp() {
             </div>
         )}
 
-        <div className="hidden md:flex space-x-2 border-b border-slate-200 mb-4">
-             {['give', 'goal', 'feed', 'leaderboard'].map(tab => (
-                 <button
-                    key={tab}
-                    onClick={() => setView(tab)}
-                    className={`px-4 py-2 font-medium text-sm capitalize border-b-2 transition-colors ${
-                        view === tab ? 'border-pink-500 text-pink-600' : 'border-transparent text-slate-500 hover:text-slate-700'
-                    }`}
-                 >
-                    {tab}
-                 </button>
-             ))}
+        {/* Stats Cards (Desktop Only) */}
+        <div className="hidden md:grid grid-cols-3 gap-4 mb-8">
+            <Card className="flex flex-col items-center justify-center py-6 border-pink-100 bg-pink-50">
+                <span className="text-3xl mb-1">{EMOJI}</span>
+                <span className="text-sm text-pink-600 font-semibold uppercase tracking-wide">To Give Today</span>
+                <span className="text-4xl font-black text-pink-500 mt-2">
+                    {DAILY_LIMIT - (myProfile.last_given_date === new Date().toDateString() ? myProfile.given_today : 0)}
+                </span>
+            </Card>
+            <Card className="flex flex-col items-center justify-center py-6">
+                <span className="text-3xl mb-1">🎁</span>
+                <span className="text-sm text-slate-400 font-semibold uppercase tracking-wide">Received</span>
+                <span className="text-4xl font-black text-slate-700 mt-2">{myProfile.balance}</span>
+            </Card>
+            <Card className="flex flex-col items-center justify-center py-6">
+                <span className="text-3xl mb-1">👑</span>
+                <span className="text-sm text-slate-400 font-semibold uppercase tracking-wide">Rank</span>
+                <span className="text-4xl font-black text-slate-700 mt-2">
+                    #{users.sort((a,b) => b.balance - a.balance).findIndex(u => u.name === myProfile.name) + 1}
+                </span>
+            </Card>
         </div>
 
+        {/* Views */}
         {view === 'give' && (
             <GiveView 
+                // We pass the full roster to GiveView now, ensuring everyone is visible
                 roster={SCHOOL_ROSTER}
+                // We pass the existing users so we can show avatars if they exist
                 existingUsers={users}
                 currentUserName={myProfile.name}
                 onGive={handleGiveDonut} 
                 remaining={DAILY_LIMIT - (myProfile.last_given_date === new Date().toDateString() ? myProfile.given_today : 0)}
-            />
-        )}
-
-        {view === 'goal' && (
-            <GoalView 
-                goalData={goalData} 
-                userBalance={myProfile.balance}
-                onContribute={handleContributeToGoal}
-                currentUserName={myProfile.name}
-                onActivate={handleActivateFrostedFriday}
             />
         )}
         
@@ -458,9 +377,9 @@ export default function YumDonutApp() {
 
       </div>
 
+      {/* Mobile Bottom Nav */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-3 flex justify-between z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
         <NavBtn icon={Gift} label="Give" active={view === 'give'} onClick={() => setView('give')} />
-        <NavBtn icon={Target} label="Goal" active={view === 'goal'} onClick={() => setView('goal')} />
         <NavBtn icon={Activity} label="Feed" active={view === 'feed'} onClick={() => setView('feed')} />
         <NavBtn icon={Trophy} label="Leaders" active={view === 'leaderboard'} onClick={() => setView('leaderboard')} />
       </div>
@@ -470,82 +389,15 @@ export default function YumDonutApp() {
 
 // --- Sub-Components ---
 
-function GoalView({ goalData, userBalance, onContribute, currentUserName, onActivate }) {
-    const percent = Math.min(100, ((goalData.current || 0) / GOAL_TARGET) * 100);
-    const isMet = (goalData.current || 0) >= GOAL_TARGET;
-    const isAdmin = currentUserName === "Mr Rayner";
-
-    return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-             <Card className="text-center py-8 relative overflow-hidden">
-                {isMet && <div className="absolute inset-0 bg-yellow-100 opacity-20 animate-pulse"></div>}
-                <div className="relative z-10">
-                    <div className="inline-flex items-center justify-center p-3 bg-pink-100 rounded-full text-pink-500 mb-4">
-                        <Sparkles size={32} />
-                    </div>
-                    <h2 className="text-2xl font-bold text-slate-800 mb-2">Frosted Friday Goal</h2>
-                    <p className="text-slate-500 mb-6 max-w-md mx-auto">
-                        If we reach {GOAL_TARGET} donuts together, we unlock donuts for everyone!
-                    </p>
-
-                    <div className="max-w-lg mx-auto bg-slate-100 rounded-full h-8 mb-2 relative">
-                        <div 
-                            className="bg-gradient-to-r from-pink-500 to-purple-500 h-full rounded-full transition-all duration-1000 ease-out flex items-center justify-end pr-2"
-                            style={{ width: `${percent}%` }}
-                        >
-                            <span className="text-white text-xs font-bold drop-shadow-md">{Math.floor(percent)}%</span>
-                        </div>
-                    </div>
-                    <p className="text-sm font-bold text-slate-700 mb-8">
-                        {goalData.current} / {GOAL_TARGET} {EMOJI} raised
-                    </p>
-
-                    {isMet ? (
-                        <div className="space-y-4">
-                            <div className="bg-green-100 text-green-700 p-4 rounded-xl font-bold text-lg animate-bounce">
-                                🎉 GOAL REACHED! ({goalData.current}/{GOAL_TARGET})
-                            </div>
-                            {isAdmin ? (
-                                <Button 
-                                    onClick={onActivate} 
-                                    variant="success"
-                                    className="w-full py-3 text-lg"
-                                >
-                                    🚨 Activate Frosted Friday! 🚨
-                                </Button>
-                            ) : (
-                                <p className="text-sm text-slate-500 italic">Waiting for Mr Rayner to activate the event...</p>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="flex flex-col items-center gap-2">
-                             <Button 
-                                onClick={onContribute} 
-                                variant="primary"
-                                className="w-full max-w-xs py-3 text-lg"
-                            >
-                                Contribute 1 {EMOJI}
-                            </Button>
-                            <p className="text-xs text-slate-400">
-                                You have {userBalance} donuts available.
-                            </p>
-                        </div>
-                    )}
-                </div>
-             </Card>
-        </div>
-    );
-}
-
-// ... LoginScreen, GiveView, FeedView, LeaderboardView, NavBtn ...
-// (These are unchanged from previous version but included for completeness in React file)
 function LoginScreen({ onCreate, existingUsers }) {
   const [search, setSearch] = useState("");
   const [selectedName, setSelectedName] = useState(null);
 
+  // Filter roster: Must match search AND not be already CLAIMED
+  // We check 'claimed' property. If a ghost account exists (balance > 0) but not claimed, it should still appear here!
   const availableNames = SCHOOL_ROSTER.filter(name => {
     const userDoc = existingUsers.find(u => u.name === name);
-    const isClaimed = userDoc && userDoc.claimed; 
+    const isClaimed = userDoc && userDoc.claimed; // Only hide if actually claimed by a real user
     const matchesSearch = name.toLowerCase().includes(search.toLowerCase());
     return !isClaimed && matchesSearch;
   });
@@ -576,8 +428,10 @@ function LoginScreen({ onCreate, existingUsers }) {
                 </div>
              ) : (
                 availableNames.map(name => {
+                    // Check if there are pending donuts for this user
                     const ghostUser = existingUsers.find(u => u.name === name);
                     const pendingDonuts = ghostUser ? ghostUser.balance : 0;
+
                     return (
                         <button
                             key={name}
@@ -611,6 +465,10 @@ function LoginScreen({ onCreate, existingUsers }) {
           >
             I am {selectedName || "..."}
           </Button>
+          
+          <p className="text-xs text-center text-slate-400 mt-4">
+             Note: Once you claim a name, it disappears from this list.
+          </p>
         </div>
       </div>
     </div>
@@ -622,6 +480,7 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, remaining })
     const [message, setMessage] = useState("");
     const [filter, setFilter] = useState("");
 
+    // Show EVERYONE from the roster (except self)
     const filteredRoster = roster
         .filter(name => name !== currentUserName)
         .filter(name => name.toLowerCase().includes(filter.toLowerCase()));
@@ -636,6 +495,7 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, remaining })
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Mobile Stat Card */}
             <div className="md:hidden bg-pink-500 text-white p-6 rounded-2xl shadow-lg shadow-pink-200 flex justify-between items-center">
                 <div>
                     <h2 className="font-bold text-lg opacity-90">Daily Balance</h2>
@@ -673,7 +533,7 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, remaining })
                                         <div className="absolute top-full left-0 right-0 mt-1 bg-white shadow-xl rounded-xl border border-slate-100 max-h-60 overflow-y-auto z-10 divide-y divide-slate-50">
                                             {filteredRoster.map(name => {
                                                 const userData = existingUsers.find(u => u.name === name);
-                                                const bgColor = userData?.avatar_color || "#cbd5e1"; 
+                                                const bgColor = userData?.avatar_color || "#cbd5e1"; // default gray
                                                 
                                                 return (
                                                     <button 
@@ -753,16 +613,8 @@ function FeedView({ transactions }) {
                         <div className="flex-grow">
                             <div className="flex flex-wrap items-baseline gap-x-1 mb-1">
                                 <span className="font-bold text-slate-900">{tx.fromName}</span>
-                                {tx.toName === "Frosted Friday" || tx.toName === "EVERYONE" ? (
-                                    <span className="text-slate-500 text-sm ml-1">
-                                        {tx.message.includes("activated") ? "announced" : "contributed to"}
-                                    </span>
-                                ) : (
-                                    <>
-                                        <span className="text-slate-500 text-sm mx-1">gave a donut to</span>
-                                        <span className="font-bold text-slate-900">{tx.toName}</span>
-                                    </>
-                                )}
+                                <span className="text-slate-500 text-sm">gave a donut to</span>
+                                <span className="font-bold text-slate-900">{tx.toName}</span>
                             </div>
                             <p className="text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-100 italic">
                                 "{tx.message}"
@@ -779,6 +631,7 @@ function FeedView({ transactions }) {
 }
 
 function LeaderboardView({ users, roster }) {
+    // Combine Roster with Users to show people with 0 points
     const combinedList = roster.map(name => {
         const userData = users.find(u => u.name === name);
         return {
