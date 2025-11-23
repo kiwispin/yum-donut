@@ -148,29 +148,6 @@ export default function YumDonutApp() {
 
   // Auth & Profile Listener
   useEffect(() => {
-    const initAuth = async () => {
-        // 1. Try System Token (Crucial for Chat Preview Environment to avoid permission errors)
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-             try {
-                 await signInWithCustomToken(auth, __initial_auth_token);
-                 return; // If successful, stop here
-             } catch (e) {
-                 console.error("System auth failed", e);
-             }
-        }
-
-        // 2. Fallback: Anonymous (Guest Mode for Public Web)
-        // Only try if not already signed in (to avoid overwriting persistence)
-        if (!auth.currentUser) {
-            try {
-                await signInAnonymously(auth);
-            } catch (e) {
-                console.error("Guest login failed", e);
-            }
-        }
-    }
-    initAuth();
-    
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
@@ -179,13 +156,9 @@ export default function YumDonutApp() {
           if (docSnap.exists()) {
             setMyProfile(docSnap.data());
           } else {
-            // Profile missing (Guest Mode or New User)
-            setMyProfile(null);
+            // Profile might be missing on first load, handled in login logic
           }
           setLoading(false);
-        }, (error) => {
-            console.error("Profile snapshot error", error);
-            setLoading(false);
         });
         return () => unsubProfile();
       } else {
@@ -203,7 +176,7 @@ export default function YumDonutApp() {
     const unsubUsers = onSnapshot(usersQuery, (snapshot) => {
       const usersList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setUsers(usersList);
-    }, (e) => console.error("Users error", e));
+    });
 
     const feedQuery = query(
       collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), 
@@ -213,7 +186,7 @@ export default function YumDonutApp() {
     const unsubFeed = onSnapshot(feedQuery, (snapshot) => {
       const feedList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setTransactions(feedList);
-    }, (e) => console.error("Feed error", e));
+    });
 
     const goalRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'goals', 'frosted-friday');
     const unsubGoal = onSnapshot(goalRef, (docSnap) => {
@@ -222,13 +195,13 @@ export default function YumDonutApp() {
         } else {
             setDoc(goalRef, { current: 0, contributors: {} });
         }
-    }, (e) => console.error("Goal error", e));
+    });
 
     const bountiesQuery = query(collection(db, 'artifacts', APP_ID, 'public', 'data', 'bounties'), orderBy('createdAt', 'desc'));
     const unsubBounties = onSnapshot(bountiesQuery, (snapshot) => {
         const bList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setBounties(bList);
-    }, (e) => console.error("Bounties error", e));
+    });
 
     return () => { unsubUsers(); unsubFeed(); unsubGoal(); unsubBounties(); };
   }, [user]);
@@ -250,7 +223,7 @@ export default function YumDonutApp() {
         await signInWithEmailAndPassword(auth, email, password);
         showNotification(`Welcome back, ${name}!`);
     } catch (error) {
-        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/invalid-email') {
+        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found') {
             // If user doesn't exist, try to register
             try {
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -309,8 +282,7 @@ export default function YumDonutApp() {
 
   const handleLogout = () => {
       signOut(auth);
-      // Reload page to reset state cleanly
-      window.location.reload();
+      setView('give');
   };
 
   const handleGiveDonut = async (recipientName, message) => {
@@ -1046,7 +1018,6 @@ function GoalView({ goalData, userBalance, onContribute, currentUserName, onActi
     );
 }
 
-// ... LoginScreen, GiveView, FeedView, LeaderboardView, NavBtn ...
 function GiveView({ roster, existingUsers, currentUserName, onGive, remaining }) {
     const [selectedUser, setSelectedUser] = useState("");
     const [message, setMessage] = useState("");
