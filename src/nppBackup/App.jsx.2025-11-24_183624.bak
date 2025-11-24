@@ -6,8 +6,8 @@ import {
   runTransaction, arrayUnion, arrayRemove 
 } from 'firebase/firestore';
 import { 
-  getAuth, onAuthStateChanged, signInWithCustomToken,
-  signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInAnonymously
+  getAuth, signInAnonymously, onAuthStateChanged, updateProfile, signInWithCustomToken,
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut
 } from 'firebase/auth';
 import { 
   Trophy, Gift, Activity, MessageSquare, 
@@ -18,6 +18,7 @@ import {
 // --- CONFIGURATION START ---
 
 // 1. Firebase Configuration
+// We are now enforcing YOUR keys to prevent "System Token" conflicts
 const firebaseConfig = {
   apiKey: "AIzaSyAnjuK_F8ZO3WqTfCEeXEF5J84CG8Irjq4",
   authDomain: "yum-donut-school.firebaseapp.com",
@@ -58,6 +59,7 @@ const SCHOOL_ROSTER = [
 const DAILY_LIMIT = 5;
 const GOAL_TARGET = 50; 
 const EMOJI = "🍩";
+// We force the App ID to your project name to ensure paths match your database rules
 const APP_ID = 'yum-donut-school'; 
 
 // 3. Shop Inventory
@@ -149,11 +151,12 @@ export default function YumDonutApp() {
   // Auth & Profile Listener
   useEffect(() => {
     const initAuth = async () => {
+        // We removed the system token check to avoid permission errors with your custom keys
         if (!auth.currentUser) {
             try {
                 await signInAnonymously(auth);
             } catch (e) {
-                console.warn("Guest login skipped:", e.code);
+                console.error("Guest login failed", e);
             }
         }
     }
@@ -167,7 +170,7 @@ export default function YumDonutApp() {
           if (docSnap.exists()) {
             setMyProfile(docSnap.data());
           } else {
-            setMyProfile(null); 
+            setMyProfile(null); // Profile missing (Guest Mode or New User)
           }
           setLoading(false);
         }, (error) => {
@@ -184,12 +187,7 @@ export default function YumDonutApp() {
 
   // Global Listeners
   useEffect(() => {
-    if (!user) {
-        setUsers([]);
-        setTransactions([]);
-        setBounties([]);
-        return;
-    }
+    if (!user) return;
 
     const usersQuery = query(collection(db, 'artifacts', APP_ID, 'public', 'data', 'users'));
     const unsubUsers = onSnapshot(usersQuery, (snapshot) => {
@@ -225,30 +223,6 @@ export default function YumDonutApp() {
     return () => { unsubUsers(); unsubFeed(); unsubGoal(); unsubBounties(); };
   }, [user]);
 
-  // --- AUTO-SYNC WALLET (Fix for Amelia) ---
-  // This effect checks if the Public balance (truth) differs from Private balance (wallet).
-  // If they differ, it updates the Private wallet to match.
-  useEffect(() => {
-    if (!user || !myProfile || users.length === 0) return;
-
-    // Find my public record
-    const publicProfile = users.find(u => u.name === myProfile.name);
-    
-    if (publicProfile) {
-        const publicBalance = publicProfile.balance || 0;
-        const privateBalance = myProfile.balance || 0;
-
-        // If they don't match, sync Private -> Public
-        // (Because Public is where gifts are received)
-        if (publicBalance !== privateBalance) {
-            console.log(`Syncing wallet for ${myProfile.name}: ${privateBalance} -> ${publicBalance}`);
-            const userRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
-            updateDoc(userRef, { balance: publicBalance }).catch(console.error);
-        }
-    }
-  }, [user, myProfile, users]);
-
-
   // Derived State
   const openBountyCount = bounties.filter(b => b.status === 'open').length;
 
@@ -261,15 +235,17 @@ export default function YumDonutApp() {
     const email = `${name.replace(/\s+/g, '').toLowerCase()}@yumdonut.school`;
 
     try {
+        // Try to sign in first
         await signInWithEmailAndPassword(auth, email, password);
         showNotification(`Welcome back, ${name}!`);
     } catch (error) {
         if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/invalid-email') {
+            // If user doesn't exist, try to register
             try {
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 const uid = userCredential.user.uid;
                 
-                // Check Public Data first to carry over balance
+                // Initialize Profile Data
                 const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', name);
                 const publicDoc = await getDoc(publicRef);
                 
@@ -280,7 +256,6 @@ export default function YumDonutApp() {
 
                 if (publicDoc.exists()) {
                     const data = publicDoc.data();
-                    // THIS IS THE KEY FIX: Load existing balance from Public
                     currentBalance = data.balance || 0;
                     currentGiven = data.lifetime_given || 0;
                     if (data.avatar_color) avatarColor = data.avatar_color;
@@ -289,7 +264,7 @@ export default function YumDonutApp() {
 
                 const initialPrivateData = {
                     name: name,
-                    balance: currentBalance, // Use the found balance!
+                    balance: currentBalance, 
                     given_today: 0,
                     last_given_date: new Date().toDateString(),
                     avatar_color: avatarColor
@@ -323,6 +298,7 @@ export default function YumDonutApp() {
 
   const handleLogout = () => {
       signOut(auth);
+      // Reload page to reset state cleanly
       window.location.reload();
   };
 
@@ -476,6 +452,7 @@ export default function YumDonutApp() {
           return;
       }
 
+      // Prevent re-buying one-time digital items
       const currentUserPublic = users.find(u => u.name === myProfile.name);
       if (item.type === 'digital' && item.id === 'rainbow_name' && currentUserPublic?.rainbow_name) {
           showNotification("You already own this!", "error");
@@ -551,13 +528,6 @@ export default function YumDonutApp() {
   };
 
   const handleClaimBounty = async (bountyId) => {
-      // OPTION 2: Active Limit Check
-      const hasActive = bounties.some(b => b.status === 'claimed' && b.claimantId === user.uid);
-      if (hasActive) {
-           showNotification("Finish your current job first!", "error");
-           return;
-      }
-
       const bountyRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'bounties', bountyId);
       await updateDoc(bountyRef, {
           status: 'claimed',
@@ -775,7 +745,7 @@ function LoginScreen({ onLogin, existingUsers }) {
       <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center border-t-8 border-pink-500">
         <div className="text-6xl mb-4">{EMOJI}</div>
         <h1 className="text-2xl font-bold mb-2 text-slate-800">Welcome to YumDonut</h1>
-        <p className="text-slate-500 mb-6">Select your name to get started.</p>
+        <p className="text-slate-500 mb-6">Select your name to Login or Register.</p>
         
         {!selectedName ? (
             <div className="space-y-4 text-left">
@@ -803,7 +773,8 @@ function LoginScreen({ onLogin, existingUsers }) {
                                     className="w-full text-left px-4 py-2 rounded-md text-sm font-medium hover:bg-white hover:shadow-sm text-slate-600 transition-all flex justify-between items-center"
                                 >
                                     <span>{name}</span>
-                                    {/* Removed Login/Register badges since we can't check without login */}
+                                    {claimed && <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded border border-slate-200">Login</span>}
+                                    {!claimed && <span className="text-[10px] bg-green-100 text-green-600 px-2 py-0.5 rounded border border-green-200">Register</span>}
                                 </button>
                             );
                         })
@@ -815,28 +786,31 @@ function LoginScreen({ onLogin, existingUsers }) {
                 <div className="flex items-center justify-between bg-pink-50 p-3 rounded-lg">
                     <div className="flex items-center gap-2">
                         <span className="font-bold text-pink-700">{selectedName}</span>
+                        {isClaimed(selectedName) ? 
+                            <span className="text-[10px] bg-white text-slate-500 px-2 rounded border">Login</span> : 
+                            <span className="text-[10px] bg-green-100 text-green-600 px-2 rounded border border-green-200">New Account</span>
+                        }
                     </div>
                     <button onClick={() => { setSelectedName(null); setPassword(""); }} className="text-xs text-pink-400 hover:text-pink-600">Change</button>
                 </div>
                 <div>
                     <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
-                        Password
+                        {isClaimed(selectedName) ? "Enter Password" : "Create Password"}
                     </label>
                     <div className="relative">
                         <Lock className="absolute left-3 top-3 text-slate-400" size={18} />
                         <input 
                             type="password" 
                             className="w-full pl-10 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-pink-500 outline-none"
-                            placeholder="Enter password"
+                            placeholder={isClaimed(selectedName) ? "Your password..." : "Create a new password"}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
                         />
                     </div>
-                    <p className="text-xs text-slate-400 mt-1">First time? Create a password. Returning? Login.</p>
                 </div>
                 <Button variant="primary" className="w-full py-3 text-lg" onClick={handleLogin} disabled={!password}>
-                    Continue
+                    {isClaimed(selectedName) ? "Login" : "Create Account"}
                 </Button>
             </div>
         )}
@@ -936,11 +910,6 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onClaim, onUncl
                 {activeBounties.map(b => {
                     const isMyClaim = b.claimantId === userId;
 
-                    // --- CHECK: Does the user have ANY other job claimed? ---
-                    // bounties prop contains all bounties.
-                    // We check if there exists ANY bounty that is 'claimed' AND claimantId matches user.
-                    const hasActiveJob = bounties.some(job => job.status === 'claimed' && job.claimantId === userId);
-
                     return (
                         <Card key={b.id} className="flex justify-between items-center border-l-4 border-l-pink-500">
                             <div className="flex-grow min-w-0 mr-2">
@@ -958,15 +927,8 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onClaim, onUncl
                             </div>
                             
                             <div className="flex gap-2 flex-shrink-0">
-                                {/* OPEN Status - Smart Button */}
                                 {b.status === 'open' && (
-                                    <Button 
-                                        variant="outline" 
-                                        onClick={() => onClaim(b.id)}
-                                        disabled={hasActiveJob} // Gray out if they have work
-                                        className={hasActiveJob ? "opacity-50 cursor-not-allowed" : ""}
-                                        title={hasActiveJob ? "Finish your current job first!" : "Claim this job"}
-                                    >
+                                    <Button variant="outline" onClick={() => onClaim(b.id)}>
                                         Claim
                                     </Button>
                                 )}
@@ -1210,11 +1172,10 @@ function FeedView({ transactions, onReact }) {
                         <div className="flex-grow pb-6">
                             <div className="flex flex-wrap items-baseline gap-x-1 mb-1">
                                 <span className="font-bold text-slate-900">{tx.fromName}</span>
-                                {tx.toName === "Frosted Friday" || tx.toName === "EVERYONE" || tx.toName === "The Shop" || tx.fromName === "Job Board" ? (
+                                {tx.toName === "Frosted Friday" || tx.toName === "EVERYONE" || tx.toName === "The Shop" ? (
                                     <span className="text-slate-500 text-sm ml-1">
                                         {tx.message.includes("activated") ? "announced" : 
-                                         tx.message.includes("Purchased") ? "went shopping" : 
-                                         tx.emoji === "📢" ? "announced" : "contributed to"}
+                                         tx.message.includes("Purchased") ? "went shopping" : "contributed to"}
                                     </span>
                                 ) : (
                                     <>
