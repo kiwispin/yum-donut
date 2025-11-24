@@ -12,7 +12,7 @@ import {
 import { 
   Trophy, Gift, Activity, MessageSquare, 
   LogOut, UserPlus, Heart, Zap, Search, CheckCircle, Target, Sparkles,
-  Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock, Users, Star
+  Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock, Users, ZapOff
 } from 'lucide-react';
 
 // --- CONFIGURATION START ---
@@ -70,16 +70,6 @@ const SHOP_ITEMS = [
     { id: 'name_camera', name: 'Name a Camera', cost: 500, icon: '🎥', desc: 'Permanently name a DJI or Sony camera!', type: 'physical' },
 ];
 
-// 4. Career Ranks
-const CAREER_RANKS = [
-    { min: 0, title: "Intern", icon: "☕" },
-    { min: 50, title: "Runner", icon: "🏃" },
-    { min: 100, title: "Camera Op", icon: "🎥" },
-    { min: 200, title: "Editor", icon: "🎞️" },
-    { min: 350, title: "Producer", icon: "🎬" },
-    { min: 500, title: "Studio Head", icon: "👑" }
-];
-
 // --- CONFIGURATION END ---
 
 // --- Firebase Init ---
@@ -115,12 +105,6 @@ const triggerConfetti = () => {
 
     setTimeout(() => el.remove(), 1000);
   }
-};
-
-const getRank = (lifetime) => {
-    const val = lifetime || 0;
-    // Find the highest rank where val >= min
-    return [...CAREER_RANKS].reverse().find(r => val >= r.min) || CAREER_RANKS[0];
 };
 
 // --- Components ---
@@ -165,7 +149,6 @@ export default function YumDonutApp() {
   // Auth & Profile Listener
   useEffect(() => {
     const initAuth = async () => {
-        await auth.authStateReady();
         if (!auth.currentUser) {
             try {
                 await signInAnonymously(auth);
@@ -257,7 +240,6 @@ export default function YumDonutApp() {
   }, [user, myProfile, users]);
 
   const openBountyCount = bounties.filter(b => b.status === 'open').length;
-  const currentRank = getRank(myProfile ? (users.find(u => u.name === myProfile.name)?.lifetime_received || myProfile.balance) : 0);
 
   // --- Actions ---
 
@@ -275,25 +257,19 @@ export default function YumDonutApp() {
             try {
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 const uid = userCredential.user.uid;
-                
                 const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', name);
                 const publicDoc = await getDoc(publicRef);
-                
                 let currentBalance = 0;
                 let currentGiven = 0;
-                let lifetimeReceived = 0;
                 let avatarColor = `hsl(${Math.random() * 360}, 70%, 50%)`;
                 let rainbowName = false;
-
                 if (publicDoc.exists()) {
                     const data = publicDoc.data();
                     currentBalance = data.balance || 0;
                     currentGiven = data.lifetime_given || 0;
-                    lifetimeReceived = data.lifetime_received || currentBalance; // Backfill if missing
                     if (data.avatar_color) avatarColor = data.avatar_color;
                     if (data.rainbow_name) rainbowName = data.rainbow_name;
                 }
-
                 const initialPrivateData = {
                     name: name,
                     balance: currentBalance, 
@@ -301,29 +277,24 @@ export default function YumDonutApp() {
                     last_given_date: new Date().toDateString(),
                     avatar_color: avatarColor
                 };
-
                 await setDoc(doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data'), initialPrivateData);
-                
                 await setDoc(publicRef, {
                     name: name,
                     balance: currentBalance,
                     lifetime_given: currentGiven,
-                    lifetime_received: lifetimeReceived,
                     avatar_color: avatarColor,
                     rainbow_name: rainbowName,
                     claimed: true,
                     uid: uid 
                 }, { merge: true });
-
                 showNotification(`Account created for ${name}!`);
-
             } catch (createError) {
                 console.error(createError);
-                showNotification("Could not create account. Password too short?", "error");
+                showNotification("Could not create account.", "error");
             }
         } else {
             console.error(error);
-            showNotification("Login failed. Check password.", "error");
+            showNotification("Login failed.", "error");
         }
     }
     setLoading(false);
@@ -334,6 +305,7 @@ export default function YumDonutApp() {
       window.location.reload();
   };
 
+  // UPDATE: handleGiveDonut now accepts amount
   const handleGiveDonut = async (recipientName, message, amount = 1) => {
     if (!myProfile) return;
     
@@ -341,6 +313,7 @@ export default function YumDonutApp() {
     let currentGiven = myProfile.last_given_date === today ? myProfile.given_today : 0;
     const isAdmin = myProfile.name === "Mr Rayner";
 
+    // Admin Bypass Check
     if (!isAdmin && (currentGiven + amount) > DAILY_LIMIT) {
       showNotification(`You only have ${DAILY_LIMIT - currentGiven} ${EMOJI} left!`, "error");
       return;
@@ -355,13 +328,13 @@ export default function YumDonutApp() {
             message: message,
             timestamp: serverTimestamp(),
             emoji: EMOJI,
-            amount: amount,
+            amount: amount, // Store amount
             likes: []
         });
 
         const senderPrivateRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
         await updateDoc(senderPrivateRef, {
-            given_today: currentGiven + amount,
+            given_today: currentGiven + amount, // Increment by amount
             last_given_date: today
         });
 
@@ -377,21 +350,14 @@ export default function YumDonutApp() {
         const recipientDoc = await getDoc(recipientRef);
         
         if (recipientDoc.exists()) {
-            const currentBal = recipientDoc.data().balance || 0;
-            // Increment BOTH current balance and lifetime received
-            // Use currentBal as fallback for lifetime if it doesn't exist yet
-            const currentLifetime = recipientDoc.data().lifetime_received || currentBal;
-            
             await updateDoc(recipientRef, {
-                balance: currentBal + amount,
-                lifetime_received: currentLifetime + amount 
+                balance: (recipientDoc.data().balance || 0) + amount
             });
         } else {
             await setDoc(recipientRef, {
                 name: recipientName,
                 balance: amount,
                 lifetime_given: 0,
-                lifetime_received: amount,
                 avatar_color: `hsl(${Math.random() * 360}, 60%, 80%)`,
                 claimed: false
             });
@@ -406,7 +372,7 @@ export default function YumDonutApp() {
     }
   };
 
-  // ... (Other handlers: Reaction, Contribute, Purchase, Bounties)
+  // ... (Other handlers: Reaction, Contribute, Purchase, Bounties - same as before)
   const handleReaction = async (txId, currentLikes) => {
       if (currentLikes && currentLikes.includes(myProfile.name)) return;
       const txRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'transactions', txId);
@@ -550,13 +516,7 @@ export default function YumDonutApp() {
           const recipientRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', claimantName);
           const recipientDoc = await getDoc(recipientRef);
           if (recipientDoc.exists()) {
-              const currentBal = recipientDoc.data().balance || 0;
-              const currentLifetime = recipientDoc.data().lifetime_received || currentBal;
-              
-              await updateDoc(recipientRef, {
-                  balance: currentBal + reward,
-                  lifetime_received: currentLifetime + reward // TRACK CAREER PROGRESS
-              });
+              await updateDoc(recipientRef, { balance: (recipientDoc.data().balance || 0) + reward });
           }
           const bountyRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'bounties', bountyId);
           await updateDoc(bountyRef, { status: 'paid' });
@@ -600,13 +560,7 @@ export default function YumDonutApp() {
             </div>
             <div>
                 <h1 className="font-bold text-lg text-slate-900 leading-tight">YumDonut</h1>
-                <div className="flex flex-col">
-                    <p className="text-xs text-slate-500">Berkley TV Recognition</p>
-                    <div className="flex items-center gap-1 text-[10px] bg-slate-100 px-1.5 rounded-full w-fit mt-0.5">
-                        <span>{currentRank.icon}</span>
-                        <span className="font-bold text-slate-700">{currentRank.title}</span>
-                    </div>
-                </div>
+                <p className="text-xs text-slate-500">Berkley TV Recognition</p>
             </div>
         </div>
         
@@ -721,332 +675,9 @@ export default function YumDonutApp() {
   );
 }
 
-// --- Sub-Components ---
+// ... LoginScreen, ShopView, BountiesView, GoalView ...
+// (Previous components remain mostly the same)
 
-function LoginScreen({ onLogin, existingUsers }) {
-  const [search, setSearch] = useState("");
-  const [selectedName, setSelectedName] = useState(null);
-  const [password, setPassword] = useState("");
-
-  const availableNames = SCHOOL_ROSTER.filter(name => {
-    return name.toLowerCase().includes(search.toLowerCase());
-  });
-
-  const handleLogin = () => {
-      if (selectedName && password) {
-          onLogin(selectedName, password);
-      }
-  };
-
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4">
-      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center border-t-8 border-pink-500">
-        <div className="text-6xl mb-4">{EMOJI}</div>
-        <h1 className="text-2xl font-bold mb-2 text-slate-800">Welcome to YumDonut</h1>
-        <p className="text-slate-500 mb-6">Select your name to get started.</p>
-        
-        {!selectedName ? (
-            <div className="space-y-4 text-left">
-                <div className="relative">
-                    <Search className="absolute left-3 top-3 text-slate-400" size={20} />
-                    <input 
-                    type="text" 
-                    className="w-full pl-10 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-pink-500 outline-none transition"
-                    placeholder="Search your name..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    />
-                </div>
-
-                <div className="h-48 overflow-y-auto border border-slate-100 rounded-lg bg-slate-50 p-2 space-y-1">
-                    {availableNames.length === 0 ? (
-                        <div className="text-center text-slate-400 py-4 text-sm">No names found.</div>
-                    ) : (
-                        availableNames.map(name => (
-                            <button
-                                key={name}
-                                onClick={() => setSelectedName(name)}
-                                className="w-full text-left px-4 py-2 rounded-md text-sm font-medium hover:bg-white hover:shadow-sm text-slate-600 transition-all flex justify-between items-center"
-                            >
-                                <span>{name}</span>
-                                {/* Removed Login/Register badges since we can't check without login */}
-                            </button>
-                        ))
-                    )}
-                </div>
-            </div>
-        ) : (
-            <div className="space-y-4 text-left animate-in fade-in slide-in-from-right-4">
-                <div className="flex items-center justify-between bg-pink-50 p-3 rounded-lg">
-                    <div className="flex items-center gap-2">
-                        <span className="font-bold text-pink-700">{selectedName}</span>
-                    </div>
-                    <button onClick={() => { setSelectedName(null); setPassword(""); }} className="text-xs text-pink-400 hover:text-pink-600">Change</button>
-                </div>
-                <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
-                        Password
-                    </label>
-                    <div className="relative">
-                        <Lock className="absolute left-3 top-3 text-slate-400" size={18} />
-                        <input 
-                            type="password" 
-                            className="w-full pl-10 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-pink-500 outline-none"
-                            placeholder="Enter password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-                        />
-                    </div>
-                    <p className="text-xs text-slate-400 mt-1">First time? Create a password. Returning? Login.</p>
-                </div>
-                <Button variant="primary" className="w-full py-3 text-lg" onClick={handleLogin} disabled={!password}>
-                    Continue
-                </Button>
-            </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ShopView({ items, userBalance, onPurchase, currentUserPublic }) {
-    return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <Card className="bg-gradient-to-r from-purple-500 to-pink-500 text-white">
-                <h2 className="text-2xl font-bold flex items-center gap-2">
-                    <ShoppingBag /> The Donut Shop
-                </h2>
-                <p className="opacity-90">Spend your hard-earned donuts on rewards!</p>
-                <div className="mt-4 text-sm font-bold bg-white/20 inline-block px-3 py-1 rounded-full">
-                    Your Balance: {userBalance} {EMOJI}
-                </div>
-            </Card>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {items.map(item => {
-                    const canAfford = userBalance >= item.cost;
-                    const isOwned = item.type === 'digital' && item.id === 'rainbow_name' && currentUserPublic?.rainbow_name;
-
-                    return (
-                        <Card key={item.id} className="flex flex-col justify-between relative overflow-hidden border-2 border-slate-100 hover:border-pink-200 transition-colors">
-                            {isOwned && <div className="absolute top-2 right-2 text-green-500"><CheckCircle /></div>}
-                            <div>
-                                <div className="text-4xl mb-2">{item.icon}</div>
-                                <h3 className="font-bold text-lg text-slate-800">{item.name}</h3>
-                                <p className="text-sm text-slate-500 mb-4">{item.desc}</p>
-                            </div>
-                            
-                            <div className="flex justify-between items-center mt-2">
-                                <span className="font-bold text-pink-600">{item.cost} {EMOJI}</span>
-                                <Button 
-                                    onClick={() => onPurchase(item)} 
-                                    disabled={!canAfford || isOwned}
-                                    className={!canAfford ? "opacity-50" : ""}
-                                >
-                                    {isOwned ? "Owned" : "Buy"}
-                                </Button>
-                            </div>
-                        </Card>
-                    );
-                })}
-            </div>
-        </div>
-    );
-}
-
-function BountiesView({ bounties, currentUser, userId, onCreate, onClaim, onUnclaim, onPay }) {
-    const [newTitle, setNewTitle] = useState("");
-    const [newReward, setNewReward] = useState(5);
-    const [newQty, setNewQty] = useState(1); 
-    const isAdmin = currentUser.name === "Mr Rayner";
-
-    const activeBounties = bounties.filter(b => b.status !== 'paid');
-
-    return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {isAdmin && (
-                <Card className="bg-pink-50 border-pink-100">
-                    <h3 className="font-bold text-pink-700 mb-3 flex items-center gap-2">
-                        <Briefcase size={20}/> Post New Job
-                    </h3>
-                    <div className="flex gap-2 flex-col md:flex-row">
-                        <input 
-                            className="flex-grow p-2 rounded-lg border border-pink-200"
-                            placeholder="Job Description (e.g. Film Assembly)"
-                            value={newTitle}
-                            onChange={e => setNewTitle(e.target.value)}
-                        />
-                        <div className="flex gap-2">
-                            <input 
-                                type="number"
-                                className="w-20 p-2 rounded-lg border border-pink-200"
-                                value={newReward}
-                                onChange={e => setNewReward(e.target.value)}
-                            />
-                            <input 
-                                type="number"
-                                min="1"
-                                className="w-20 p-2 rounded-lg border border-pink-200"
-                                value={newQty}
-                                onChange={e => setNewQty(e.target.value)}
-                            />
-                            <Button className="self-end" onClick={() => { onCreate(newTitle, newReward, newQty); setNewTitle(""); setNewQty(1); }}>
-                                Post
-                            </Button>
-                        </div>
-                    </div>
-                </Card>
-            )}
-
-            <div className="space-y-3">
-                <h3 className="font-bold text-slate-700 ml-1 flex justify-between items-center">
-                    <span>Active Jobs</span>
-                </h3>
-                {activeBounties.length === 0 && <div className="text-center text-slate-400 py-8">No active jobs right now.</div>}
-                
-                {activeBounties.map(b => {
-                    const isMyClaim = b.claimantId === userId;
-                    const hasActiveJob = bounties.some(job => job.status === 'claimed' && job.claimantId === userId);
-                    const remainingSpots = b.remaining || (b.status === 'open' ? 1 : 0); 
-
-                    return (
-                        <Card key={b.id} className="flex justify-between items-center border-l-4 border-l-pink-500">
-                            <div className="flex-grow min-w-0 mr-2">
-                                <h4 className="font-bold text-slate-800 break-words">{b.title}</h4>
-                                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                    <span className="bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">
-                                        {b.reward} {EMOJI} Reward
-                                    </span>
-                                    {b.status === 'open' && remainingSpots > 1 && (
-                                        <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1">
-                                            <Users size={12}/> {remainingSpots} spots left
-                                        </span>
-                                    )}
-                                    {b.status === 'claimed' && (
-                                        <span className="text-xs text-slate-500 flex items-center gap-1 whitespace-nowrap">
-                                            <CheckSquare size={12}/> Claimed by {b.claimantName}
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                            
-                            <div className="flex gap-2 flex-shrink-0">
-                                {b.status === 'open' && (
-                                    <Button 
-                                        variant="outline" 
-                                        onClick={() => onClaim(b.id, remainingSpots)}
-                                        disabled={hasActiveJob} 
-                                        className={hasActiveJob ? "opacity-50 cursor-not-allowed" : ""}
-                                        title={hasActiveJob ? "Finish your current job first!" : "Claim this job"}
-                                    >
-                                        Claim
-                                    </Button>
-                                )}
-
-                                {b.status === 'claimed' && isAdmin && (
-                                    <>
-                                        <button 
-                                            onClick={() => onUnclaim(b.id)}
-                                            className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                            title="Revoke Claim"
-                                        >
-                                            <XCircle size={20} />
-                                        </button>
-                                        <Button variant="success" onClick={() => onPay(b.id, b.claimantName, b.reward)} className="whitespace-nowrap">
-                                            Pay & Close
-                                        </Button>
-                                    </>
-                                )}
-
-                                {b.status === 'claimed' && isMyClaim && !isAdmin && (
-                                    <Button variant="danger" onClick={() => onUnclaim(b.id)} className="text-xs px-2 whitespace-nowrap">
-                                        Cancel Claim
-                                    </Button>
-                                )}
-
-                                {b.status === 'claimed' && !isMyClaim && !isAdmin && (
-                                    <span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500 self-center whitespace-nowrap">
-                                        Busy
-                                    </span>
-                                )}
-                            </div>
-                        </Card>
-                    );
-                })}
-            </div>
-        </div>
-    );
-}
-
-function GoalView({ goalData, userBalance, onContribute, currentUserName, onActivate }) {
-    const percent = Math.min(100, ((goalData.current || 0) / GOAL_TARGET) * 100);
-    const isMet = (goalData.current || 0) >= GOAL_TARGET;
-    const isAdmin = currentUserName === "Mr Rayner";
-
-    return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-             <Card className="text-center py-8 relative overflow-hidden">
-                {isMet && <div className="absolute inset-0 bg-yellow-100 opacity-20 animate-pulse"></div>}
-                <div className="relative z-10">
-                    <div className="inline-flex items-center justify-center p-3 bg-pink-100 rounded-full text-pink-500 mb-4">
-                        <Sparkles size={32} />
-                    </div>
-                    <h2 className="text-2xl font-bold text-slate-800 mb-2">Frosted Friday Goal</h2>
-                    <p className="text-slate-500 mb-6 max-w-md mx-auto">
-                        If we reach {GOAL_TARGET} donuts together, we unlock donuts for everyone!
-                    </p>
-
-                    <div className="max-w-lg mx-auto bg-slate-100 rounded-full h-8 mb-2 relative">
-                        <div 
-                            className="bg-gradient-to-r from-pink-500 to-purple-500 h-full rounded-full transition-all duration-1000 ease-out flex items-center justify-end pr-2"
-                            style={{ width: `${percent}%` }}
-                        >
-                            <span className="text-white text-xs font-bold drop-shadow-md">{Math.floor(percent)}%</span>
-                        </div>
-                    </div>
-                    <p className="text-sm font-bold text-slate-700 mb-8">
-                        {goalData.current} / {GOAL_TARGET} {EMOJI} raised
-                    </p>
-
-                    {isMet ? (
-                        <div className="space-y-4">
-                            <div className="bg-green-100 text-green-700 p-4 rounded-xl font-bold text-lg animate-bounce">
-                                🎉 GOAL REACHED! ({goalData.current}/{GOAL_TARGET})
-                            </div>
-                            {isAdmin ? (
-                                <Button 
-                                    onClick={onActivate} 
-                                    variant="success"
-                                    className="w-full py-3 text-lg"
-                                >
-                                    🚨 Activate Frosted Friday! 🚨
-                                </Button>
-                            ) : (
-                                <p className="text-sm text-slate-500 italic">Waiting for Mr Rayner to activate the event...</p>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="flex flex-col items-center gap-2">
-                             <Button 
-                                onClick={onContribute} 
-                                variant="primary"
-                                className="w-full max-w-xs py-3 text-lg"
-                            >
-                                Contribute 1 {EMOJI}
-                            </Button>
-                            <p className="text-xs text-slate-400">
-                                You have {userBalance} donuts available.
-                            </p>
-                        </div>
-                    )}
-                </div>
-             </Card>
-        </div>
-    );
-}
-
-// ... LoginScreen, GiveView, FeedView, LeaderboardView, NavBtn ...
 function GiveView({ roster, existingUsers, currentUserName, onGive, remaining }) {
     const [selectedUser, setSelectedUser] = useState("");
     const [message, setMessage] = useState("");
@@ -1256,6 +887,269 @@ function FeedView({ transactions, onReact }) {
     );
 }
 
+// ... LoginScreen, ShopView, BountiesView, GoalView, LeaderboardView, NavBtn ...
+// (Re-include other sub-components exactly as they were to ensure full file is valid)
+function LoginScreen({ onLogin, existingUsers }) {
+  const [search, setSearch] = useState("");
+  const [selectedName, setSelectedName] = useState(null);
+  const [password, setPassword] = useState("");
+
+  const availableNames = SCHOOL_ROSTER.filter(name => {
+    return name.toLowerCase().includes(search.toLowerCase());
+  });
+
+  const handleLogin = () => {
+      if (selectedName && password) {
+          onLogin(selectedName, password);
+      }
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4">
+      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center border-t-8 border-pink-500">
+        <div className="text-6xl mb-4">{EMOJI}</div>
+        <h1 className="text-2xl font-bold mb-2 text-slate-800">Welcome to YumDonut</h1>
+        <p className="text-slate-500 mb-6">Select your name to get started.</p>
+        
+        {!selectedName ? (
+            <div className="space-y-4 text-left">
+                <div className="relative">
+                    <Search className="absolute left-3 top-3 text-slate-400" size={20} />
+                    <input 
+                    type="text" 
+                    className="w-full pl-10 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-pink-500 outline-none transition"
+                    placeholder="Search your name..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    />
+                </div>
+
+                <div className="h-48 overflow-y-auto border border-slate-100 rounded-lg bg-slate-50 p-2 space-y-1">
+                    {availableNames.length === 0 ? (
+                        <div className="text-center text-slate-400 py-4 text-sm">No names found.</div>
+                    ) : (
+                        availableNames.map(name => (
+                            <button
+                                key={name}
+                                onClick={() => setSelectedName(name)}
+                                className="w-full text-left px-4 py-2 rounded-md text-sm font-medium hover:bg-white hover:shadow-sm text-slate-600 transition-all flex justify-between items-center"
+                            >
+                                <span>{name}</span>
+                            </button>
+                        ))
+                    )}
+                </div>
+            </div>
+        ) : (
+            <div className="space-y-4 text-left animate-in fade-in slide-in-from-right-4">
+                <div className="flex items-center justify-between bg-pink-50 p-3 rounded-lg">
+                    <div className="flex items-center gap-2">
+                        <span className="font-bold text-pink-700">{selectedName}</span>
+                    </div>
+                    <button onClick={() => { setSelectedName(null); setPassword(""); }} className="text-xs text-pink-400 hover:text-pink-600">Change</button>
+                </div>
+                <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
+                        Password
+                    </label>
+                    <div className="relative">
+                        <Lock className="absolute left-3 top-3 text-slate-400" size={18} />
+                        <input 
+                            type="password" 
+                            className="w-full pl-10 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-pink-500 outline-none"
+                            placeholder="Enter password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+                        />
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">First time? Create a password. Returning? Login.</p>
+                </div>
+                <Button variant="primary" className="w-full py-3 text-lg" onClick={handleLogin} disabled={!password}>
+                    Continue
+                </Button>
+            </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ShopView({ items, userBalance, onPurchase, currentUserPublic }) {
+    return (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <Card className="bg-gradient-to-r from-purple-500 to-pink-500 text-white">
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                    <ShoppingBag /> The Donut Shop
+                </h2>
+                <p className="opacity-90">Spend your hard-earned donuts on rewards!</p>
+                <div className="mt-4 text-sm font-bold bg-white/20 inline-block px-3 py-1 rounded-full">
+                    Your Balance: {userBalance} {EMOJI}
+                </div>
+            </Card>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {items.map(item => {
+                    const canAfford = userBalance >= item.cost;
+                    const isOwned = item.type === 'digital' && item.id === 'rainbow_name' && currentUserPublic?.rainbow_name;
+
+                    return (
+                        <Card key={item.id} className="flex flex-col justify-between relative overflow-hidden border-2 border-slate-100 hover:border-pink-200 transition-colors">
+                            {isOwned && <div className="absolute top-2 right-2 text-green-500"><CheckCircle /></div>}
+                            <div>
+                                <div className="text-4xl mb-2">{item.icon}</div>
+                                <h3 className="font-bold text-lg text-slate-800">{item.name}</h3>
+                                <p className="text-sm text-slate-500 mb-4">{item.desc}</p>
+                            </div>
+                            
+                            <div className="flex justify-between items-center mt-2">
+                                <span className="font-bold text-pink-600">{item.cost} {EMOJI}</span>
+                                <Button 
+                                    onClick={() => onPurchase(item)} 
+                                    disabled={!canAfford || isOwned}
+                                    className={!canAfford ? "opacity-50" : ""}
+                                >
+                                    {isOwned ? "Owned" : "Buy"}
+                                </Button>
+                            </div>
+                        </Card>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
+function BountiesView({ bounties, currentUser, userId, onCreate, onClaim, onUnclaim, onPay }) {
+    const [newTitle, setNewTitle] = useState("");
+    const [newReward, setNewReward] = useState(5);
+    const [newQty, setNewQty] = useState(1); 
+    const isAdmin = currentUser.name === "Mr Rayner";
+
+    const activeBounties = bounties.filter(b => b.status !== 'paid');
+
+    return (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {isAdmin && (
+                <Card className="bg-pink-50 border-pink-100">
+                    <h3 className="font-bold text-pink-700 mb-3 flex items-center gap-2">
+                        <Briefcase size={20}/> Post New Job
+                    </h3>
+                    <div className="flex gap-2 flex-col md:flex-row">
+                        <input 
+                            className="flex-grow p-2 rounded-lg border border-pink-200"
+                            placeholder="Job Description (e.g. Film Assembly)"
+                            value={newTitle}
+                            onChange={e => setNewTitle(e.target.value)}
+                        />
+                        <div className="flex gap-2">
+                            <div className="flex flex-col w-20">
+                                <label className="text-[10px] text-pink-400 font-bold uppercase">Reward</label>
+                                <input 
+                                    type="number"
+                                    className="w-full p-2 rounded-lg border border-pink-200"
+                                    value={newReward}
+                                    onChange={e => setNewReward(e.target.value)}
+                                />
+                            </div>
+                            <div className="flex flex-col w-20">
+                                <label className="text-[10px] text-pink-400 font-bold uppercase">Spots</label>
+                                <input 
+                                    type="number"
+                                    min="1"
+                                    className="w-full p-2 rounded-lg border border-pink-200"
+                                    value={newQty}
+                                    onChange={e => setNewQty(e.target.value)}
+                                />
+                            </div>
+                            <Button className="self-end" onClick={() => { onCreate(newTitle, newReward, newQty); setNewTitle(""); setNewQty(1); }}>
+                                Post
+                            </Button>
+                        </div>
+                    </div>
+                </Card>
+            )}
+
+            <div className="space-y-3">
+                <h3 className="font-bold text-slate-700 ml-1 flex justify-between items-center">
+                    <span>Active Jobs</span>
+                </h3>
+                {activeBounties.length === 0 && <div className="text-center text-slate-400 py-8">No active jobs right now.</div>}
+                
+                {activeBounties.map(b => {
+                    const isMyClaim = b.claimantId === userId;
+                    const hasActiveJob = bounties.some(job => job.status === 'claimed' && job.claimantId === userId);
+                    const remainingSpots = b.remaining || (b.status === 'open' ? 1 : 0); 
+
+                    return (
+                        <Card key={b.id} className="flex justify-between items-center border-l-4 border-l-pink-500">
+                            <div className="flex-grow min-w-0 mr-2">
+                                <h4 className="font-bold text-slate-800 break-words">{b.title}</h4>
+                                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                    <span className="bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">
+                                        {b.reward} {EMOJI} Reward
+                                    </span>
+                                    {b.status === 'open' && remainingSpots > 1 && (
+                                        <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1">
+                                            <Users size={12}/> {remainingSpots} spots left
+                                        </span>
+                                    )}
+                                    {b.status === 'claimed' && (
+                                        <span className="text-xs text-slate-500 flex items-center gap-1 whitespace-nowrap">
+                                            <CheckSquare size={12}/> Claimed by {b.claimantName}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                            
+                            <div className="flex gap-2 flex-shrink-0">
+                                {b.status === 'open' && (
+                                    <Button 
+                                        variant="outline" 
+                                        onClick={() => onClaim(b.id, remainingSpots)}
+                                        disabled={hasActiveJob} 
+                                        className={hasActiveJob ? "opacity-50 cursor-not-allowed" : ""}
+                                        title={hasActiveJob ? "Finish your current job first!" : "Claim this job"}
+                                    >
+                                        Claim
+                                    </Button>
+                                )}
+
+                                {b.status === 'claimed' && isAdmin && (
+                                    <>
+                                        <button 
+                                            onClick={() => onUnclaim(b.id)}
+                                            className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                            title="Revoke Claim"
+                                        >
+                                            <XCircle size={20} />
+                                        </button>
+                                        <Button variant="success" onClick={() => onPay(b.id, b.claimantName, b.reward)} className="whitespace-nowrap">
+                                            Pay & Close
+                                        </Button>
+                                    </>
+                                )}
+
+                                {b.status === 'claimed' && isMyClaim && !isAdmin && (
+                                    <Button variant="danger" onClick={() => onUnclaim(b.id)} className="text-xs px-2 whitespace-nowrap">
+                                        Cancel Claim
+                                    </Button>
+                                )}
+
+                                {b.status === 'claimed' && !isMyClaim && !isAdmin && (
+                                    <span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500 self-center whitespace-nowrap">
+                                        Busy
+                                    </span>
+                                )}
+                            </div>
+                        </Card>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
 function LeaderboardView({ users, roster }) {
     const combinedList = roster.map(name => {
         const userData = users.find(u => u.name === name);
@@ -1263,8 +1157,7 @@ function LeaderboardView({ users, roster }) {
             name: name,
             balance: userData ? userData.balance : 0,
             avatar_color: userData ? userData.avatar_color : '#cbd5e1',
-            rainbow_name: userData ? userData.rainbow_name : false,
-            lifetime_received: userData ? userData.lifetime_received : 0
+            rainbow_name: userData ? userData.rainbow_name : false
         };
     }).sort((a, b) => b.balance - a.balance);
 
@@ -1276,9 +1169,7 @@ function LeaderboardView({ users, roster }) {
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                {combinedList.map((u, index) => {
-                    const rank = getRank(u.lifetime_received || u.balance); // Fallback to balance if new user
-                    return (
+                {combinedList.map((u, index) => (
                     <div key={u.name} className="flex items-center p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors last:border-none">
                         <div className="w-8 font-bold text-slate-400 text-center flex-shrink-0">
                             {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}
@@ -1289,15 +1180,10 @@ function LeaderboardView({ users, roster }) {
                             </div>
                         </div>
                         <div className="flex-grow min-w-0">
-                            <div className="flex items-center gap-2">
-                                <p className={`font-bold truncate ${u.rainbow_name ? 'animate-text-rainbow bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-500 to-red-500' : 'text-slate-800'}`}>
-                                    {u.name}
-                                </p>
-                                <span className="text-[10px] bg-slate-100 px-1.5 rounded text-slate-500" title={`Lifetime: ${u.lifetime_received || u.balance}`}>
-                                    {rank.icon} {rank.title}
-                                </span>
-                            </div>
-                            <p className="text-xs text-slate-500">{u.balance} donuts available</p>
+                            <p className={`font-bold truncate ${u.rainbow_name ? 'animate-text-rainbow bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-500 to-red-500' : 'text-slate-800'}`}>
+                                {u.name}
+                            </p>
+                            <p className="text-xs text-slate-500">{u.balance} donuts received</p>
                         </div>
                         <div className="text-right pl-2">
                              <div className="inline-flex items-center bg-pink-50 text-pink-600 px-3 py-1 rounded-full font-bold text-sm">
@@ -1305,7 +1191,7 @@ function LeaderboardView({ users, roster }) {
                              </div>
                         </div>
                     </div>
-                )})}
+                ))}
             </div>
         </div>
     );
