@@ -149,16 +149,11 @@ export default function YumDonutApp() {
   // Auth & Profile Listener
   useEffect(() => {
     const initAuth = async () => {
-        // CRITICAL FIX: Wait for Firebase to check local storage before doing anything else.
-        // This prevents the app from thinking we are a "Guest" while it's still loading the saved user.
-        await auth.authStateReady();
-
-        // Only fallback to Anonymous if we are definitely NOT logged in
         if (!auth.currentUser) {
             try {
                 await signInAnonymously(auth);
             } catch (e) {
-                console.warn("Guest login skipped (likely disabled in console):", e.code);
+                console.warn("Guest login skipped:", e.code);
             }
         }
     }
@@ -432,16 +427,22 @@ export default function YumDonutApp() {
       }
   };
 
+  // --- Bounty Actions ---
+
+  // FIX: Added quantity parameter to create multiple slots
   const handleCreateBounty = async (title, reward, quantity) => {
       const qty = parseInt(quantity) || 1;
+      
+      // Create the main "Open" bounty card
       await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'bounties'), {
           title,
           reward: parseInt(reward),
           status: 'open',
-          remaining: qty, 
+          remaining: qty, // Track slots remaining
           createdBy: myProfile.name,
           createdAt: serverTimestamp()
       });
+
       await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
           fromName: "Job Board",
           toName: "EVERYONE",
@@ -454,16 +455,25 @@ export default function YumDonutApp() {
   };
 
   const handleClaimBounty = async (bountyId, currentRemaining) => {
+      // 1. Check Active Limit
       const hasActive = bounties.some(b => b.status === 'claimed' && b.claimantId === user.uid);
       if (hasActive) {
            showNotification("Finish your current job first!", "error");
            return;
       }
+
+      // 2. Handle Multi-Slot Logic
       const bountyRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'bounties', bountyId);
+      
       if (currentRemaining > 1) {
+          // Case A: Slots available. Decrement main card, spawn child card.
           const bountyDoc = bounties.find(b => b.id === bountyId);
+          
           await runTransaction(db, async (transaction) => {
+               // Decrement Main Card
                transaction.update(bountyRef, { remaining: currentRemaining - 1 });
+               
+               // Spawn "Child" Claimed Card for this user
                const childRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'bounties'));
                transaction.set(childRef, {
                    title: bountyDoc.title,
@@ -472,18 +482,29 @@ export default function YumDonutApp() {
                    claimantName: myProfile.name,
                    claimantId: user.uid,
                    createdAt: serverTimestamp(),
-                   parentId: bountyId 
+                   parentId: bountyId // Link back (optional but good for data)
                });
           });
       } else {
-          await updateDoc(bountyRef, { status: 'claimed', remaining: 0, claimantName: myProfile.name, claimantId: user.uid });
+          // Case B: Last slot (or single slot). Just claim the card directly.
+          await updateDoc(bountyRef, {
+              status: 'claimed',
+              remaining: 0,
+              claimantName: myProfile.name,
+              claimantId: user.uid
+          });
       }
+      
       showNotification("Job Claimed! Good luck.");
   };
 
   const handleUnclaimBounty = async (bountyId) => {
       const bountyRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'bounties', bountyId);
-      await updateDoc(bountyRef, { status: 'open', claimantName: null, claimantId: null });
+      await updateDoc(bountyRef, {
+          status: 'open',
+          claimantName: null,
+          claimantId: null
+      });
       showNotification("Job is open again.");
   };
 
@@ -647,8 +668,141 @@ export default function YumDonutApp() {
   );
 }
 
-// --- Sub-Components ---
+// ... LoginScreen, ShopView ... (No Changes needed here)
 
+// FIX: Updated BountiesView to handle Multi-Slots
+function BountiesView({ bounties, currentUser, userId, onCreate, onClaim, onUnclaim, onPay }) {
+    const [newTitle, setNewTitle] = useState("");
+    const [newReward, setNewReward] = useState(5);
+    const [newQty, setNewQty] = useState(1); // New State for Quantity
+    const isAdmin = currentUser.name === "Mr Rayner";
+
+    // Only show Paid items if they were claimed by me (history) or I'm admin
+    const activeBounties = bounties.filter(b => b.status !== 'paid');
+
+    return (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {isAdmin && (
+                <Card className="bg-pink-50 border-pink-100">
+                    <h3 className="font-bold text-pink-700 mb-3 flex items-center gap-2">
+                        <Briefcase size={20}/> Post New Job
+                    </h3>
+                    <div className="flex gap-2 flex-col md:flex-row">
+                        <input 
+                            className="flex-grow p-2 rounded-lg border border-pink-200"
+                            placeholder="Job Description (e.g. Film Assembly)"
+                            value={newTitle}
+                            onChange={e => setNewTitle(e.target.value)}
+                        />
+                        <div className="flex gap-2">
+                            <div className="flex flex-col w-20">
+                                <label className="text-[10px] text-pink-400 font-bold uppercase">Reward</label>
+                                <input 
+                                    type="number"
+                                    className="w-full p-2 rounded-lg border border-pink-200"
+                                    value={newReward}
+                                    onChange={e => setNewReward(e.target.value)}
+                                />
+                            </div>
+                            <div className="flex flex-col w-20">
+                                <label className="text-[10px] text-pink-400 font-bold uppercase">Spots</label>
+                                <input 
+                                    type="number"
+                                    min="1"
+                                    className="w-full p-2 rounded-lg border border-pink-200"
+                                    value={newQty}
+                                    onChange={e => setNewQty(e.target.value)}
+                                />
+                            </div>
+                            <Button className="self-end" onClick={() => { onCreate(newTitle, newReward, newQty); setNewTitle(""); setNewQty(1); }}>
+                                Post
+                            </Button>
+                        </div>
+                    </div>
+                </Card>
+            )}
+
+            <div className="space-y-3">
+                <h3 className="font-bold text-slate-700 ml-1 flex justify-between items-center">
+                    <span>Active Jobs</span>
+                </h3>
+                {activeBounties.length === 0 && <div className="text-center text-slate-400 py-8">No active jobs right now.</div>}
+                
+                {activeBounties.map(b => {
+                    const isMyClaim = b.claimantId === userId;
+                    const hasActiveJob = bounties.some(job => job.status === 'claimed' && job.claimantId === userId);
+                    const remainingSpots = b.remaining || (b.status === 'open' ? 1 : 0); // Default to 1 if undefined/legacy
+
+                    return (
+                        <Card key={b.id} className="flex justify-between items-center border-l-4 border-l-pink-500">
+                            <div className="flex-grow min-w-0 mr-2">
+                                <h4 className="font-bold text-slate-800 break-words">{b.title}</h4>
+                                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                    <span className="bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">
+                                        {b.reward} {EMOJI} Reward
+                                    </span>
+                                    {b.status === 'open' && remainingSpots > 1 && (
+                                        <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1">
+                                            <Users size={12}/> {remainingSpots} spots left
+                                        </span>
+                                    )}
+                                    {b.status === 'claimed' && (
+                                        <span className="text-xs text-slate-500 flex items-center gap-1 whitespace-nowrap">
+                                            <CheckSquare size={12}/> Claimed by {b.claimantName}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                            
+                            <div className="flex gap-2 flex-shrink-0">
+                                {b.status === 'open' && (
+                                    <Button 
+                                        variant="outline" 
+                                        onClick={() => onClaim(b.id, remainingSpots)}
+                                        disabled={hasActiveJob} 
+                                        className={hasActiveJob ? "opacity-50 cursor-not-allowed" : ""}
+                                        title={hasActiveJob ? "Finish your current job first!" : "Claim this job"}
+                                    >
+                                        Claim
+                                    </Button>
+                                )}
+
+                                {b.status === 'claimed' && isAdmin && (
+                                    <>
+                                        <button 
+                                            onClick={() => onUnclaim(b.id)}
+                                            className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                            title="Revoke Claim"
+                                        >
+                                            <XCircle size={20} />
+                                        </button>
+                                        <Button variant="success" onClick={() => onPay(b.id, b.claimantName, b.reward)} className="whitespace-nowrap">
+                                            Pay & Close
+                                        </Button>
+                                    </>
+                                )}
+
+                                {b.status === 'claimed' && isMyClaim && !isAdmin && (
+                                    <Button variant="danger" onClick={() => onUnclaim(b.id)} className="text-xs px-2 whitespace-nowrap">
+                                        Cancel Claim
+                                    </Button>
+                                )}
+
+                                {b.status === 'claimed' && !isMyClaim && !isAdmin && (
+                                    <span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500 self-center whitespace-nowrap">
+                                        Busy
+                                    </span>
+                                )}
+                            </div>
+                        </Card>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
+// ... Other components remain the same (GoalView, GiveView, FeedView, LeaderboardView, ShopView, LoginScreen, NavBtn)
 function LoginScreen({ onLogin, existingUsers }) {
   const [search, setSearch] = useState("");
   const [selectedName, setSelectedName] = useState(null);
@@ -772,136 +926,6 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic }) {
                                 >
                                     {isOwned ? "Owned" : "Buy"}
                                 </Button>
-                            </div>
-                        </Card>
-                    );
-                })}
-            </div>
-        </div>
-    );
-}
-
-function BountiesView({ bounties, currentUser, userId, onCreate, onClaim, onUnclaim, onPay }) {
-    const [newTitle, setNewTitle] = useState("");
-    const [newReward, setNewReward] = useState(5);
-    const [newQty, setNewQty] = useState(1); // New State for Quantity
-    const isAdmin = currentUser.name === "Mr Rayner";
-
-    const activeBounties = bounties.filter(b => b.status !== 'paid');
-
-    return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {isAdmin && (
-                <Card className="bg-pink-50 border-pink-100">
-                    <h3 className="font-bold text-pink-700 mb-3 flex items-center gap-2">
-                        <Briefcase size={20}/> Post New Job
-                    </h3>
-                    <div className="flex gap-2 flex-col md:flex-row">
-                        <input 
-                            className="flex-grow p-2 rounded-lg border border-pink-200"
-                            placeholder="Job Description (e.g. Film Assembly)"
-                            value={newTitle}
-                            onChange={e => setNewTitle(e.target.value)}
-                        />
-                        <div className="flex gap-2">
-                            <div className="flex flex-col w-20">
-                                <label className="text-[10px] text-pink-400 font-bold uppercase">Reward</label>
-                                <input 
-                                    type="number"
-                                    className="w-full p-2 rounded-lg border border-pink-200"
-                                    value={newReward}
-                                    onChange={e => setNewReward(e.target.value)}
-                                />
-                            </div>
-                            <div className="flex flex-col w-20">
-                                <label className="text-[10px] text-pink-400 font-bold uppercase">Spots</label>
-                                <input 
-                                    type="number"
-                                    min="1"
-                                    className="w-full p-2 rounded-lg border border-pink-200"
-                                    value={newQty}
-                                    onChange={e => setNewQty(e.target.value)}
-                                />
-                            </div>
-                            <Button className="self-end" onClick={() => { onCreate(newTitle, newReward, newQty); setNewTitle(""); setNewQty(1); }}>
-                                Post
-                            </Button>
-                        </div>
-                    </div>
-                </Card>
-            )}
-
-            <div className="space-y-3">
-                <h3 className="font-bold text-slate-700 ml-1 flex justify-between items-center">
-                    <span>Active Jobs</span>
-                </h3>
-                {activeBounties.length === 0 && <div className="text-center text-slate-400 py-8">No active jobs right now.</div>}
-                
-                {activeBounties.map(b => {
-                    const isMyClaim = b.claimantId === userId;
-                    const hasActiveJob = bounties.some(job => job.status === 'claimed' && job.claimantId === userId);
-                    const remainingSpots = b.remaining || (b.status === 'open' ? 1 : 0); // Default to 1 if undefined/legacy
-
-                    return (
-                        <Card key={b.id} className="flex justify-between items-center border-l-4 border-l-pink-500">
-                            <div className="flex-grow min-w-0 mr-2">
-                                <h4 className="font-bold text-slate-800 break-words">{b.title}</h4>
-                                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                    <span className="bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">
-                                        {b.reward} {EMOJI} Reward
-                                    </span>
-                                    {b.status === 'open' && remainingSpots > 1 && (
-                                        <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1">
-                                            <Users size={12}/> {remainingSpots} spots left
-                                        </span>
-                                    )}
-                                    {b.status === 'claimed' && (
-                                        <span className="text-xs text-slate-500 flex items-center gap-1 whitespace-nowrap">
-                                            <CheckSquare size={12}/> Claimed by {b.claimantName}
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                            
-                            <div className="flex gap-2 flex-shrink-0">
-                                {b.status === 'open' && (
-                                    <Button 
-                                        variant="outline" 
-                                        onClick={() => onClaim(b.id, remainingSpots)}
-                                        disabled={hasActiveJob} 
-                                        className={hasActiveJob ? "opacity-50 cursor-not-allowed" : ""}
-                                        title={hasActiveJob ? "Finish your current job first!" : "Claim this job"}
-                                    >
-                                        Claim
-                                    </Button>
-                                )}
-
-                                {b.status === 'claimed' && isAdmin && (
-                                    <>
-                                        <button 
-                                            onClick={() => onUnclaim(b.id)}
-                                            className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                            title="Revoke Claim"
-                                        >
-                                            <XCircle size={20} />
-                                        </button>
-                                        <Button variant="success" onClick={() => onPay(b.id, b.claimantName, b.reward)} className="whitespace-nowrap">
-                                            Pay & Close
-                                        </Button>
-                                    </>
-                                )}
-
-                                {b.status === 'claimed' && isMyClaim && !isAdmin && (
-                                    <Button variant="danger" onClick={() => onUnclaim(b.id)} className="text-xs px-2 whitespace-nowrap">
-                                        Cancel Claim
-                                    </Button>
-                                )}
-
-                                {b.status === 'claimed' && !isMyClaim && !isAdmin && (
-                                    <span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500 self-center whitespace-nowrap">
-                                        Busy
-                                    </span>
-                                )}
                             </div>
                         </Card>
                     );
