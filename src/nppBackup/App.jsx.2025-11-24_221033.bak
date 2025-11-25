@@ -3,21 +3,22 @@ import { initializeApp } from 'firebase/app';
 import { 
   getFirestore, collection, addDoc, query, orderBy, limit, 
   onSnapshot, doc, updateDoc, setDoc, getDoc, serverTimestamp, 
-  runTransaction, arrayUnion, arrayRemove, deleteDoc
+  runTransaction, arrayUnion, arrayRemove 
 } from 'firebase/firestore';
 import { 
-  getAuth, onAuthStateChanged, signInWithCustomToken,
-  signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInAnonymously
+  getAuth, signInAnonymously, onAuthStateChanged, updateProfile, signInWithCustomToken,
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut
 } from 'firebase/auth';
 import { 
   Trophy, Gift, Activity, MessageSquare, 
   LogOut, UserPlus, Heart, Zap, Search, CheckCircle, Target, Sparkles,
-  Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock, Users, Skull, Trash2, Clock
+  Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock
 } from 'lucide-react';
 
 // --- CONFIGURATION START ---
 
 // 1. Firebase Configuration
+// We are now enforcing YOUR keys to prevent "System Token" conflicts
 const firebaseConfig = {
   apiKey: "AIzaSyAnjuK_F8ZO3WqTfCEeXEF5J84CG8Irjq4",
   authDomain: "yum-donut-school.firebaseapp.com",
@@ -52,13 +53,13 @@ const SCHOOL_ROSTER = [
   "Armani",
   "Ashley",
   "Tobin",
-  "Isaac",
-  "Lia"
+  "Isaac"
 ];
 
 const DAILY_LIMIT = 5;
 const GOAL_TARGET = 50; 
 const EMOJI = "🍩";
+// We force the App ID to your project name to ensure paths match your database rules
 const APP_ID = 'yum-donut-school'; 
 
 // 3. Shop Inventory
@@ -69,16 +70,6 @@ const SHOP_ITEMS = [
     { id: 'rainbow_name', name: 'Rainbow Name', cost: 60, icon: '🌈', desc: 'Your name glows on the leaderboard!', type: 'digital' },
     { id: 'gold_pass', name: 'The GOLD Pass', cost: 100, icon: '🎫', desc: 'A physical, laminated Gold VIP Lanyard.', type: 'physical' },
     { id: 'name_camera', name: 'Name a Camera', cost: 500, icon: '🎥', desc: 'Permanently name a DJI or Sony camera!', type: 'physical' },
-];
-
-// 4. Career Ranks (Based on GIVING)
-const CAREER_RANKS = [
-    { min: 0, title: "Intern", icon: "☕" },
-    { min: 25, title: "Runner", icon: "🏃" }, 
-    { min: 50, title: "Camera Op", icon: "🎥" },
-    { min: 100, title: "Editor", icon: "🎞️" },
-    { min: 200, title: "Producer", icon: "🎬" },
-    { min: 400, title: "Studio Head", icon: "👑" }
 ];
 
 // --- CONFIGURATION END ---
@@ -118,11 +109,6 @@ const triggerConfetti = () => {
   }
 };
 
-const getRank = (lifetimeGiven) => {
-    const val = lifetimeGiven || 0;
-    return [...CAREER_RANKS].reverse().find(r => val >= r.min) || CAREER_RANKS[0];
-};
-
 // --- Components ---
 
 const Card = ({ children, className = "" }) => (
@@ -138,7 +124,7 @@ const Button = ({ onClick, disabled, children, variant = "primary", className = 
     secondary: "bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:bg-slate-50",
     outline: "border-2 border-slate-200 hover:border-pink-500 hover:text-pink-500 text-slate-600",
     success: "bg-green-500 hover:bg-green-600 text-white shadow-lg shadow-green-200 disabled:bg-green-300",
-    danger: "bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-200 disabled:bg-red-300"
+    danger: "bg-red-50 hover:bg-red-100 text-red-600 border border-red-200"
   };
   return (
     <button onClick={onClick} disabled={disabled} className={`${base} ${styles[variant]} ${className}`}>
@@ -165,12 +151,12 @@ export default function YumDonutApp() {
   // Auth & Profile Listener
   useEffect(() => {
     const initAuth = async () => {
-        await auth.authStateReady();
+        // We removed the system token check to avoid permission errors with your custom keys
         if (!auth.currentUser) {
             try {
                 await signInAnonymously(auth);
             } catch (e) {
-                console.warn("Guest login skipped:", e.code);
+                console.error("Guest login failed", e);
             }
         }
     }
@@ -184,7 +170,7 @@ export default function YumDonutApp() {
           if (docSnap.exists()) {
             setMyProfile(docSnap.data());
           } else {
-            setMyProfile(null); 
+            setMyProfile(null); // Profile missing (Guest Mode or New User)
           }
           setLoading(false);
         }, (error) => {
@@ -201,12 +187,7 @@ export default function YumDonutApp() {
 
   // Global Listeners
   useEffect(() => {
-    if (!user) {
-        setUsers([]);
-        setTransactions([]);
-        setBounties([]);
-        return;
-    }
+    if (!user) return;
 
     const usersQuery = query(collection(db, 'artifacts', APP_ID, 'public', 'data', 'users'));
     const unsubUsers = onSnapshot(usersQuery, (snapshot) => {
@@ -242,24 +223,8 @@ export default function YumDonutApp() {
     return () => { unsubUsers(); unsubFeed(); unsubGoal(); unsubBounties(); };
   }, [user]);
 
-  // Auto-Sync Wallet
-  useEffect(() => {
-    if (!user || !myProfile || users.length === 0) return;
-    const publicProfile = users.find(u => u.name === myProfile.name);
-    if (publicProfile) {
-        const publicBalance = publicProfile.balance || 0;
-        const privateBalance = myProfile.balance || 0;
-        if (publicBalance !== privateBalance) {
-            const userRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
-            updateDoc(userRef, { balance: publicBalance }).catch(console.error);
-        }
-    }
-  }, [user, myProfile, users]);
-
+  // Derived State
   const openBountyCount = bounties.filter(b => b.status === 'open').length;
-  // RANK LOGIC
-  const currentPublicProfile = users.find(u => u.name === myProfile?.name);
-  const currentRank = getRank(currentPublicProfile?.lifetime_given || 0);
 
   // --- Actions ---
 
@@ -270,20 +235,22 @@ export default function YumDonutApp() {
     const email = `${name.replace(/\s+/g, '').toLowerCase()}@yumdonut.school`;
 
     try {
+        // Try to sign in first
         await signInWithEmailAndPassword(auth, email, password);
         showNotification(`Welcome back, ${name}!`);
     } catch (error) {
         if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/invalid-email') {
+            // If user doesn't exist, try to register
             try {
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 const uid = userCredential.user.uid;
                 
+                // Initialize Profile Data
                 const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', name);
                 const publicDoc = await getDoc(publicRef);
                 
                 let currentBalance = 0;
                 let currentGiven = 0;
-                let lifetimeReceived = 0;
                 let avatarColor = `hsl(${Math.random() * 360}, 70%, 50%)`;
                 let rainbowName = false;
 
@@ -291,7 +258,6 @@ export default function YumDonutApp() {
                     const data = publicDoc.data();
                     currentBalance = data.balance || 0;
                     currentGiven = data.lifetime_given || 0;
-                    lifetimeReceived = data.lifetime_received || currentBalance;
                     if (data.avatar_color) avatarColor = data.avatar_color;
                     if (data.rainbow_name) rainbowName = data.rainbow_name;
                 }
@@ -310,7 +276,6 @@ export default function YumDonutApp() {
                     name: name,
                     balance: currentBalance,
                     lifetime_given: currentGiven,
-                    lifetime_received: lifetimeReceived,
                     avatar_color: avatarColor,
                     rainbow_name: rainbowName,
                     claimed: true,
@@ -333,18 +298,18 @@ export default function YumDonutApp() {
 
   const handleLogout = () => {
       signOut(auth);
+      // Reload page to reset state cleanly
       window.location.reload();
   };
 
-  const handleGiveDonut = async (recipientName, message, amount = 1) => {
+  const handleGiveDonut = async (recipientName, message) => {
     if (!myProfile) return;
     
     const today = new Date().toDateString();
     let currentGiven = myProfile.last_given_date === today ? myProfile.given_today : 0;
-    const isAdmin = myProfile.name === "Mr Rayner";
 
-    if (!isAdmin && (currentGiven + amount) > DAILY_LIMIT) {
-      showNotification(`You only have ${DAILY_LIMIT - currentGiven} ${EMOJI} left!`, "error");
+    if (currentGiven >= DAILY_LIMIT) {
+      showNotification(`You've used all ${DAILY_LIMIT} ${EMOJI} for today!`, "error");
       return;
     }
 
@@ -357,22 +322,20 @@ export default function YumDonutApp() {
             message: message,
             timestamp: serverTimestamp(),
             emoji: EMOJI,
-            amount: amount,
             likes: []
         });
 
         const senderPrivateRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
         await updateDoc(senderPrivateRef, {
-            given_today: currentGiven + amount,
+            given_today: currentGiven + 1,
             last_given_date: today
         });
 
-        // Update Sender's LIFETIME_GIVEN
         const senderPublicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
         const senderPublicDoc = await getDoc(senderPublicRef);
         if (senderPublicDoc.exists()) {
              await updateDoc(senderPublicRef, {
-                lifetime_given: (senderPublicDoc.data().lifetime_given || 0) + amount
+                lifetime_given: (senderPublicDoc.data().lifetime_given || 0) + 1
              });
         }
 
@@ -380,25 +343,20 @@ export default function YumDonutApp() {
         const recipientDoc = await getDoc(recipientRef);
         
         if (recipientDoc.exists()) {
-            const currentBal = recipientDoc.data().balance || 0;
-            const currentLifetime = recipientDoc.data().lifetime_received || currentBal;
-
             await updateDoc(recipientRef, {
-                balance: currentBal + amount,
-                lifetime_received: currentLifetime + amount 
+                balance: (recipientDoc.data().balance || 0) + 1
             });
         } else {
             await setDoc(recipientRef, {
                 name: recipientName,
-                balance: amount,
+                balance: 1,
                 lifetime_given: 0,
-                lifetime_received: amount,
                 avatar_color: `hsl(${Math.random() * 360}, 60%, 80%)`,
                 claimed: false
             });
         }
 
-        showNotification(`Sent ${amount} ${EMOJI} successfully!`);
+        showNotification(`Sent a ${EMOJI} successfully!`);
         setView('feed');
 
     } catch (e) {
@@ -407,80 +365,57 @@ export default function YumDonutApp() {
     }
   };
 
-  // THE DONUT MUNCHER (Penalty Logic)
-  const handleMunchDonut = async (victimName, reason) => {
-      if (!myProfile) return;
-
-      try {
-          const recipientRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', victimName);
-          const recipientDoc = await getDoc(recipientRef);
-          
-          if (!recipientDoc.exists()) {
-              showNotification("User has no wallet to munch!", "error");
-              return;
-          }
-          
-          const currentBal = recipientDoc.data().balance || 0;
-          if (currentBal < 1) {
-              showNotification("They have 0 donuts. The Muncher goes hungry.", "error");
-              return;
-          }
-
-          // Deduct 1
-          await updateDoc(recipientRef, {
-              balance: currentBal - 1
-          });
-
-          // Post Public Shaming (ANONYMOUS)
-          await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
-            fromName: "The Donut Muncher",
-            toName: "Someone", // Anonymous
-            message: `Nom nom! Ate a donut because: ${reason}`,
-            timestamp: serverTimestamp(),
-            emoji: "👾",
-            amount: 1,
-            likes: []
-        });
-
-        showNotification(`Munched 1 donut from ${victimName}!`);
-        setView('feed');
-
-      } catch (e) {
-          console.error(e);
-          showNotification("Munch failed.", "error");
-      }
-  };
-
   const handleReaction = async (txId, currentLikes) => {
       if (currentLikes && currentLikes.includes(myProfile.name)) return;
       const txRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'transactions', txId);
-      await updateDoc(txRef, { likes: arrayUnion(myProfile.name) });
+      await updateDoc(txRef, {
+          likes: arrayUnion(myProfile.name)
+      });
   };
 
   const handleContributeToGoal = async () => {
       if (!myProfile || myProfile.balance < 1) {
-          showNotification("Not enough donuts!", "error");
+          showNotification("You don't have enough donuts to contribute!", "error");
           return;
       }
+
       try {
           const publicUserRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
           const goalRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'goals', 'frosted-friday');
+
           await runTransaction(db, async (transaction) => {
               const userDoc = await transaction.get(publicUserRef);
               const goalDoc = await transaction.get(goalRef);
-              if (!userDoc.exists()) throw "User missing";
+
+              if (!userDoc.exists()) throw "User does not exist!";
+              
               const newBalance = (userDoc.data().balance || 0) - 1;
               if (newBalance < 0) throw "Not enough donuts!";
+
               const goalCurrent = (goalDoc.data()?.current || 0) + 1;
+              
               transaction.update(publicUserRef, { balance: newBalance });
               transaction.update(goalRef, { current: goalCurrent });
+              
               const txRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
-              transaction.set(txRef, { fromName: myProfile.name, toName: "Frosted Friday", message: "Contributed to the goal!", timestamp: serverTimestamp(), emoji: "🚀", likes: [] });
+              transaction.set(txRef, {
+                  fromName: myProfile.name,
+                  toName: "Frosted Friday",
+                  message: "Contributed to the goal!",
+                  timestamp: serverTimestamp(),
+                  emoji: "🚀",
+                  likes: []
+              });
           });
+          
           const privateUserRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
-          await updateDoc(privateUserRef, { balance: myProfile.balance - 1 });
-          showNotification("Contributed 1 donut!");
+          await updateDoc(privateUserRef, {
+              balance: myProfile.balance - 1
+          });
+
+          showNotification("Contributed 1 donut to Frosted Friday!");
           triggerConfetti();
+
       } catch (e) {
           console.error(e);
           showNotification("Contribution failed.", "error");
@@ -491,10 +426,20 @@ export default function YumDonutApp() {
       try {
           const goalRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'goals', 'frosted-friday');
           await updateDoc(goalRef, { current: 0 });
-          await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), { fromName: "Mr Rayner", toName: "EVERYONE", message: "🚨 FROSTED FRIDAY IS ON! The goal was met! 🍩🎉", timestamp: serverTimestamp(), emoji: "🚨", likes: [] });
-          showNotification("Activated! Goal reset.");
+          
+          await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
+              fromName: "Mr Rayner",
+              toName: "EVERYONE",
+              message: "🚨 FROSTED FRIDAY IS ON! The goal was met! 🍩🎉",
+              timestamp: serverTimestamp(),
+              emoji: "🚨",
+              likes: []
+          });
+
+          showNotification("Frosted Friday Activated! Goal reset.");
           triggerConfetti();
           setView('feed');
+
       } catch (e) {
           console.error(e);
           showNotification("Failed to activate.", "error");
@@ -506,57 +451,75 @@ export default function YumDonutApp() {
           showNotification("Not enough donuts!", "error");
           return;
       }
+
+      // Prevent re-buying one-time digital items
       const currentUserPublic = users.find(u => u.name === myProfile.name);
       if (item.type === 'digital' && item.id === 'rainbow_name' && currentUserPublic?.rainbow_name) {
-          showNotification("Already owned!", "error");
+          showNotification("You already own this!", "error");
           return;
       }
+
       try {
           const publicUserRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
+          
           await runTransaction(db, async (transaction) => {
               const userDoc = await transaction.get(publicUserRef);
               if (!userDoc.exists()) throw "User missing";
+
               const currentBal = userDoc.data().balance || 0;
               if (currentBal < item.cost) throw "Not enough funds";
+
+              // Deduct cost
               const updates = { balance: currentBal - item.cost };
-              if (item.type === 'digital' && item.id === 'rainbow_name') { updates.rainbow_name = true; }
+              
+              // Apply Digital Effect immediately
+              if (item.type === 'digital' && item.id === 'rainbow_name') {
+                  updates.rainbow_name = true;
+              }
+
               transaction.update(publicUserRef, updates);
+
+              // Log transaction (This alerts Mr Rayner for physical items)
               const txRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
-              transaction.set(txRef, { fromName: myProfile.name, toName: "The Shop", message: `Purchased: ${item.name}`, timestamp: serverTimestamp(), emoji: "🛍️", likes: [] });
+              transaction.set(txRef, {
+                  fromName: myProfile.name,
+                  toName: "The Shop",
+                  message: `Purchased: ${item.name}`,
+                  timestamp: serverTimestamp(),
+                  emoji: "🛍️",
+                  likes: []
+              });
           });
+
+          // Update private balance for local state
           const privateUserRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
-          await updateDoc(privateUserRef, { balance: myProfile.balance - item.cost });
+          await updateDoc(privateUserRef, {
+              balance: myProfile.balance - item.cost
+          });
+
           showNotification(`Bought ${item.name}!`);
           triggerConfetti();
+
       } catch (e) {
           console.error(e);
           showNotification("Purchase failed.", "error");
       }
   };
 
-  // --- Updated Bounty Actions with Time Limit & Delete ---
+  // --- Bounty Actions ---
 
-  const handleCreateBounty = async (title, reward, quantity, timeLimitMins) => {
-      const qty = parseInt(quantity) || 1;
-      const mins = parseInt(timeLimitMins) || 0;
-      const expiresAt = mins > 0 ? Date.now() + (mins * 60000) : null;
-
+  const handleCreateBounty = async (title, reward) => {
       await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'bounties'), {
           title,
           reward: parseInt(reward),
           status: 'open',
-          remaining: qty, 
-          expiresAt: expiresAt,
           createdBy: myProfile.name,
           createdAt: serverTimestamp()
       });
-      
-      const timeMsg = mins > 0 ? ` (Expires in ${mins} mins)` : "";
-      
       await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
           fromName: "Job Board",
           toName: "EVERYONE",
-          message: `📢 New Job Posted: ${title} (${reward} ${EMOJI}) - ${qty} spots!${timeMsg}`,
+          message: `📢 New Job Posted: ${title} (${reward} ${EMOJI})`,
           timestamp: serverTimestamp(),
           emoji: "📢",
           likes: []
@@ -564,48 +527,23 @@ export default function YumDonutApp() {
       showNotification("Job Posted & Announced!");
   };
 
-  const handleDeleteBounty = async (bountyId) => {
-    try {
-        const bountyRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'bounties', bountyId);
-        await deleteDoc(bountyRef);
-        showNotification("Job Deleted!");
-    } catch (e) {
-        console.error(e);
-        showNotification("Failed to delete job.", "error");
-    }
-  };
-
-  const handleClaimBounty = async (bountyId, currentRemaining) => {
-      const hasActive = bounties.some(b => b.status === 'claimed' && b.claimantId === user.uid);
-      if (hasActive) {
-           showNotification("Finish your current job first!", "error");
-           return;
-      }
+  const handleClaimBounty = async (bountyId) => {
       const bountyRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'bounties', bountyId);
-      if (currentRemaining > 1) {
-          const bountyDoc = bounties.find(b => b.id === bountyId);
-          await runTransaction(db, async (transaction) => {
-               transaction.update(bountyRef, { remaining: currentRemaining - 1 });
-               const childRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'bounties'));
-               transaction.set(childRef, {
-                   title: bountyDoc.title,
-                   reward: bountyDoc.reward,
-                   status: 'claimed',
-                   claimantName: myProfile.name,
-                   claimantId: user.uid,
-                   createdAt: serverTimestamp(),
-                   parentId: bountyId 
-               });
-          });
-      } else {
-          await updateDoc(bountyRef, { status: 'claimed', remaining: 0, claimantName: myProfile.name, claimantId: user.uid });
-      }
+      await updateDoc(bountyRef, {
+          status: 'claimed',
+          claimantName: myProfile.name,
+          claimantId: user.uid
+      });
       showNotification("Job Claimed! Good luck.");
   };
 
   const handleUnclaimBounty = async (bountyId) => {
       const bountyRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'bounties', bountyId);
-      await updateDoc(bountyRef, { status: 'open', claimantName: null, claimantId: null });
+      await updateDoc(bountyRef, {
+          status: 'open',
+          claimantName: null,
+          claimantId: null
+      });
       showNotification("Job is open again.");
   };
 
@@ -613,17 +551,16 @@ export default function YumDonutApp() {
       try {
           const recipientRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', claimantName);
           const recipientDoc = await getDoc(recipientRef);
+          
           if (recipientDoc.exists()) {
-              const currentBal = recipientDoc.data().balance || 0;
-              const currentLifetime = recipientDoc.data().lifetime_received || currentBal;
-              
               await updateDoc(recipientRef, {
-                  balance: currentBal + reward,
-                  lifetime_received: currentLifetime + reward 
+                  balance: (recipientDoc.data().balance || 0) + reward
               });
           }
+
           const bountyRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'bounties', bountyId);
           await updateDoc(bountyRef, { status: 'paid' });
+
           await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
               fromName: "Mr Rayner",
               toName: claimantName,
@@ -632,8 +569,10 @@ export default function YumDonutApp() {
               emoji: "💰",
               likes: []
           });
+
           triggerConfetti();
           showNotification("Bounty Paid!");
+
       } catch (e) {
           console.error(e);
           showNotification("Payment failed", "error");
@@ -644,6 +583,8 @@ export default function YumDonutApp() {
     setNotification({ msg, type });
     setTimeout(() => setNotification(null), 3000);
   };
+
+  // --- Render Helpers ---
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen bg-pink-50">
@@ -656,7 +597,7 @@ export default function YumDonutApp() {
   }
 
   return (
-    <div className={`min-h-screen font-sans text-slate-800 pb-20 md:pb-0 transition-colors duration-500 ${view === 'give' && notification?.type === 'munch' ? 'bg-red-50' : 'bg-slate-50'}`}>
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-20 md:pb-0">
       <div className="bg-white border-b border-slate-200 sticky top-0 z-10 px-4 py-3 flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-2">
             <div className="bg-pink-100 p-2 rounded-lg">
@@ -664,13 +605,7 @@ export default function YumDonutApp() {
             </div>
             <div>
                 <h1 className="font-bold text-lg text-slate-900 leading-tight">YumDonut</h1>
-                <div className="flex flex-col">
-                    <p className="text-xs text-slate-500">Berkley TV Recognition</p>
-                    <div className="flex items-center gap-1 text-[10px] bg-slate-100 px-1.5 rounded-full w-fit mt-0.5">
-                        <span>{currentRank.icon}</span>
-                        <span className="font-bold text-slate-700">{currentRank.title}</span>
-                    </div>
-                </div>
+                <p className="text-xs text-slate-500">Berkley TV Recognition</p>
             </div>
         </div>
         
@@ -678,10 +613,7 @@ export default function YumDonutApp() {
              <div className="hidden md:block text-right">
                 <p className="text-sm font-semibold">{myProfile.name}</p>
                 <p className="text-xs text-slate-500">
-                    {myProfile.name === "Mr Rayner" 
-                        ? <span className="text-pink-600 font-bold">∞ left (Admin)</span> 
-                        : `${DAILY_LIMIT - (myProfile.last_given_date === new Date().toDateString() ? myProfile.given_today : 0)} left to give`
-                    }
+                    {DAILY_LIMIT - (myProfile.last_given_date === new Date().toDateString() ? myProfile.given_today : 0)} left to give
                 </p>
              </div>
              <div 
@@ -730,7 +662,6 @@ export default function YumDonutApp() {
                 existingUsers={users}
                 currentUserName={myProfile.name}
                 onGive={handleGiveDonut} 
-                onMunch={handleMunchDonut} // Pass Munch handler
                 remaining={DAILY_LIMIT - (myProfile.last_given_date === new Date().toDateString() ? myProfile.given_today : 0)}
             />
         )}
@@ -741,7 +672,6 @@ export default function YumDonutApp() {
                 currentUser={myProfile}
                 userId={user.uid}
                 onCreate={handleCreateBounty}
-                onDelete={handleDeleteBounty} // Pass Delete handler
                 onClaim={handleClaimBounty}
                 onUnclaim={handleUnclaimBounty}
                 onPay={handlePayBounty}
@@ -798,6 +728,12 @@ function LoginScreen({ onLogin, existingUsers }) {
     return name.toLowerCase().includes(search.toLowerCase());
   });
 
+  // Helper to check status
+  const isClaimed = (name) => {
+      const user = existingUsers.find(u => u.name === name);
+      return user && user.claimed;
+  };
+
   const handleLogin = () => {
       if (selectedName && password) {
           onLogin(selectedName, password);
@@ -809,7 +745,7 @@ function LoginScreen({ onLogin, existingUsers }) {
       <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center border-t-8 border-pink-500">
         <div className="text-6xl mb-4">{EMOJI}</div>
         <h1 className="text-2xl font-bold mb-2 text-slate-800">Welcome to YumDonut</h1>
-        <p className="text-slate-500 mb-6">Select your name to get started.</p>
+        <p className="text-slate-500 mb-6">Select your name to Login or Register.</p>
         
         {!selectedName ? (
             <div className="space-y-4 text-left">
@@ -828,16 +764,20 @@ function LoginScreen({ onLogin, existingUsers }) {
                     {availableNames.length === 0 ? (
                         <div className="text-center text-slate-400 py-4 text-sm">No names found.</div>
                     ) : (
-                        availableNames.map(name => (
-                            <button
-                                key={name}
-                                onClick={() => setSelectedName(name)}
-                                className="w-full text-left px-4 py-2 rounded-md text-sm font-medium hover:bg-white hover:shadow-sm text-slate-600 transition-all flex justify-between items-center"
-                            >
-                                <span>{name}</span>
-                                {/* Removed Login/Register badges since we can't check without login */}
-                            </button>
-                        ))
+                        availableNames.map(name => {
+                            const claimed = isClaimed(name);
+                            return (
+                                <button
+                                    key={name}
+                                    onClick={() => setSelectedName(name)}
+                                    className="w-full text-left px-4 py-2 rounded-md text-sm font-medium hover:bg-white hover:shadow-sm text-slate-600 transition-all flex justify-between items-center"
+                                >
+                                    <span>{name}</span>
+                                    {claimed && <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded border border-slate-200">Login</span>}
+                                    {!claimed && <span className="text-[10px] bg-green-100 text-green-600 px-2 py-0.5 rounded border border-green-200">Register</span>}
+                                </button>
+                            );
+                        })
                     )}
                 </div>
             </div>
@@ -846,28 +786,31 @@ function LoginScreen({ onLogin, existingUsers }) {
                 <div className="flex items-center justify-between bg-pink-50 p-3 rounded-lg">
                     <div className="flex items-center gap-2">
                         <span className="font-bold text-pink-700">{selectedName}</span>
+                        {isClaimed(selectedName) ? 
+                            <span className="text-[10px] bg-white text-slate-500 px-2 rounded border">Login</span> : 
+                            <span className="text-[10px] bg-green-100 text-green-600 px-2 rounded border border-green-200">New Account</span>
+                        }
                     </div>
                     <button onClick={() => { setSelectedName(null); setPassword(""); }} className="text-xs text-pink-400 hover:text-pink-600">Change</button>
                 </div>
                 <div>
                     <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
-                        Password
+                        {isClaimed(selectedName) ? "Enter Password" : "Create Password"}
                     </label>
                     <div className="relative">
                         <Lock className="absolute left-3 top-3 text-slate-400" size={18} />
                         <input 
                             type="password" 
                             className="w-full pl-10 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-pink-500 outline-none"
-                            placeholder="Enter password"
+                            placeholder={isClaimed(selectedName) ? "Your password..." : "Create a new password"}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
                         />
                     </div>
-                    <p className="text-xs text-slate-400 mt-1">First time? Create a password. Returning? Login.</p>
                 </div>
                 <Button variant="primary" className="w-full py-3 text-lg" onClick={handleLogin} disabled={!password}>
-                    Continue
+                    {isClaimed(selectedName) ? "Login" : "Create Account"}
                 </Button>
             </div>
         )}
@@ -921,30 +864,12 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic }) {
     );
 }
 
-function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onClaim, onUnclaim, onPay }) {
+function BountiesView({ bounties, currentUser, userId, onCreate, onClaim, onUnclaim, onPay }) {
     const [newTitle, setNewTitle] = useState("");
     const [newReward, setNewReward] = useState(5);
-    const [newQty, setNewQty] = useState(1); 
-    const [newTimeLimit, setNewTimeLimit] = useState(0); // New State
     const isAdmin = currentUser.name === "Mr Rayner";
 
     const activeBounties = bounties.filter(b => b.status !== 'paid');
-
-    // Countdown Helper
-    const getTimeLeft = (expiresAt) => {
-        if (!expiresAt) return null;
-        const diff = expiresAt - Date.now();
-        if (diff <= 0) return "Expired";
-        const mins = Math.ceil(diff / 60000);
-        return `${mins}m left`;
-    };
-
-    // Force re-render every minute for timers
-    const [, setTick] = useState(0);
-    useEffect(() => {
-        const interval = setInterval(() => setTick(t => t + 1), 60000);
-        return () => clearInterval(interval);
-    }, []);
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -953,45 +878,21 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                     <h3 className="font-bold text-pink-700 mb-3 flex items-center gap-2">
                         <Briefcase size={20}/> Post New Job
                     </h3>
-                    <div className="flex flex-col gap-3">
+                    <div className="flex gap-2 flex-col md:flex-row">
                         <input 
-                            className="w-full p-2 rounded-lg border border-pink-200"
+                            className="flex-grow p-2 rounded-lg border border-pink-200"
                             placeholder="Job Description (e.g. Film Assembly)"
                             value={newTitle}
                             onChange={e => setNewTitle(e.target.value)}
                         />
                         <div className="flex gap-2">
-                            <div className="flex flex-col w-20">
-                                <label className="text-[10px] text-pink-400 font-bold uppercase">Reward</label>
-                                <input 
-                                    type="number"
-                                    className="w-full p-2 rounded-lg border border-pink-200"
-                                    value={newReward}
-                                    onChange={e => setNewReward(e.target.value)}
-                                />
-                            </div>
-                            <div className="flex flex-col w-20">
-                                <label className="text-[10px] text-pink-400 font-bold uppercase">Spots</label>
-                                <input 
-                                    type="number"
-                                    min="1"
-                                    className="w-full p-2 rounded-lg border border-pink-200"
-                                    value={newQty}
-                                    onChange={e => setNewQty(e.target.value)}
-                                />
-                            </div>
-                            <div className="flex flex-col w-24">
-                                <label className="text-[10px] text-pink-400 font-bold uppercase">Time (Mins)</label>
-                                <input 
-                                    type="number"
-                                    min="0"
-                                    className="w-full p-2 rounded-lg border border-pink-200"
-                                    placeholder="∞"
-                                    value={newTimeLimit}
-                                    onChange={e => setNewTimeLimit(e.target.value)}
-                                />
-                            </div>
-                            <Button className="self-end flex-grow" onClick={() => { onCreate(newTitle, newReward, newQty, newTimeLimit); setNewTitle(""); setNewQty(1); setNewTimeLimit(0); }}>
+                            <input 
+                                type="number"
+                                className="w-20 p-2 rounded-lg border border-pink-200"
+                                value={newReward}
+                                onChange={e => setNewReward(e.target.value)}
+                            />
+                            <Button onClick={() => { onCreate(newTitle, newReward); setNewTitle(""); }}>
                                 Post
                             </Button>
                         </div>
@@ -1002,16 +903,12 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
             <div className="space-y-3">
                 <h3 className="font-bold text-slate-700 ml-1 flex justify-between items-center">
                     <span>Active Jobs</span>
+                    <span className="text-xs font-normal text-slate-400">Latest first</span>
                 </h3>
                 {activeBounties.length === 0 && <div className="text-center text-slate-400 py-8">No active jobs right now.</div>}
                 
                 {activeBounties.map(b => {
                     const isMyClaim = b.claimantId === userId;
-                    const hasActiveJob = bounties.some(job => job.status === 'claimed' && job.claimantId === userId);
-                    const remainingSpots = b.remaining || (b.status === 'open' ? 1 : 0); 
-                    
-                    const timeLeft = getTimeLeft(b.expiresAt);
-                    const isExpired = timeLeft === "Expired";
 
                     return (
                         <Card key={b.id} className="flex justify-between items-center border-l-4 border-l-pink-500">
@@ -1021,18 +918,6 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                                     <span className="bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">
                                         {b.reward} {EMOJI} Reward
                                     </span>
-                                    {b.status === 'open' && remainingSpots > 1 && (
-                                        <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1">
-                                            <Users size={12}/> {remainingSpots} spots left
-                                        </span>
-                                    )}
-                                    {/* Time Limit Badge */}
-                                    {b.status === 'open' && timeLeft && (
-                                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1 ${isExpired ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-700'}`}>
-                                            <Clock size={12}/> {timeLeft}
-                                        </span>
-                                    )}
-                                    
                                     {b.status === 'claimed' && (
                                         <span className="text-xs text-slate-500 flex items-center gap-1 whitespace-nowrap">
                                             <CheckSquare size={12}/> Claimed by {b.claimantName}
@@ -1043,25 +928,9 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                             
                             <div className="flex gap-2 flex-shrink-0">
                                 {b.status === 'open' && (
-                                    <>
-                                        <Button 
-                                            variant="outline" 
-                                            onClick={() => onClaim(b.id, remainingSpots)}
-                                            disabled={hasActiveJob || isExpired} 
-                                            className={hasActiveJob || isExpired ? "opacity-50 cursor-not-allowed" : ""}
-                                            title={isExpired ? "Job Expired" : hasActiveJob ? "Finish your current job first!" : "Claim this job"}
-                                        >
-                                            {isExpired ? "Expired" : "Claim"}
-                                        </Button>
-                                        {isAdmin && (
-                                            <button 
-                                                onClick={() => onDelete(b.id)}
-                                                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                            >
-                                                <Trash2 size={20}/>
-                                            </button>
-                                        )}
-                                    </>
+                                    <Button variant="outline" onClick={() => onClaim(b.id)}>
+                                        Claim
+                                    </Button>
                                 )}
 
                                 {b.status === 'claimed' && isAdmin && (
@@ -1166,15 +1035,11 @@ function GoalView({ goalData, userBalance, onContribute, currentUserName, onActi
     );
 }
 
-function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, remaining }) {
+// ... LoginScreen, GiveView, FeedView, LeaderboardView, NavBtn ...
+function GiveView({ roster, existingUsers, currentUserName, onGive, remaining }) {
     const [selectedUser, setSelectedUser] = useState("");
     const [message, setMessage] = useState("");
     const [filter, setFilter] = useState("");
-    const [amount, setAmount] = useState(1);
-    const [mode, setMode] = useState("give"); // 'give' or 'munch'
-    
-    const isAdmin = currentUserName === "Mr Rayner";
-    const isMunch = mode === "munch";
 
     const filteredRoster = roster
         .filter(name => name !== currentUserName)
@@ -1182,58 +1047,29 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
 
     const handleSubmit = () => {
         if (!selectedUser || !message) return;
-        
-        if (isMunch) {
-            onMunch(selectedUser, message);
-        } else {
-            onGive(selectedUser, message, amount);
-        }
-        
+        onGive(selectedUser, message);
         setMessage("");
         setSelectedUser("");
         setFilter("");
-        setAmount(1);
     };
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className={`md:hidden p-6 rounded-2xl shadow-lg shadow-pink-200 flex justify-between items-center transition-colors ${isMunch ? 'bg-red-500 text-white' : 'bg-pink-500 text-white'}`}>
+            <div className="md:hidden bg-pink-500 text-white p-6 rounded-2xl shadow-lg shadow-pink-200 flex justify-between items-center">
                 <div>
-                    <h2 className="font-bold text-lg opacity-90">{isMunch ? "The Muncher" : "Daily Balance"}</h2>
-                    <p className="text-xs opacity-75">{isMunch ? "Feeding Time 👾" : "Use them or lose them!"}</p>
+                    <h2 className="font-bold text-lg opacity-90">Daily Balance</h2>
+                    <p className="text-xs opacity-75">Use them or lose them!</p>
                 </div>
-                <div className="text-4xl font-black">{isAdmin ? "∞" : remaining}</div>
+                <div className="text-4xl font-black">{remaining}</div>
             </div>
 
-            <Card className={`space-y-4 transition-colors ${isMunch ? 'border-red-200 bg-red-50' : ''}`}>
-                <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2 mb-2">
-                        {isMunch ? <Skull className="text-red-500" size={24} /> : <Heart className="text-pink-500" size={24} />}
-                        <h2 className="text-xl font-bold text-slate-800">
-                            {isMunch ? "Who lost a donut?" : "Who deserves a donut?"}
-                        </h2>
-                    </div>
-                    
-                    {/* ADMIN TOGGLE */}
-                    {isAdmin && (
-                        <div className="flex bg-slate-100 rounded-lg p-1">
-                            <button 
-                                onClick={() => setMode("give")}
-                                className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${!isMunch ? 'bg-white text-pink-500 shadow-sm' : 'text-slate-400'}`}
-                            >
-                                😇 Give
-                            </button>
-                            <button 
-                                onClick={() => setMode("munch")}
-                                className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${isMunch ? 'bg-white text-red-500 shadow-sm' : 'text-slate-400'}`}
-                            >
-                                😈 Munch
-                            </button>
-                        </div>
-                    )}
+            <Card className="space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                    <Heart className="text-pink-500" size={24} />
+                    <h2 className="text-xl font-bold text-slate-800">Who deserves a donut?</h2>
                 </div>
 
-                {remaining === 0 && !isAdmin ? (
+                {remaining === 0 ? (
                      <div className="bg-slate-100 p-6 rounded-xl text-center text-slate-500">
                         <p className="text-lg font-medium">You're all out of donuts!</p>
                         <p className="text-sm">Come back tomorrow for a fresh batch.</p>
@@ -1245,7 +1081,7 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
                             {!selectedUser ? (
                                 <div className="relative">
                                     <input 
-                                        className="w-full p-3 pl-10 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none"
+                                        className="w-full p-3 pl-10 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none"
                                         placeholder="Search name..."
                                         value={filter}
                                         onChange={e => setFilter(e.target.value)}
@@ -1276,7 +1112,7 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
                                     )}
                                 </div>
                             ) : (
-                                <div className="flex items-center justify-between p-3 bg-white border border-pink-200 rounded-xl">
+                                <div className="flex items-center justify-between p-3 bg-pink-50 border border-pink-200 rounded-xl">
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" 
                                              style={{background: existingUsers.find(u => u.name === selectedUser)?.avatar_color || "#cbd5e1"}}>
@@ -1296,49 +1132,20 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
                         <div className="space-y-2">
                             <label className="text-sm font-semibold text-slate-600">Reason</label>
                             <textarea 
-                                className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none resize-none"
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none resize-none"
                                 rows={3}
-                                placeholder={isMunch ? "Why did the Muncher strike? (e.g. Left batteries flat)" : "Thanks for helping me with the filming!"}
+                                placeholder="Thanks for helping me with the filming!"
                                 value={message}
                                 onChange={e => setMessage(e.target.value)}
                             />
                         </div>
 
-                        {/* Admin Bulk Controls (Only show in Give Mode) */}
-                        {isAdmin && !isMunch && (
-                            <div className="space-y-2">
-                                <label className="text-sm font-semibold text-slate-600 flex items-center gap-2">
-                                    <Zap size={16} className="text-yellow-500"/> Admin Multiplier
-                                </label>
-                                <div className="flex gap-2">
-                                    {[1, 2, 5, 10].map(n => (
-                                        <button
-                                            key={n}
-                                            onClick={() => setAmount(n)}
-                                            className={`flex-1 py-2 rounded-lg font-bold text-sm transition-all ${
-                                                amount === n 
-                                                ? "bg-yellow-400 text-yellow-900 shadow-md scale-105" 
-                                                : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                                            }`}
-                                        >
-                                            {n}x
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
                         <Button 
                             onClick={handleSubmit} 
                             disabled={!selectedUser || !message}
                             className="w-full py-3 text-lg"
-                            variant={isMunch ? "danger" : "primary"}
                         >
-                            {isMunch ? `Feed The Muncher (1 ${EMOJI})` : 
-                            `Give ${amount > 1 ? `${amount} ${EMOJI}` : EMOJI}`}
-                            {!isMunch && <span className="text-sm opacity-80 ml-1">
-                                {isAdmin ? "(∞ left)" : `(${remaining} left)`}
-                            </span>}
+                            Give {EMOJI} <span className="text-sm opacity-80 ml-1">({remaining} left)</span>
                         </Button>
                     </>
                 )}
@@ -1357,39 +1164,27 @@ function FeedView({ transactions, onReact }) {
                     <p>No donuts given yet. Be the first!</p>
                 </div>
             ) : (
-                transactions.map(tx => {
-                    const count = tx.amount || 1;
-                    const isMunch = tx.fromName === "The Donut Muncher";
-                    
-                    return (
-                    <Card key={tx.id} className={`flex gap-4 relative ${isMunch ? 'bg-red-50 border-red-100' : ''}`}>
-                        <div className={`flex-shrink-0 mt-1 p-2 rounded-full h-10 w-10 flex items-center justify-center text-lg shadow-sm ${isMunch ? 'bg-red-100 text-red-500' : 'bg-pink-100 text-pink-500'}`}>
+                transactions.map(tx => (
+                    <Card key={tx.id} className="flex gap-4 relative">
+                        <div className="flex-shrink-0 mt-1 bg-pink-100 text-pink-500 p-2 rounded-full h-10 w-10 flex items-center justify-center text-lg shadow-sm">
                             {tx.emoji || EMOJI}
                         </div>
                         <div className="flex-grow pb-6">
                             <div className="flex flex-wrap items-baseline gap-x-1 mb-1">
                                 <span className="font-bold text-slate-900">{tx.fromName}</span>
-                                {tx.toName === "Frosted Friday" || tx.toName === "EVERYONE" || tx.toName === "The Shop" || tx.fromName === "Job Board" ? (
+                                {tx.toName === "Frosted Friday" || tx.toName === "EVERYONE" || tx.toName === "The Shop" ? (
                                     <span className="text-slate-500 text-sm ml-1">
                                         {tx.message.includes("activated") ? "announced" : 
-                                         tx.message.includes("Purchased") ? "went shopping" : 
-                                         tx.emoji === "📢" ? "announced" : "contributed to"}
+                                         tx.message.includes("Purchased") ? "went shopping" : "contributed to"}
                                     </span>
-                                ) : isMunch ? (
-                                    <>
-                                        <span className="text-red-500 text-sm mx-1 font-bold">ATE a donut from</span>
-                                        <span className="font-bold text-slate-900">{tx.toName}</span>
-                                    </>
                                 ) : (
                                     <>
-                                        <span className="text-slate-500 text-sm mx-1">
-                                            gave {count > 1 ? <span className="font-bold text-pink-600">{count} donuts</span> : "a donut"} to
-                                        </span>
+                                        <span className="text-slate-500 text-sm mx-1">gave a donut to</span>
                                         <span className="font-bold text-slate-900">{tx.toName}</span>
                                     </>
                                 )}
                             </div>
-                            <p className={`p-2 rounded-lg border italic text-sm ${isMunch ? 'text-red-700 bg-red-100 border-red-200' : 'text-slate-700 bg-slate-50 border-slate-100'}`}>
+                            <p className="text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-100 italic text-sm">
                                 "{tx.message}"
                             </p>
                             <p className="text-xs text-slate-400 mt-2 text-right">
@@ -1398,7 +1193,7 @@ function FeedView({ transactions, onReact }) {
                             
                             <button 
                                 onClick={() => onReact(tx.id, tx.likes)}
-                                className="absolute bottom-3 left-16 text-xs bg-white hover:bg-orange-50 border border-slate-200 px-2 py-1 rounded-full flex items-center gap-1 transition-colors"
+                                className="absolute bottom-3 left-16 text-xs bg-slate-50 hover:bg-orange-50 border border-slate-200 px-2 py-1 rounded-full flex items-center gap-1 transition-colors"
                             >
                                 <Flame size={12} className={tx.likes?.length ? "text-orange-500 fill-orange-500" : "text-slate-400"} />
                                 <span className={tx.likes?.length ? "text-orange-600 font-bold" : "text-slate-500"}>
@@ -1407,8 +1202,7 @@ function FeedView({ transactions, onReact }) {
                             </button>
                         </div>
                     </Card>
-                )
-                })
+                ))
             )}
         </div>
     );
@@ -1421,9 +1215,7 @@ function LeaderboardView({ users, roster }) {
             name: name,
             balance: userData ? userData.balance : 0,
             avatar_color: userData ? userData.avatar_color : '#cbd5e1',
-            rainbow_name: userData ? userData.rainbow_name : false,
-            lifetime_received: userData ? userData.lifetime_received : 0,
-            lifetime_given: userData ? userData.lifetime_given : 0
+            rainbow_name: userData ? userData.rainbow_name : false
         };
     }).sort((a, b) => b.balance - a.balance);
 
@@ -1435,10 +1227,7 @@ function LeaderboardView({ users, roster }) {
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                {combinedList.map((u, index) => {
-                    // Ranks based on GIVEN
-                    const rank = getRank(u.lifetime_given || 0); 
-                    return (
+                {combinedList.map((u, index) => (
                     <div key={u.name} className="flex items-center p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors last:border-none">
                         <div className="w-8 font-bold text-slate-400 text-center flex-shrink-0">
                             {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}
@@ -1449,15 +1238,10 @@ function LeaderboardView({ users, roster }) {
                             </div>
                         </div>
                         <div className="flex-grow min-w-0">
-                            <div className="flex items-center gap-2">
-                                <p className={`font-bold truncate ${u.rainbow_name ? 'animate-text-rainbow bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-500 to-red-500' : 'text-slate-800'}`}>
-                                    {u.name}
-                                </p>
-                                <span className="text-[10px] bg-slate-100 px-1.5 rounded text-slate-500" title={`Given: ${u.lifetime_given || 0}`}>
-                                    {rank.icon} {rank.title}
-                                </span>
-                            </div>
-                            <p className="text-xs text-slate-500">{u.balance} donuts available</p>
+                            <p className={`font-bold truncate ${u.rainbow_name ? 'animate-text-rainbow bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-500 to-red-500' : 'text-slate-800'}`}>
+                                {u.name}
+                            </p>
+                            <p className="text-xs text-slate-500">{u.balance} donuts received</p>
                         </div>
                         <div className="text-right pl-2">
                              <div className="inline-flex items-center bg-pink-50 text-pink-600 px-3 py-1 rounded-full font-bold text-sm">
@@ -1465,7 +1249,7 @@ function LeaderboardView({ users, roster }) {
                              </div>
                         </div>
                     </div>
-                )})}
+                ))}
             </div>
         </div>
     );

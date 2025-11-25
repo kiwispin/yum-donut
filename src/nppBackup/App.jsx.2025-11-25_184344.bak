@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import { 
   getFirestore, collection, addDoc, query, orderBy, limit, 
   onSnapshot, doc, updateDoc, setDoc, getDoc, serverTimestamp, 
-  runTransaction, arrayUnion, arrayRemove, deleteDoc
+  runTransaction, arrayUnion, arrayRemove 
 } from 'firebase/firestore';
 import { 
   getAuth, onAuthStateChanged, signInWithCustomToken,
@@ -12,7 +12,7 @@ import {
 import { 
   Trophy, Gift, Activity, MessageSquare, 
   LogOut, UserPlus, Heart, Zap, Search, CheckCircle, Target, Sparkles,
-  Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock, Users, Skull, Trash2, Clock
+  Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock, Users
 } from 'lucide-react';
 
 // --- CONFIGURATION START ---
@@ -52,8 +52,7 @@ const SCHOOL_ROSTER = [
   "Armani",
   "Ashley",
   "Tobin",
-  "Isaac",
-  "Lia"
+  "Isaac"
 ];
 
 const DAILY_LIMIT = 5;
@@ -138,7 +137,7 @@ const Button = ({ onClick, disabled, children, variant = "primary", className = 
     secondary: "bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:bg-slate-50",
     outline: "border-2 border-slate-200 hover:border-pink-500 hover:text-pink-500 text-slate-600",
     success: "bg-green-500 hover:bg-green-600 text-white shadow-lg shadow-green-200 disabled:bg-green-300",
-    danger: "bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-200 disabled:bg-red-300"
+    danger: "bg-red-50 hover:bg-red-100 text-red-600 border border-red-200"
   };
   return (
     <button onClick={onClick} disabled={disabled} className={`${base} ${styles[variant]} ${className}`}>
@@ -165,7 +164,9 @@ export default function YumDonutApp() {
   // Auth & Profile Listener
   useEffect(() => {
     const initAuth = async () => {
+        // CRITICAL FIX: Wait for persistance check
         await auth.authStateReady();
+        
         if (!auth.currentUser) {
             try {
                 await signInAnonymously(auth);
@@ -367,7 +368,6 @@ export default function YumDonutApp() {
             last_given_date: today
         });
 
-        // Update Sender's LIFETIME_GIVEN
         const senderPublicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
         const senderPublicDoc = await getDoc(senderPublicRef);
         if (senderPublicDoc.exists()) {
@@ -405,50 +405,6 @@ export default function YumDonutApp() {
         console.error(e);
         showNotification("Failed to send donut. Try again.", "error");
     }
-  };
-
-  // THE DONUT MUNCHER (Penalty Logic)
-  const handleMunchDonut = async (victimName, reason) => {
-      if (!myProfile) return;
-
-      try {
-          const recipientRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', victimName);
-          const recipientDoc = await getDoc(recipientRef);
-          
-          if (!recipientDoc.exists()) {
-              showNotification("User has no wallet to munch!", "error");
-              return;
-          }
-          
-          const currentBal = recipientDoc.data().balance || 0;
-          if (currentBal < 1) {
-              showNotification("They have 0 donuts. The Muncher goes hungry.", "error");
-              return;
-          }
-
-          // Deduct 1
-          await updateDoc(recipientRef, {
-              balance: currentBal - 1
-          });
-
-          // Post Public Shaming (ANONYMOUS)
-          await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
-            fromName: "The Donut Muncher",
-            toName: "Someone", // Anonymous
-            message: `Nom nom! Ate a donut because: ${reason}`,
-            timestamp: serverTimestamp(),
-            emoji: "👾",
-            amount: 1,
-            likes: []
-        });
-
-        showNotification(`Munched 1 donut from ${victimName}!`);
-        setView('feed');
-
-      } catch (e) {
-          console.error(e);
-          showNotification("Munch failed.", "error");
-      }
   };
 
   const handleReaction = async (txId, currentLikes) => {
@@ -534,45 +490,25 @@ export default function YumDonutApp() {
       }
   };
 
-  // --- Updated Bounty Actions with Time Limit & Delete ---
-
-  const handleCreateBounty = async (title, reward, quantity, timeLimitMins) => {
+  const handleCreateBounty = async (title, reward, quantity) => {
       const qty = parseInt(quantity) || 1;
-      const mins = parseInt(timeLimitMins) || 0;
-      const expiresAt = mins > 0 ? Date.now() + (mins * 60000) : null;
-
       await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'bounties'), {
           title,
           reward: parseInt(reward),
           status: 'open',
           remaining: qty, 
-          expiresAt: expiresAt,
           createdBy: myProfile.name,
           createdAt: serverTimestamp()
       });
-      
-      const timeMsg = mins > 0 ? ` (Expires in ${mins} mins)` : "";
-      
       await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
           fromName: "Job Board",
           toName: "EVERYONE",
-          message: `📢 New Job Posted: ${title} (${reward} ${EMOJI}) - ${qty} spots!${timeMsg}`,
+          message: `📢 New Job Posted: ${title} (${reward} ${EMOJI}) - ${qty} spots!`,
           timestamp: serverTimestamp(),
           emoji: "📢",
           likes: []
       });
       showNotification("Job Posted & Announced!");
-  };
-
-  const handleDeleteBounty = async (bountyId) => {
-    try {
-        const bountyRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'bounties', bountyId);
-        await deleteDoc(bountyRef);
-        showNotification("Job Deleted!");
-    } catch (e) {
-        console.error(e);
-        showNotification("Failed to delete job.", "error");
-    }
   };
 
   const handleClaimBounty = async (bountyId, currentRemaining) => {
@@ -656,14 +592,14 @@ export default function YumDonutApp() {
   }
 
   return (
-    <div className={`min-h-screen font-sans text-slate-800 pb-20 md:pb-0 transition-colors duration-500 ${view === 'give' && notification?.type === 'munch' ? 'bg-red-50' : 'bg-slate-50'}`}>
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-20 md:pb-0">
       <div className="bg-white border-b border-slate-200 sticky top-0 z-10 px-4 py-3 flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-2">
             <div className="bg-pink-100 p-2 rounded-lg">
                 <span className="text-xl leading-none">{EMOJI}</span>
             </div>
             <div>
-                <h1 className="font-bold text-lg text-slate-900 leading-tight">YumDonut</h1>
+                <h1 className="font-bold text-lg text-slate-900 leading-tight">YumDonut v2.0</h1>
                 <div className="flex flex-col">
                     <p className="text-xs text-slate-500">Berkley TV Recognition</p>
                     <div className="flex items-center gap-1 text-[10px] bg-slate-100 px-1.5 rounded-full w-fit mt-0.5">
@@ -730,7 +666,6 @@ export default function YumDonutApp() {
                 existingUsers={users}
                 currentUserName={myProfile.name}
                 onGive={handleGiveDonut} 
-                onMunch={handleMunchDonut} // Pass Munch handler
                 remaining={DAILY_LIMIT - (myProfile.last_given_date === new Date().toDateString() ? myProfile.given_today : 0)}
             />
         )}
@@ -741,7 +676,6 @@ export default function YumDonutApp() {
                 currentUser={myProfile}
                 userId={user.uid}
                 onCreate={handleCreateBounty}
-                onDelete={handleDeleteBounty} // Pass Delete handler
                 onClaim={handleClaimBounty}
                 onUnclaim={handleUnclaimBounty}
                 onPay={handlePayBounty}
@@ -798,6 +732,12 @@ function LoginScreen({ onLogin, existingUsers }) {
     return name.toLowerCase().includes(search.toLowerCase());
   });
 
+  // Helper to check status
+  const isClaimed = (name) => {
+      const user = existingUsers.find(u => u.name === name);
+      return user && user.claimed;
+  };
+
   const handleLogin = () => {
       if (selectedName && password) {
           onLogin(selectedName, password);
@@ -809,7 +749,7 @@ function LoginScreen({ onLogin, existingUsers }) {
       <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center border-t-8 border-pink-500">
         <div className="text-6xl mb-4">{EMOJI}</div>
         <h1 className="text-2xl font-bold mb-2 text-slate-800">Welcome to YumDonut</h1>
-        <p className="text-slate-500 mb-6">Select your name to get started.</p>
+        <p className="text-slate-500 mb-6">Select your name to Login or Register.</p>
         
         {!selectedName ? (
             <div className="space-y-4 text-left">
@@ -828,16 +768,20 @@ function LoginScreen({ onLogin, existingUsers }) {
                     {availableNames.length === 0 ? (
                         <div className="text-center text-slate-400 py-4 text-sm">No names found.</div>
                     ) : (
-                        availableNames.map(name => (
-                            <button
-                                key={name}
-                                onClick={() => setSelectedName(name)}
-                                className="w-full text-left px-4 py-2 rounded-md text-sm font-medium hover:bg-white hover:shadow-sm text-slate-600 transition-all flex justify-between items-center"
-                            >
-                                <span>{name}</span>
-                                {/* Removed Login/Register badges since we can't check without login */}
-                            </button>
-                        ))
+                        availableNames.map(name => {
+                            const claimed = isClaimed(name);
+                            return (
+                                <button
+                                    key={name}
+                                    onClick={() => setSelectedName(name)}
+                                    className="w-full text-left px-4 py-2 rounded-md text-sm font-medium hover:bg-white hover:shadow-sm text-slate-600 transition-all flex justify-between items-center"
+                                >
+                                    <span>{name}</span>
+                                    {claimed && <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded border border-slate-200">Login</span>}
+                                    {!claimed && <span className="text-[10px] bg-green-100 text-green-600 px-2 py-0.5 rounded border border-green-200">Register</span>}
+                                </button>
+                            );
+                        })
                     )}
                 </div>
             </div>
@@ -846,28 +790,31 @@ function LoginScreen({ onLogin, existingUsers }) {
                 <div className="flex items-center justify-between bg-pink-50 p-3 rounded-lg">
                     <div className="flex items-center gap-2">
                         <span className="font-bold text-pink-700">{selectedName}</span>
+                        {isClaimed(selectedName) ? 
+                            <span className="text-[10px] bg-white text-slate-500 px-2 rounded border">Login</span> : 
+                            <span className="text-[10px] bg-green-100 text-green-600 px-2 rounded border border-green-200">New Account</span>
+                        }
                     </div>
                     <button onClick={() => { setSelectedName(null); setPassword(""); }} className="text-xs text-pink-400 hover:text-pink-600">Change</button>
                 </div>
                 <div>
                     <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
-                        Password
+                        {isClaimed(selectedName) ? "Enter Password" : "Create Password"}
                     </label>
                     <div className="relative">
                         <Lock className="absolute left-3 top-3 text-slate-400" size={18} />
                         <input 
                             type="password" 
                             className="w-full pl-10 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-pink-500 outline-none"
-                            placeholder="Enter password"
+                            placeholder={isClaimed(selectedName) ? "Your password..." : "Create a new password"}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
                         />
                     </div>
-                    <p className="text-xs text-slate-400 mt-1">First time? Create a password. Returning? Login.</p>
                 </div>
                 <Button variant="primary" className="w-full py-3 text-lg" onClick={handleLogin} disabled={!password}>
-                    Continue
+                    {isClaimed(selectedName) ? "Login" : "Create Account"}
                 </Button>
             </div>
         )}
@@ -921,30 +868,13 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic }) {
     );
 }
 
-function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onClaim, onUnclaim, onPay }) {
+function BountiesView({ bounties, currentUser, userId, onCreate, onClaim, onUnclaim, onPay }) {
     const [newTitle, setNewTitle] = useState("");
     const [newReward, setNewReward] = useState(5);
     const [newQty, setNewQty] = useState(1); 
-    const [newTimeLimit, setNewTimeLimit] = useState(0); // New State
     const isAdmin = currentUser.name === "Mr Rayner";
 
     const activeBounties = bounties.filter(b => b.status !== 'paid');
-
-    // Countdown Helper
-    const getTimeLeft = (expiresAt) => {
-        if (!expiresAt) return null;
-        const diff = expiresAt - Date.now();
-        if (diff <= 0) return "Expired";
-        const mins = Math.ceil(diff / 60000);
-        return `${mins}m left`;
-    };
-
-    // Force re-render every minute for timers
-    const [, setTick] = useState(0);
-    useEffect(() => {
-        const interval = setInterval(() => setTick(t => t + 1), 60000);
-        return () => clearInterval(interval);
-    }, []);
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -953,45 +883,28 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                     <h3 className="font-bold text-pink-700 mb-3 flex items-center gap-2">
                         <Briefcase size={20}/> Post New Job
                     </h3>
-                    <div className="flex flex-col gap-3">
+                    <div className="flex gap-2 flex-col md:flex-row">
                         <input 
-                            className="w-full p-2 rounded-lg border border-pink-200"
+                            className="flex-grow p-2 rounded-lg border border-pink-200"
                             placeholder="Job Description (e.g. Film Assembly)"
                             value={newTitle}
                             onChange={e => setNewTitle(e.target.value)}
                         />
                         <div className="flex gap-2">
-                            <div className="flex flex-col w-20">
-                                <label className="text-[10px] text-pink-400 font-bold uppercase">Reward</label>
-                                <input 
-                                    type="number"
-                                    className="w-full p-2 rounded-lg border border-pink-200"
-                                    value={newReward}
-                                    onChange={e => setNewReward(e.target.value)}
-                                />
-                            </div>
-                            <div className="flex flex-col w-20">
-                                <label className="text-[10px] text-pink-400 font-bold uppercase">Spots</label>
-                                <input 
-                                    type="number"
-                                    min="1"
-                                    className="w-full p-2 rounded-lg border border-pink-200"
-                                    value={newQty}
-                                    onChange={e => setNewQty(e.target.value)}
-                                />
-                            </div>
-                            <div className="flex flex-col w-24">
-                                <label className="text-[10px] text-pink-400 font-bold uppercase">Time (Mins)</label>
-                                <input 
-                                    type="number"
-                                    min="0"
-                                    className="w-full p-2 rounded-lg border border-pink-200"
-                                    placeholder="∞"
-                                    value={newTimeLimit}
-                                    onChange={e => setNewTimeLimit(e.target.value)}
-                                />
-                            </div>
-                            <Button className="self-end flex-grow" onClick={() => { onCreate(newTitle, newReward, newQty, newTimeLimit); setNewTitle(""); setNewQty(1); setNewTimeLimit(0); }}>
+                            <input 
+                                type="number"
+                                className="w-20 p-2 rounded-lg border border-pink-200"
+                                value={newReward}
+                                onChange={e => setNewReward(e.target.value)}
+                            />
+                            <input 
+                                type="number"
+                                min="1"
+                                className="w-20 p-2 rounded-lg border border-pink-200"
+                                value={newQty}
+                                onChange={e => setNewQty(e.target.value)}
+                            />
+                            <Button className="self-end" onClick={() => { onCreate(newTitle, newReward, newQty); setNewTitle(""); setNewQty(1); }}>
                                 Post
                             </Button>
                         </div>
@@ -1009,9 +922,6 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                     const isMyClaim = b.claimantId === userId;
                     const hasActiveJob = bounties.some(job => job.status === 'claimed' && job.claimantId === userId);
                     const remainingSpots = b.remaining || (b.status === 'open' ? 1 : 0); 
-                    
-                    const timeLeft = getTimeLeft(b.expiresAt);
-                    const isExpired = timeLeft === "Expired";
 
                     return (
                         <Card key={b.id} className="flex justify-between items-center border-l-4 border-l-pink-500">
@@ -1026,13 +936,6 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                                             <Users size={12}/> {remainingSpots} spots left
                                         </span>
                                     )}
-                                    {/* Time Limit Badge */}
-                                    {b.status === 'open' && timeLeft && (
-                                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1 ${isExpired ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-700'}`}>
-                                            <Clock size={12}/> {timeLeft}
-                                        </span>
-                                    )}
-                                    
                                     {b.status === 'claimed' && (
                                         <span className="text-xs text-slate-500 flex items-center gap-1 whitespace-nowrap">
                                             <CheckSquare size={12}/> Claimed by {b.claimantName}
@@ -1043,25 +946,15 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                             
                             <div className="flex gap-2 flex-shrink-0">
                                 {b.status === 'open' && (
-                                    <>
-                                        <Button 
-                                            variant="outline" 
-                                            onClick={() => onClaim(b.id, remainingSpots)}
-                                            disabled={hasActiveJob || isExpired} 
-                                            className={hasActiveJob || isExpired ? "opacity-50 cursor-not-allowed" : ""}
-                                            title={isExpired ? "Job Expired" : hasActiveJob ? "Finish your current job first!" : "Claim this job"}
-                                        >
-                                            {isExpired ? "Expired" : "Claim"}
-                                        </Button>
-                                        {isAdmin && (
-                                            <button 
-                                                onClick={() => onDelete(b.id)}
-                                                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                            >
-                                                <Trash2 size={20}/>
-                                            </button>
-                                        )}
-                                    </>
+                                    <Button 
+                                        variant="outline" 
+                                        onClick={() => onClaim(b.id, remainingSpots)}
+                                        disabled={hasActiveJob} 
+                                        className={hasActiveJob ? "opacity-50 cursor-not-allowed" : ""}
+                                        title={hasActiveJob ? "Finish your current job first!" : "Claim this job"}
+                                    >
+                                        Claim
+                                    </Button>
                                 )}
 
                                 {b.status === 'claimed' && isAdmin && (
@@ -1166,15 +1059,14 @@ function GoalView({ goalData, userBalance, onContribute, currentUserName, onActi
     );
 }
 
-function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, remaining }) {
+// ... LoginScreen, GiveView, FeedView, LeaderboardView, NavBtn ...
+function GiveView({ roster, existingUsers, currentUserName, onGive, remaining }) {
     const [selectedUser, setSelectedUser] = useState("");
     const [message, setMessage] = useState("");
     const [filter, setFilter] = useState("");
-    const [amount, setAmount] = useState(1);
-    const [mode, setMode] = useState("give"); // 'give' or 'munch'
+    const [amount, setAmount] = useState(1); // For Admin Bulk Give
     
     const isAdmin = currentUserName === "Mr Rayner";
-    const isMunch = mode === "munch";
 
     const filteredRoster = roster
         .filter(name => name !== currentUserName)
@@ -1182,13 +1074,7 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
 
     const handleSubmit = () => {
         if (!selectedUser || !message) return;
-        
-        if (isMunch) {
-            onMunch(selectedUser, message);
-        } else {
-            onGive(selectedUser, message, amount);
-        }
-        
+        onGive(selectedUser, message, amount);
         setMessage("");
         setSelectedUser("");
         setFilter("");
@@ -1197,40 +1083,18 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className={`md:hidden p-6 rounded-2xl shadow-lg shadow-pink-200 flex justify-between items-center transition-colors ${isMunch ? 'bg-red-500 text-white' : 'bg-pink-500 text-white'}`}>
+            <div className="md:hidden bg-pink-500 text-white p-6 rounded-2xl shadow-lg shadow-pink-200 flex justify-between items-center">
                 <div>
-                    <h2 className="font-bold text-lg opacity-90">{isMunch ? "The Muncher" : "Daily Balance"}</h2>
-                    <p className="text-xs opacity-75">{isMunch ? "Feeding Time 👾" : "Use them or lose them!"}</p>
+                    <h2 className="font-bold text-lg opacity-90">Daily Balance</h2>
+                    <p className="text-xs opacity-75">Use them or lose them!</p>
                 </div>
                 <div className="text-4xl font-black">{isAdmin ? "∞" : remaining}</div>
             </div>
 
-            <Card className={`space-y-4 transition-colors ${isMunch ? 'border-red-200 bg-red-50' : ''}`}>
-                <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2 mb-2">
-                        {isMunch ? <Skull className="text-red-500" size={24} /> : <Heart className="text-pink-500" size={24} />}
-                        <h2 className="text-xl font-bold text-slate-800">
-                            {isMunch ? "Who lost a donut?" : "Who deserves a donut?"}
-                        </h2>
-                    </div>
-                    
-                    {/* ADMIN TOGGLE */}
-                    {isAdmin && (
-                        <div className="flex bg-slate-100 rounded-lg p-1">
-                            <button 
-                                onClick={() => setMode("give")}
-                                className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${!isMunch ? 'bg-white text-pink-500 shadow-sm' : 'text-slate-400'}`}
-                            >
-                                😇 Give
-                            </button>
-                            <button 
-                                onClick={() => setMode("munch")}
-                                className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${isMunch ? 'bg-white text-red-500 shadow-sm' : 'text-slate-400'}`}
-                            >
-                                😈 Munch
-                            </button>
-                        </div>
-                    )}
+            <Card className="space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                    <Heart className="text-pink-500" size={24} />
+                    <h2 className="text-xl font-bold text-slate-800">Who deserves a donut?</h2>
                 </div>
 
                 {remaining === 0 && !isAdmin ? (
@@ -1245,7 +1109,7 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
                             {!selectedUser ? (
                                 <div className="relative">
                                     <input 
-                                        className="w-full p-3 pl-10 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none"
+                                        className="w-full p-3 pl-10 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none"
                                         placeholder="Search name..."
                                         value={filter}
                                         onChange={e => setFilter(e.target.value)}
@@ -1276,7 +1140,7 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
                                     )}
                                 </div>
                             ) : (
-                                <div className="flex items-center justify-between p-3 bg-white border border-pink-200 rounded-xl">
+                                <div className="flex items-center justify-between p-3 bg-pink-50 border border-pink-200 rounded-xl">
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" 
                                              style={{background: existingUsers.find(u => u.name === selectedUser)?.avatar_color || "#cbd5e1"}}>
@@ -1296,16 +1160,16 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
                         <div className="space-y-2">
                             <label className="text-sm font-semibold text-slate-600">Reason</label>
                             <textarea 
-                                className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none resize-none"
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none resize-none"
                                 rows={3}
-                                placeholder={isMunch ? "Why did the Muncher strike? (e.g. Left batteries flat)" : "Thanks for helping me with the filming!"}
+                                placeholder="Thanks for helping me with the filming!"
                                 value={message}
                                 onChange={e => setMessage(e.target.value)}
                             />
                         </div>
 
-                        {/* Admin Bulk Controls (Only show in Give Mode) */}
-                        {isAdmin && !isMunch && (
+                        {/* Admin Bulk Controls */}
+                        {isAdmin && (
                             <div className="space-y-2">
                                 <label className="text-sm font-semibold text-slate-600 flex items-center gap-2">
                                     <Zap size={16} className="text-yellow-500"/> Admin Multiplier
@@ -1332,13 +1196,11 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
                             onClick={handleSubmit} 
                             disabled={!selectedUser || !message}
                             className="w-full py-3 text-lg"
-                            variant={isMunch ? "danger" : "primary"}
                         >
-                            {isMunch ? `Feed The Muncher (1 ${EMOJI})` : 
-                            `Give ${amount > 1 ? `${amount} ${EMOJI}` : EMOJI}`}
-                            {!isMunch && <span className="text-sm opacity-80 ml-1">
+                            Give {amount > 1 ? `${amount} ${EMOJI}` : EMOJI} 
+                            <span className="text-sm opacity-80 ml-1">
                                 {isAdmin ? "(∞ left)" : `(${remaining} left)`}
-                            </span>}
+                            </span>
                         </Button>
                     </>
                 )}
@@ -1359,11 +1221,9 @@ function FeedView({ transactions, onReact }) {
             ) : (
                 transactions.map(tx => {
                     const count = tx.amount || 1;
-                    const isMunch = tx.fromName === "The Donut Muncher";
-                    
                     return (
-                    <Card key={tx.id} className={`flex gap-4 relative ${isMunch ? 'bg-red-50 border-red-100' : ''}`}>
-                        <div className={`flex-shrink-0 mt-1 p-2 rounded-full h-10 w-10 flex items-center justify-center text-lg shadow-sm ${isMunch ? 'bg-red-100 text-red-500' : 'bg-pink-100 text-pink-500'}`}>
+                    <Card key={tx.id} className="flex gap-4 relative">
+                        <div className="flex-shrink-0 mt-1 bg-pink-100 text-pink-500 p-2 rounded-full h-10 w-10 flex items-center justify-center text-lg shadow-sm">
                             {tx.emoji || EMOJI}
                         </div>
                         <div className="flex-grow pb-6">
@@ -1375,11 +1235,6 @@ function FeedView({ transactions, onReact }) {
                                          tx.message.includes("Purchased") ? "went shopping" : 
                                          tx.emoji === "📢" ? "announced" : "contributed to"}
                                     </span>
-                                ) : isMunch ? (
-                                    <>
-                                        <span className="text-red-500 text-sm mx-1 font-bold">ATE a donut from</span>
-                                        <span className="font-bold text-slate-900">{tx.toName}</span>
-                                    </>
                                 ) : (
                                     <>
                                         <span className="text-slate-500 text-sm mx-1">
@@ -1389,7 +1244,7 @@ function FeedView({ transactions, onReact }) {
                                     </>
                                 )}
                             </div>
-                            <p className={`p-2 rounded-lg border italic text-sm ${isMunch ? 'text-red-700 bg-red-100 border-red-200' : 'text-slate-700 bg-slate-50 border-slate-100'}`}>
+                            <p className="text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-100 italic text-sm">
                                 "{tx.message}"
                             </p>
                             <p className="text-xs text-slate-400 mt-2 text-right">
@@ -1398,7 +1253,7 @@ function FeedView({ transactions, onReact }) {
                             
                             <button 
                                 onClick={() => onReact(tx.id, tx.likes)}
-                                className="absolute bottom-3 left-16 text-xs bg-white hover:bg-orange-50 border border-slate-200 px-2 py-1 rounded-full flex items-center gap-1 transition-colors"
+                                className="absolute bottom-3 left-16 text-xs bg-slate-50 hover:bg-orange-50 border border-slate-200 px-2 py-1 rounded-full flex items-center gap-1 transition-colors"
                             >
                                 <Flame size={12} className={tx.likes?.length ? "text-orange-500 fill-orange-500" : "text-slate-400"} />
                                 <span className={tx.likes?.length ? "text-orange-600 font-bold" : "text-slate-500"}>
