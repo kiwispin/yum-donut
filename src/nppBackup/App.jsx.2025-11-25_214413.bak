@@ -184,7 +184,6 @@ export default function YumDonutApp() {
           if (docSnap.exists()) {
             setMyProfile(docSnap.data());
           } else {
-            // Profile is missing (could be deleted or new user)
             setMyProfile(null); 
           }
           setLoading(false);
@@ -259,13 +258,9 @@ export default function YumDonutApp() {
 
   const openBountyCount = bounties.filter(b => {
       if (b.status !== 'open') return false;
-      
-      // Filter out future/scheduled jobs
-      if (b.startsAt && b.startsAt > Date.now()) return false;
-      
-      // Filter out expired open jobs (they vanish for students)
-      if (b.expiresAt && b.expiresAt < Date.now()) return false; 
-      
+      if (b.startsAt && b.startsAt.toMillis() > Date.now()) return false;
+      // Filter out expired open jobs for non-admins so they "vanish"
+      if (b.expiresAt && b.expiresAt < Date.now() && user.uid !== 'admin_uid_placeholder') return false; 
       return true;
   }).length;
 
@@ -275,48 +270,6 @@ export default function YumDonutApp() {
 
   // --- Actions ---
 
-  const createProfile = async (uid, name) => {
-      // This helper ensures we don't duplicate logic
-      const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', name);
-      const publicDoc = await getDoc(publicRef);
-      
-      let currentBalance = 0;
-      let currentGiven = 0;
-      let lifetimeReceived = 0;
-      let avatarColor = `hsl(${Math.random() * 360}, 70%, 50%)`;
-      let rainbowName = false;
-
-      if (publicDoc.exists()) {
-          const data = publicDoc.data();
-          currentBalance = data.balance || 0;
-          currentGiven = data.lifetime_given || 0;
-          lifetimeReceived = data.lifetime_received || currentBalance;
-          if (data.avatar_color) avatarColor = data.avatar_color;
-          if (data.rainbow_name) rainbowName = data.rainbow_name;
-      }
-
-      const initialPrivateData = {
-          name: name,
-          balance: currentBalance, 
-          given_today: 0,
-          last_given_date: new Date().toDateString(),
-          avatar_color: avatarColor
-      };
-
-      await setDoc(doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data'), initialPrivateData);
-      
-      await setDoc(publicRef, {
-          name: name,
-          balance: currentBalance,
-          lifetime_given: currentGiven,
-          lifetime_received: lifetimeReceived,
-          avatar_color: avatarColor,
-          rainbow_name: rainbowName,
-          claimed: true,
-          uid: uid 
-      }, { merge: true });
-  };
-
   const handleLoginOrRegister = async (name, password) => {
     if (!name || !password) return;
     setLoading(true);
@@ -324,25 +277,55 @@ export default function YumDonutApp() {
     const email = `${name.replace(/\s+/g, '').toLowerCase()}@yumdonut.school`;
 
     try {
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        // SUCCESS: Check if we need to resurrect the profile!
-        const uid = userCredential.user.uid;
-        const userRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data');
-        const docSnap = await getDoc(userRef);
-        if (!docSnap.exists()) {
-             // Profile missing! Recreate it.
-             await createProfile(uid, name);
-             showNotification(`Welcome back, ${name}! Profile restored.`);
-        } else {
-             showNotification(`Welcome back, ${name}!`);
-        }
-
+        await signInWithEmailAndPassword(auth, email, password);
+        showNotification(`Welcome back, ${name}!`);
     } catch (error) {
         if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/invalid-email') {
             try {
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const uid = userCredential.user.uid;
+                
                 await updateProfile(userCredential.user, { displayName: name });
-                await createProfile(userCredential.user.uid, name);
+
+                const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', name);
+                const publicDoc = await getDoc(publicRef);
+                
+                let currentBalance = 0;
+                let currentGiven = 0;
+                let lifetimeReceived = 0;
+                let avatarColor = `hsl(${Math.random() * 360}, 70%, 50%)`;
+                let rainbowName = false;
+
+                if (publicDoc.exists()) {
+                    const data = publicDoc.data();
+                    currentBalance = data.balance || 0;
+                    currentGiven = data.lifetime_given || 0;
+                    lifetimeReceived = data.lifetime_received || currentBalance;
+                    if (data.avatar_color) avatarColor = data.avatar_color;
+                    if (data.rainbow_name) rainbowName = data.rainbow_name;
+                }
+
+                const initialPrivateData = {
+                    name: name,
+                    balance: currentBalance, 
+                    given_today: 0,
+                    last_given_date: new Date().toDateString(),
+                    avatar_color: avatarColor
+                };
+
+                await setDoc(doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data'), initialPrivateData);
+                
+                await setDoc(publicRef, {
+                    name: name,
+                    balance: currentBalance,
+                    lifetime_given: currentGiven,
+                    lifetime_received: lifetimeReceived,
+                    avatar_color: avatarColor,
+                    rainbow_name: rainbowName,
+                    claimed: true,
+                    uid: uid 
+                }, { merge: true });
+
                 showNotification(`Account created for ${name}!`);
 
             } catch (createError) {
@@ -572,10 +555,15 @@ export default function YumDonutApp() {
       let expiresAt = null;
       if (limitMins > 0) {
            const now = new Date();
+           // If it's scheduled for future, expiry is relative to that future start time
+           // If startsAt is null/now, expiry is relative to now.
            const baseTime = startsAt ? startsAt.toDate().getTime() : now.getTime();
            const expiryDate = new Date(baseTime + (limitMins * 60000));
            expiresAt = Timestamp.fromDate(expiryDate);
-      } 
+      } else if (timeLimitMins) { 
+           // Fallback if user entered time string in previous version, try to handle
+           // But we switched to minutes duration in the form.
+      }
 
       await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'bounties'), {
           title,
