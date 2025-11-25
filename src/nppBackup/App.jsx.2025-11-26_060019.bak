@@ -147,23 +147,6 @@ const Button = ({ onClick, disabled, children, variant = "primary", className = 
   );
 };
 
-const NavBtn = ({ icon: Icon, label, active, onClick, badge }) => (
-    <button 
-        onClick={onClick}
-        className={`flex flex-col items-center gap-1 w-16 transition-colors relative ${active ? 'text-pink-500' : 'text-slate-400 hover:text-slate-600'}`}
-    >
-        <div className="relative">
-            <Icon size={24} strokeWidth={active ? 2.5 : 2} />
-            {badge > 0 && (
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold h-4 w-4 flex items-center justify-center rounded-full shadow-sm">
-                    {badge}
-                </span>
-            )}
-        </div>
-        <span className="text-[10px] font-medium">{label}</span>
-    </button>
-);
-
 // --- Main Application ---
 
 export default function YumDonutApp() {
@@ -277,15 +260,9 @@ export default function YumDonutApp() {
 
   const openBountyCount = bounties.filter(b => {
       if (b.status !== 'open') return false;
-      
-      // Safe check for expiration (using numbers directly since we store millis)
-      const now = Date.now();
-      const startsAt = b.startsAt || 0;
-      const expiresAt = b.expiresAt || 0;
-
-      if (startsAt > now) return false;
-      if (expiresAt > 0 && expiresAt < now && user.uid !== 'admin_uid_placeholder') return false; 
-      
+      if (b.startsAt && b.startsAt.toMillis() > Date.now()) return false;
+      // Filter out expired open jobs for non-admins so they "vanish"
+      if (b.expiresAt && b.expiresAt < Date.now() && user.uid !== 'admin_uid_placeholder') return false; 
       return true;
   }).length;
 
@@ -499,6 +476,8 @@ export default function YumDonutApp() {
       await updateDoc(txRef, { likes: arrayUnion(myProfile.name) });
   };
 
+  // --- GOAL LOGIC (Including Admin Controls) ---
+  
   const handleContributeToGoal = async () => {
       if (!myProfile || myProfile.balance < 1) {
           showNotification("Not enough donuts!", "error");
@@ -515,6 +494,8 @@ export default function YumDonutApp() {
               if (newBalance < 0) throw "Not enough donuts!";
               
               const goalCurrent = (goalDoc.data()?.current || 0) + 1;
+              
+              // Store contributors as a map: { "Jacey": 5, "Marina": 2 }
               const contributors = goalDoc.data()?.contributors || {};
               const myContribution = (contributors[myProfile.name] || 0) + 1;
 
@@ -523,6 +504,7 @@ export default function YumDonutApp() {
                   current: goalCurrent,
                   [`contributors.${myProfile.name}`]: myContribution
               });
+              
               const txRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
               transaction.set(txRef, { fromName: myProfile.name, toName: goalDoc.data()?.title || "Team Goal", message: "Contributed to the goal!", timestamp: serverTimestamp(), emoji: "🚀", likes: [] });
           });
@@ -536,7 +518,6 @@ export default function YumDonutApp() {
       }
   };
 
-  // RESTORED: Admin Goal Controls
   const handleResetGoal = async () => {
       try {
           const goalRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'goals', 'active_goal');
@@ -628,10 +609,6 @@ export default function YumDonutApp() {
           const [hours, mins] = scheduleTime.split(':').map(Number);
           const now = new Date();
           const scheduled = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, mins);
-          // If time has already passed today, assume tomorrow
-          if (scheduled <= now) {
-              scheduled.setDate(scheduled.getDate() + 1);
-          }
           startsAt = Timestamp.fromDate(scheduled);
       }
 
@@ -895,7 +872,8 @@ export default function YumDonutApp() {
   );
 }
 
-// --- Sub-Components (Defined BEFORE Main App to avoid ReferenceErrors) ---
+// ... LoginScreen, GiveView, FeedView, LeaderboardView, NavBtn, ShopView, BountiesView ...
+// (ALL Sub-components included here - truncated for brevity in this display but included in full file generation)
 
 function LoginScreen({ onLogin, existingUsers }) {
   const [search, setSearch] = useState("");
@@ -1167,7 +1145,19 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                     let progressColor = 'bg-green-500';
                     
                     if (b.createdAt && b.expiresAt && !isExpired && !isScheduled) {
-                        const totalDuration = b.expiresAt - (b.startsAt ? b.startsAt : (b.createdAt.toMillis ? b.createdAt.toMillis() : Date.now()));
+                        // Safe check: ensure b.createdAt exists and has a method toMillis, OR assume it's a number if it doesn't.
+                        // Note: createdAt comes from serverTimestamp(). In snapshots it's usually a Timestamp object.
+                        
+                        let createdTime = Date.now();
+                        if (b.createdAt) {
+                             if (typeof b.createdAt.toMillis === 'function') {
+                                 createdTime = b.createdAt.toMillis();
+                             } else if (typeof b.createdAt === 'number') {
+                                 createdTime = b.createdAt;
+                             }
+                        }
+                        
+                        const totalDuration = b.expiresAt - (b.startsAt ? b.startsAt : createdTime);
                         const timeRemaining = b.expiresAt - Date.now();
                         
                         if (totalDuration > 0) {
@@ -1728,3 +1718,20 @@ function LeaderboardView({ users, roster }) {
         </div>
     );
 }
+
+const NavBtn = ({ icon: Icon, label, active, onClick, badge }) => (
+    <button 
+        onClick={onClick}
+        className={`flex flex-col items-center gap-1 w-16 transition-colors relative ${active ? 'text-pink-500' : 'text-slate-400 hover:text-slate-600'}`}
+    >
+        <div className="relative">
+            <Icon size={24} strokeWidth={active ? 2.5 : 2} />
+            {badge > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold h-4 w-4 flex items-center justify-center rounded-full shadow-sm">
+                    {badge}
+                </span>
+            )}
+        </div>
+        <span className="text-[10px] font-medium">{label}</span>
+    </button>
+);
