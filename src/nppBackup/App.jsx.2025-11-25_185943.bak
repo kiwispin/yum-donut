@@ -7,7 +7,7 @@ import {
 } from 'firebase/firestore';
 import { 
   getAuth, onAuthStateChanged, signInWithCustomToken,
-  signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInAnonymously, updateProfile
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInAnonymously
 } from 'firebase/auth';
 import { 
   Trophy, Gift, Activity, MessageSquare, 
@@ -278,9 +278,6 @@ export default function YumDonutApp() {
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 const uid = userCredential.user.uid;
                 
-                // FIX: Set the Display Name on the Auth Record so it shows up in Firebase Console
-                await updateProfile(userCredential.user, { displayName: name });
-
                 const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', name);
                 const publicDoc = await getDoc(publicRef);
                 
@@ -536,6 +533,8 @@ export default function YumDonutApp() {
           showNotification("Purchase failed.", "error");
       }
   };
+
+  // --- Updated Bounty Actions with Time Limit & Delete ---
 
   const handleCreateBounty = async (title, reward, quantity, timeLimitMins) => {
       const qty = parseInt(quantity) || 1;
@@ -1167,7 +1166,6 @@ function GoalView({ goalData, userBalance, onContribute, currentUserName, onActi
     );
 }
 
-// ... LoginScreen, GiveView, FeedView, LeaderboardView, NavBtn ...
 function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, remaining }) {
     const [selectedUser, setSelectedUser] = useState("");
     const [message, setMessage] = useState("");
