@@ -259,8 +259,6 @@ export default function YumDonutApp() {
   const openBountyCount = bounties.filter(b => {
       if (b.status !== 'open') return false;
       if (b.startsAt && b.startsAt.toMillis() > Date.now()) return false;
-      // Filter out expired open jobs for non-admins so they "vanish"
-      if (b.expiresAt && b.expiresAt < Date.now() && user.uid !== 'admin_uid_placeholder') return false; 
       return true;
   }).length;
 
@@ -540,20 +538,22 @@ export default function YumDonutApp() {
       }
   };
 
-  const handleCreateBounty = async (title, reward, quantity, timeLimit, startTime) => {
+  const handleCreateBounty = async (title, reward, quantity, endTime, startTime) => {
       const qty = parseInt(quantity) || 1;
       
       let startsAt = null;
       if (startTime) {
           const [hours, mins] = startTime.split(':').map(Number);
           const now = new Date();
+          // Setup date for today with specified time
           const scheduled = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, mins);
+          // If time has passed for today, it's still considered "today" (so it appears immediately)
           startsAt = Timestamp.fromDate(scheduled);
       }
 
       let expiresAt = null;
-      if (timeLimit) {
-          const [hours, mins] = timeLimit.split(':').map(Number);
+      if (endTime) {
+          const [hours, mins] = endTime.split(':').map(Number);
           const now = new Date();
           const scheduled = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, mins);
           expiresAt = Timestamp.fromDate(scheduled);
@@ -570,12 +570,13 @@ export default function YumDonutApp() {
           createdAt: serverTimestamp()
       });
       
+      // Only announce if it's not scheduled for the future
       if (!startsAt || startsAt.toMillis() <= Date.now()) {
-          const timeMsg = timeLimit ? ` (Until ${timeLimit})` : "";
+          const expireMsg = endTime ? ` (Until ${endTime})` : "";
           await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
               fromName: "Job Board",
               toName: "EVERYONE",
-              message: `📢 New Job Posted: ${title} (${reward} ${EMOJI}) - ${qty} spots!${timeMsg}`,
+              message: `📢 New Job Posted: ${title} (${reward} ${EMOJI}) - ${qty} spots!${expireMsg}`,
               timestamp: serverTimestamp(),
               emoji: "📢",
               likes: []
@@ -954,16 +955,11 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
     // Filter Logic: Hide scheduled jobs if user is not admin
     const activeBounties = bounties.filter(b => {
         if (b.status === 'paid') return false;
-        
-        const now = Date.now();
-        const isExpired = b.expiresAt && b.expiresAt < now;
-        const isFuture = b.startsAt && b.startsAt > now;
-
         if (isAdmin) return true; // Admins see everything
-
-        // Students
-        if (isFuture) return false; // Hide future jobs
-        if (b.status === 'open' && isExpired) return false; // Hide open expired jobs (they vanish)
+        
+        // Schedule check
+        const now = Date.now();
+        if (b.startsAt && b.startsAt > now) return false; // Hide future jobs
         
         return true;
     });
@@ -1034,7 +1030,7 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                                 />
                             </div>
                             <div className="flex flex-col w-28 flex-grow">
-                                <label className="text-[10px] text-pink-400 font-bold uppercase flex items-center gap-1"><Clock size={10}/> Deadline</label>
+                                <label className="text-[10px] text-pink-400 font-bold uppercase flex items-center gap-1"><Clock size={10}/> Expire At</label>
                                 <input 
                                     type="time"
                                     className="w-full p-2 rounded-lg border border-pink-200 text-sm"
@@ -1066,126 +1062,89 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                     const isExpired = timeLeft === "Expired";
                     const isScheduled = startsIn !== null;
 
-                    // Logic: If expired, and status is open, we don't show it to students (filtered above).
-                    // But admins see it.
-                    
-                    // Progress Bar Calculation
-                    let progressWidth = 100;
-                    let progressColor = 'bg-green-500';
-                    
-                    if (b.createdAt && b.expiresAt && !isExpired && !isScheduled) {
-                        const start = b.createdAt.toMillis(); // or startsAt if set?
-                        // Actually, if it was scheduled, the duration should arguably start from startsAt.
-                        // But let's keep it simple: Deadline is fixed time. 
-                        // Duration is (Deadline - Now) / (Deadline - Created).
-                        
-                        const totalDuration = b.expiresAt - (b.startsAt ? b.startsAt.toMillis() : b.createdAt.toMillis());
-                        const timeRemaining = b.expiresAt - Date.now();
-                        
-                        if (totalDuration > 0) {
-                            progressWidth = Math.max(0, Math.min(100, (timeRemaining / totalDuration) * 100));
-                        }
-                        
-                        if (progressWidth < 50) progressColor = 'bg-yellow-500';
-                        if (progressWidth < 20) progressColor = 'bg-orange-500';
-                        if (progressWidth < 10) progressColor = 'bg-red-500 animate-pulse';
-                    }
-
                     return (
-                        <Card key={b.id} className={`flex flex-col border-l-4 ${isScheduled ? 'border-l-slate-300 bg-slate-50' : 'border-l-pink-500'}`}>
-                            <div className="flex justify-between items-center">
-                                <div className="flex-grow min-w-0 mr-2">
-                                    <h4 className="font-bold text-slate-800 break-words flex items-center gap-2 flex-wrap">
-                                        {b.title}
-                                        {isScheduled && <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full whitespace-nowrap">{startsIn}</span>}
-                                    </h4>
-                                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                        <span className="bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">
-                                            {b.reward} {EMOJI} Reward
+                        <Card key={b.id} className={`flex justify-between items-center border-l-4 ${isScheduled ? 'border-l-slate-300 bg-slate-50' : 'border-l-pink-500'}`}>
+                            <div className="flex-grow min-w-0 mr-2">
+                                <h4 className="font-bold text-slate-800 break-words flex items-center gap-2 flex-wrap">
+                                    {b.title}
+                                    {isScheduled && <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full whitespace-nowrap">{startsIn}</span>}
+                                </h4>
+                                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                    <span className="bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">
+                                        {b.reward} {EMOJI} Reward
+                                    </span>
+                                    {b.status === 'open' && remainingSpots > 1 && (
+                                        <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1">
+                                            <Users size={12}/> {remainingSpots} spots left
                                         </span>
-                                        {b.status === 'open' && remainingSpots > 1 && (
-                                            <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1">
-                                                <Users size={12}/> {remainingSpots} spots left
-                                            </span>
-                                        )}
-                                        {/* Time Limit Badge */}
-                                        {b.status === 'open' && timeLeft && !isScheduled && (
-                                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1 ${isExpired ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-700'}`}>
-                                                <Clock size={12}/> {timeLeft}
-                                            </span>
-                                        )}
-                                        
-                                        {b.status === 'claimed' && (
-                                            <span className="text-xs text-slate-500 flex items-center gap-1 whitespace-nowrap">
-                                                <CheckSquare size={12}/> Claimed by {b.claimantName}
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                                
-                                <div className="flex gap-2 flex-shrink-0">
-                                    {b.status === 'open' && (
-                                        <>
-                                            {!isScheduled && (
-                                                <Button 
-                                                    variant="outline" 
-                                                    onClick={() => onClaim(b.id, remainingSpots)}
-                                                    disabled={hasActiveJob || isExpired} 
-                                                    className={hasActiveJob || isExpired ? "opacity-50 cursor-not-allowed" : ""}
-                                                    title={isExpired ? "Job Expired" : hasActiveJob ? "Finish your current job first!" : "Claim this job"}
-                                                >
-                                                    {isExpired ? "Expired" : "Claim"}
-                                                </Button>
-                                            )}
-                                            {isAdmin && (
-                                                <button 
-                                                    onClick={() => onDelete(b.id)}
-                                                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                                >
-                                                    <Trash2 size={20}/>
-                                                </button>
-                                            )}
-                                        </>
                                     )}
-
-                                    {b.status === 'claimed' && isAdmin && (
-                                        <>
-                                            <button 
-                                                onClick={() => onUnclaim(b.id)}
-                                                className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                title="Revoke Claim"
-                                            >
-                                                <XCircle size={20} />
-                                            </button>
-                                            <Button variant="success" onClick={() => onPay(b.id, b.claimantName, b.reward)} className="whitespace-nowrap">
-                                                Pay & Close
-                                            </Button>
-                                        </>
+                                    {/* Time Limit Badge */}
+                                    {b.status === 'open' && timeLeft && !isScheduled && (
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1 ${isExpired ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-700'}`}>
+                                            <Clock size={12}/> {timeLeft}
+                                        </span>
                                     )}
-
-                                    {b.status === 'claimed' && isMyClaim && !isAdmin && (
-                                        <Button variant="danger" onClick={() => onUnclaim(b.id)} className="text-xs px-2 whitespace-nowrap">
-                                            Cancel Claim
-                                        </Button>
-                                    )}
-
-                                    {b.status === 'claimed' && !isMyClaim && !isAdmin && (
-                                        <span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500 self-center whitespace-nowrap">
-                                            Busy
+                                    
+                                    {b.status === 'claimed' && (
+                                        <span className="text-xs text-slate-500 flex items-center gap-1 whitespace-nowrap">
+                                            <CheckSquare size={12}/> Claimed by {b.claimantName}
                                         </span>
                                     )}
                                 </div>
                             </div>
                             
-                            {/* PROGRESS BAR */}
-                            {b.status === 'open' && timeLeft && !isScheduled && !isExpired && (
-                                <div className="w-full h-1.5 bg-slate-100 rounded-full mt-3 overflow-hidden relative">
-                                    <div 
-                                        className={`h-full transition-all duration-1000 ease-linear ${progressColor}`} 
-                                        style={{ width: `${progressWidth}%` }}
-                                    />
-                                </div>
-                            )}
+                            <div className="flex gap-2 flex-shrink-0">
+                                {b.status === 'open' && (
+                                    <>
+                                        {!isScheduled && (
+                                            <Button 
+                                                variant="outline" 
+                                                onClick={() => onClaim(b.id, remainingSpots)}
+                                                disabled={hasActiveJob || isExpired} 
+                                                className={hasActiveJob || isExpired ? "opacity-50 cursor-not-allowed" : ""}
+                                                title={isExpired ? "Job Expired" : hasActiveJob ? "Finish your current job first!" : "Claim this job"}
+                                            >
+                                                {isExpired ? "Expired" : "Claim"}
+                                            </Button>
+                                        )}
+                                        {isAdmin && (
+                                            <button 
+                                                onClick={() => onDelete(b.id)}
+                                                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                            >
+                                                <Trash2 size={20}/>
+                                            </button>
+                                        )}
+                                    </>
+                                )}
+
+                                {b.status === 'claimed' && isAdmin && (
+                                    <>
+                                        <button 
+                                            onClick={() => onUnclaim(b.id)}
+                                            className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                            title="Revoke Claim"
+                                        >
+                                            <XCircle size={20} />
+                                        </button>
+                                        <Button variant="success" onClick={() => onPay(b.id, b.claimantName, b.reward)} className="whitespace-nowrap">
+                                            Pay & Close
+                                        </Button>
+                                    </>
+                                )}
+
+                                {b.status === 'claimed' && isMyClaim && !isAdmin && (
+                                    <Button variant="danger" onClick={() => onUnclaim(b.id)} className="text-xs px-2 whitespace-nowrap">
+                                        Cancel Claim
+                                    </Button>
+                                )}
+
+                                {b.status === 'claimed' && !isMyClaim && !isAdmin && (
+                                    <span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500 self-center whitespace-nowrap">
+                                        Busy
+                                    </span>
+                                )}
+                            </div>
                         </Card>
                     );
                 })}
