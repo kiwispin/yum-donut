@@ -260,10 +260,11 @@ export default function YumDonutApp() {
   const openBountyCount = bounties.filter(b => {
       if (b.status !== 'open') return false;
       
-      const now = Date.now();
-      // FIX: Check numbers directly, do NOT call .toMillis() because they are already numbers
-      if (b.startsAt && b.startsAt > now) return false;
-      if (b.expiresAt && b.expiresAt < now && user.uid !== 'admin_uid_placeholder') return false; 
+      // Filter out future/scheduled jobs
+      if (b.startsAt && b.startsAt > Date.now()) return false;
+      
+      // Filter out expired open jobs (they vanish for students)
+      if (b.expiresAt && b.expiresAt < Date.now()) return false; 
       
       return true;
   }).length;
@@ -973,9 +974,6 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
         if (b.status === 'paid') return false;
         
         const now = Date.now();
-        
-        // Note: we do direct numeric comparison here since b.startsAt is a number in millis
-        // In the Create handler, we already convert timestamps to millis before saving.
         const isExpired = b.expiresAt && b.expiresAt < now;
         const isFuture = b.startsAt && b.startsAt > now;
 
@@ -1098,20 +1096,7 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                     let progressColor = 'bg-green-500';
                     
                     if (b.createdAt && b.expiresAt && !isExpired && !isScheduled) {
-                        // Safe check: ensure b.createdAt exists and has a method toMillis, OR assume it's a number if it doesn't.
-                        // Note: createdAt comes from serverTimestamp(). In snapshots it's usually a Timestamp object.
-                        // We can check if it has .toMillis method.
-                        
-                        let createdTime = Date.now();
-                        if (b.createdAt) {
-                             if (typeof b.createdAt.toMillis === 'function') {
-                                 createdTime = b.createdAt.toMillis();
-                             } else if (typeof b.createdAt === 'number') {
-                                 createdTime = b.createdAt;
-                             }
-                        }
-                        
-                        const totalDuration = b.expiresAt - (b.startsAt ? b.startsAt : createdTime);
+                        const totalDuration = b.expiresAt - (b.startsAt ? b.startsAt.toMillis() : b.createdAt.toMillis());
                         const timeRemaining = b.expiresAt - Date.now();
                         
                         if (totalDuration > 0) {
