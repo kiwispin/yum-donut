@@ -258,6 +258,7 @@ export default function YumDonutApp() {
 
   const openBountyCount = bounties.filter(b => {
       if (b.status !== 'open') return false;
+      // Only count open jobs that have started
       if (b.startsAt && b.startsAt.toMillis() > Date.now()) return false;
       return true;
   }).length;
@@ -374,7 +375,6 @@ export default function YumDonutApp() {
             last_given_date: today
         });
 
-        // Update Sender's LIFETIME_GIVEN
         const senderPublicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
         const senderPublicDoc = await getDoc(senderPublicRef);
         if (senderPublicDoc.exists()) {
@@ -538,26 +538,16 @@ export default function YumDonutApp() {
       }
   };
 
-  const handleCreateBounty = async (title, reward, quantity, endTime, startTime) => {
+  const handleCreateBounty = async (title, reward, quantity, timeLimitMins, scheduleMins) => {
       const qty = parseInt(quantity) || 1;
-      
-      let startsAt = null;
-      if (startTime) {
-          const [hours, mins] = startTime.split(':').map(Number);
-          const now = new Date();
-          // Setup date for today with specified time
-          const scheduled = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, mins);
-          // If time has passed for today, it's still considered "today" (so it appears immediately)
-          startsAt = Timestamp.fromDate(scheduled);
-      }
+      const limitMins = parseInt(timeLimitMins) || 0;
+      const startMins = parseInt(scheduleMins) || 0;
 
-      let expiresAt = null;
-      if (endTime) {
-          const [hours, mins] = endTime.split(':').map(Number);
-          const now = new Date();
-          const scheduled = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, mins);
-          expiresAt = Timestamp.fromDate(scheduled);
-      }
+      // Calculate timestamps
+      const startsAt = startMins > 0 ? Timestamp.fromMillis(Date.now() + (startMins * 60000)) : null;
+      const expiresAt = limitMins > 0 
+        ? (startsAt ? Timestamp.fromMillis(startsAt.toMillis() + (limitMins * 60000)) : Timestamp.fromMillis(Date.now() + (limitMins * 60000)))
+        : null;
 
       await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'bounties'), {
           title,
@@ -570,20 +560,19 @@ export default function YumDonutApp() {
           createdAt: serverTimestamp()
       });
       
-      // Only announce if it's not scheduled for the future
-      if (!startsAt || startsAt.toMillis() <= Date.now()) {
-          const expireMsg = endTime ? ` (Until ${endTime})` : "";
+      if (!startsAt) {
+          const timeMsg = limitMins > 0 ? ` (Expires in ${limitMins} mins)` : "";
           await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
               fromName: "Job Board",
               toName: "EVERYONE",
-              message: `📢 New Job Posted: ${title} (${reward} ${EMOJI}) - ${qty} spots!${expireMsg}`,
+              message: `📢 New Job Posted: ${title} (${reward} ${EMOJI}) - ${qty} spots!${timeMsg}`,
               timestamp: serverTimestamp(),
               emoji: "📢",
               likes: []
           });
           showNotification("Job Posted & Announced!");
       } else {
-          showNotification(`Job scheduled for ${startTime}.`);
+          showNotification(`Job scheduled for ${startMins} mins from now.`);
       }
   };
 
@@ -948,8 +937,8 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
     const [newTitle, setNewTitle] = useState("");
     const [newReward, setNewReward] = useState(5);
     const [newQty, setNewQty] = useState(1); 
-    const [newTimeLimit, setNewTimeLimit] = useState(""); 
-    const [newSchedule, setNewSchedule] = useState(""); 
+    const [newTimeLimit, setNewTimeLimit] = useState(0); 
+    const [newSchedule, setNewSchedule] = useState(0); 
     const isAdmin = currentUser.name === "Mr Rayner";
 
     // Filter Logic: Hide scheduled jobs if user is not admin
@@ -1000,8 +989,8 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                             value={newTitle}
                             onChange={e => setNewTitle(e.target.value)}
                         />
-                        <div className="flex gap-2 flex-wrap">
-                            <div className="flex flex-col w-20 flex-grow">
+                        <div className="flex gap-2">
+                            <div className="flex flex-col w-20">
                                 <label className="text-[10px] text-pink-400 font-bold uppercase">Reward</label>
                                 <input 
                                     type="number"
@@ -1010,7 +999,7 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                                     onChange={e => setNewReward(e.target.value)}
                                 />
                             </div>
-                            <div className="flex flex-col w-20 flex-grow">
+                            <div className="flex flex-col w-20">
                                 <label className="text-[10px] text-pink-400 font-bold uppercase">Spots</label>
                                 <input 
                                     type="number"
@@ -1020,25 +1009,29 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                                     onChange={e => setNewQty(e.target.value)}
                                 />
                             </div>
-                            <div className="flex flex-col w-28 flex-grow">
-                                <label className="text-[10px] text-pink-400 font-bold uppercase flex items-center gap-1"><Clock size={10}/> Post At</label>
+                            <div className="flex flex-col w-20">
+                                <label className="text-[10px] text-pink-400 font-bold uppercase">Dur(m)</label>
                                 <input 
-                                    type="time"
-                                    className="w-full p-2 rounded-lg border border-pink-200 text-sm"
-                                    value={newSchedule}
-                                    onChange={e => setNewSchedule(e.target.value)}
-                                />
-                            </div>
-                            <div className="flex flex-col w-28 flex-grow">
-                                <label className="text-[10px] text-pink-400 font-bold uppercase flex items-center gap-1"><Clock size={10}/> Expire At</label>
-                                <input 
-                                    type="time"
-                                    className="w-full p-2 rounded-lg border border-pink-200 text-sm"
+                                    type="number"
+                                    min="0"
+                                    className="w-full p-2 rounded-lg border border-pink-200"
+                                    placeholder="∞"
                                     value={newTimeLimit}
                                     onChange={e => setNewTimeLimit(e.target.value)}
                                 />
                             </div>
-                            <Button className="self-end w-full md:w-auto" onClick={() => { onCreate(newTitle, newReward, newQty, newTimeLimit, newSchedule); setNewTitle(""); setNewQty(1); setNewTimeLimit(""); setNewSchedule(""); }}>
+                             <div className="flex flex-col w-20">
+                                <label className="text-[10px] text-pink-400 font-bold uppercase">Start(m)</label>
+                                <input 
+                                    type="number"
+                                    min="0"
+                                    className="w-full p-2 rounded-lg border border-pink-200"
+                                    placeholder="Now"
+                                    value={newSchedule}
+                                    onChange={e => setNewSchedule(e.target.value)}
+                                />
+                            </div>
+                            <Button className="self-end flex-grow" onClick={() => { onCreate(newTitle, newReward, newQty, newTimeLimit, newSchedule); setNewTitle(""); setNewQty(1); setNewTimeLimit(0); setNewSchedule(0); }}>
                                 Post
                             </Button>
                         </div>
@@ -1065,9 +1058,9 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                     return (
                         <Card key={b.id} className={`flex justify-between items-center border-l-4 ${isScheduled ? 'border-l-slate-300 bg-slate-50' : 'border-l-pink-500'}`}>
                             <div className="flex-grow min-w-0 mr-2">
-                                <h4 className="font-bold text-slate-800 break-words flex items-center gap-2 flex-wrap">
+                                <h4 className="font-bold text-slate-800 break-words flex items-center gap-2">
                                     {b.title}
-                                    {isScheduled && <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full whitespace-nowrap">{startsIn}</span>}
+                                    {isScheduled && <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">{startsIn}</span>}
                                 </h4>
                                 <div className="flex items-center gap-2 mt-1 flex-wrap">
                                     <span className="bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">
@@ -1078,13 +1071,11 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                                             <Users size={12}/> {remainingSpots} spots left
                                         </span>
                                     )}
-                                    {/* Time Limit Badge */}
                                     {b.status === 'open' && timeLeft && !isScheduled && (
                                         <span className={`px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1 ${isExpired ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-700'}`}>
                                             <Clock size={12}/> {timeLeft}
                                         </span>
                                     )}
-                                    
                                     {b.status === 'claimed' && (
                                         <span className="text-xs text-slate-500 flex items-center gap-1 whitespace-nowrap">
                                             <CheckSquare size={12}/> Claimed by {b.claimantName}
@@ -1153,6 +1144,8 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
     );
 }
 
+// ... Other Components (GiveView, FeedView, LeaderboardView, etc.)
+// All other views remain unchanged but included in the file structure above for completeness
 function GoalView({ goalData, userBalance, onContribute, currentUserName, onActivate }) {
     const percent = Math.min(100, ((goalData.current || 0) / GOAL_TARGET) * 100);
     const isMet = (goalData.current || 0) >= GOAL_TARGET;
