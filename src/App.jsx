@@ -276,7 +276,12 @@ export default function YumDonutApp() {
     }
   }, [user, myProfile, users]);
 
-  const openBountyCount = bounties.filter(b => b.status === 'open').length;
+  const openBountyCount = bounties.filter(b => {
+      if (b.status !== 'open') return false;
+      // Simple Numeric Check for Expiry
+      if (b.expiresAt && b.expiresAt < Date.now() && user.uid !== 'admin_uid_placeholder') return false; 
+      return true;
+  }).length;
 
   // RANK LOGIC
   const currentPublicProfile = users.find(u => u.name === myProfile?.name);
@@ -576,23 +581,30 @@ export default function YumDonutApp() {
       }
   };
 
-  // --- SIMPLIFIED CREATE BOUNTY (No times) ---
-  const handleCreateBounty = async (title, reward, quantity) => {
+  // --- CREATE BOUNTY (Time Limit = Minutes from Now) ---
+  const handleCreateBounty = async (title, reward, quantity, durationMins) => {
       const qty = parseInt(quantity) || 1;
+      const duration = parseInt(durationMins) || 0;
       
+      // If duration is set, calculate absolute expiry time (number)
+      const expiresAt = duration > 0 ? Date.now() + (duration * 60000) : null;
+
       await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'bounties'), {
           title,
           reward: parseInt(reward),
           status: 'open',
           remaining: qty, 
+          expiresAt: expiresAt, // Store as number (milliseconds)
           createdBy: myProfile.name,
           createdAt: serverTimestamp()
       });
       
+      const timeMsg = duration > 0 ? ` (Expires in ${duration} mins)` : "";
+      
       await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
           fromName: "Job Board",
           toName: "EVERYONE",
-          message: `📢 New Job Posted: ${title} (${reward} ${EMOJI}) - ${qty} spots!`,
+          message: `📢 New Job Posted: ${title} (${reward} ${EMOJI}) - ${qty} spots!${timeMsg}`,
           timestamp: serverTimestamp(),
           emoji: "📢",
           likes: []
@@ -959,14 +971,39 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic }) {
     );
 }
 
-// --- SIMPLIFIED BOUNTIES VIEW (No Time, Just Quantity & Delete) ---
 function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onClaim, onUnclaim, onPay }) {
     const [newTitle, setNewTitle] = useState("");
     const [newReward, setNewReward] = useState(5);
     const [newQty, setNewQty] = useState(1); 
+    const [newDuration, setNewDuration] = useState(""); 
     const isAdmin = currentUser.name === "Mr Rayner";
 
-    const activeBounties = bounties.filter(b => b.status !== 'paid');
+    const activeBounties = bounties.filter(b => {
+        if (b.status === 'paid') return false;
+        
+        // Check expiration (Numeric comparison)
+        const now = Date.now();
+        const isExpired = b.expiresAt && b.expiresAt < now;
+        
+        if (isAdmin) return true; 
+        if (b.status === 'open' && isExpired) return false; // Hide expired jobs from students
+        
+        return true;
+    });
+
+    // New simple timer logic
+    const getMinutesLeft = (expiresAt) => {
+        if (!expiresAt) return null;
+        const diff = expiresAt - Date.now();
+        if (diff <= 0) return 0;
+        return Math.ceil(diff / 60000);
+    };
+
+    const [, setTick] = useState(0);
+    useEffect(() => {
+        const interval = setInterval(() => setTick(t => t + 1), 60000);
+        return () => clearInterval(interval);
+    }, []);
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -975,35 +1012,52 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                     <h3 className="font-bold text-pink-700 mb-3 flex items-center gap-2">
                         <Briefcase size={20}/> Post New Job
                     </h3>
-                    <div className="flex gap-2 flex-col md:flex-row">
-                        <input 
-                            className="flex-grow p-2 rounded-lg border border-pink-200"
-                            placeholder="Job Description (e.g. Film Assembly)"
-                            value={newTitle}
-                            onChange={e => setNewTitle(e.target.value)}
-                        />
-                        <div className="flex gap-2">
-                            <div className="flex flex-col w-20">
-                                <label className="text-[10px] text-pink-400 font-bold uppercase">Reward</label>
-                                <input 
-                                    type="number"
-                                    className="w-full p-2 rounded-lg border border-pink-200"
-                                    value={newReward}
-                                    onChange={e => setNewReward(e.target.value)}
-                                />
-                            </div>
-                            <div className="flex flex-col w-20">
-                                <label className="text-[10px] text-pink-400 font-bold uppercase">Spots</label>
-                                <input 
-                                    type="number"
-                                    min="1"
-                                    className="w-full p-2 rounded-lg border border-pink-200"
-                                    value={newQty}
-                                    onChange={e => setNewQty(e.target.value)}
-                                />
-                            </div>
-                            <Button className="self-end" onClick={() => { onCreate(newTitle, newReward, newQty); setNewTitle(""); setNewQty(1); }}>
-                                Post
+                    
+                    {/* GRID LAYOUT */}
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                        <div className="col-span-2 md:col-span-5">
+                            <label className="text-[10px] text-pink-400 font-bold uppercase">Job Description</label>
+                            <input 
+                                className="w-full p-2 rounded-lg border border-pink-200"
+                                placeholder="e.g. Film Assembly"
+                                value={newTitle}
+                                onChange={e => setNewTitle(e.target.value)}
+                            />
+                        </div>
+                        
+                        <div>
+                            <label className="text-[10px] text-pink-400 font-bold uppercase">Reward</label>
+                            <input 
+                                type="number"
+                                className="w-full p-2 rounded-lg border border-pink-200"
+                                value={newReward}
+                                onChange={e => setNewReward(e.target.value)}
+                            />
+                        </div>
+                        <div>
+                            <label className="text-[10px] text-pink-400 font-bold uppercase">Spots</label>
+                            <input 
+                                type="number"
+                                min="1"
+                                className="w-full p-2 rounded-lg border border-pink-200"
+                                value={newQty}
+                                onChange={e => setNewQty(e.target.value)}
+                            />
+                        </div>
+                        <div>
+                            <label className="text-[10px] text-pink-400 font-bold uppercase flex items-center gap-1"><Clock size={10}/> Time (m)</label>
+                            <input 
+                                type="number"
+                                className="w-full p-2 rounded-lg border border-pink-200"
+                                placeholder="∞"
+                                value={newDuration}
+                                onChange={e => setNewDuration(e.target.value)}
+                            />
+                        </div>
+                        
+                        <div className="col-span-2 md:col-span-2">
+                            <Button className="w-full h-[42px] mt-[18px]" onClick={() => { onCreate(newTitle, newReward, newQty, newDuration); setNewTitle(""); setNewQty(1); setNewDuration(""); }}>
+                                Post Job
                             </Button>
                         </div>
                     </div>
@@ -1020,78 +1074,126 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                     const isMyClaim = b.claimantId === userId;
                     const hasActiveJob = bounties.some(job => job.status === 'claimed' && job.claimantId === userId);
                     const remainingSpots = b.remaining || (b.status === 'open' ? 1 : 0); 
+                    
+                    const minsLeft = getMinutesLeft(b.expiresAt);
+                    const hasTimer = b.expiresAt > 0;
+                    const isExpired = hasTimer && minsLeft <= 0;
+
+                    // Progress Bar Calculation
+                    let progressWidth = 100;
+                    let progressColor = 'bg-green-500';
+                    
+                    if (hasTimer && !isExpired && b.createdAt) {
+                        // Determine duration based on creation
+                        let createdTime = b.createdAt;
+                        // Handle different timestamp formats if necessary, but usually it's a Timestamp obj or millis
+                        // We stored it as serverTimestamp(), which returns a Timestamp object in snapshots
+                        const createdMillis = createdTime.toMillis ? createdTime.toMillis() : Date.now();
+                        
+                        const totalDuration = b.expiresAt - createdMillis;
+                        const timeRemaining = b.expiresAt - Date.now();
+                        
+                        if (totalDuration > 0) {
+                            progressWidth = Math.max(0, Math.min(100, (timeRemaining / totalDuration) * 100));
+                        }
+                        
+                        if (progressWidth < 50) progressColor = 'bg-yellow-500';
+                        if (progressWidth < 20) progressColor = 'bg-orange-500';
+                        if (progressWidth < 10) progressColor = 'bg-red-500 animate-pulse';
+                    }
 
                     return (
-                        <Card key={b.id} className="flex justify-between items-center border-l-4 border-l-pink-500">
-                            <div className="flex-grow min-w-0 mr-2">
-                                <h4 className="font-bold text-slate-800 break-words">{b.title}</h4>
-                                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                    <span className="bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">
-                                        {b.reward} {EMOJI} Reward
-                                    </span>
-                                    {b.status === 'open' && remainingSpots > 1 && (
-                                        <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1">
-                                            <Users size={12}/> {remainingSpots} spots left
+                        <Card key={b.id} className={`flex flex-col border-l-4 ${isExpired ? 'border-l-slate-300 bg-slate-50' : 'border-l-pink-500'}`}>
+                            <div className="flex justify-between items-center">
+                                <div className="flex-grow min-w-0 mr-2">
+                                    <h4 className="font-bold text-slate-800 break-words flex items-center gap-2 flex-wrap">
+                                        {b.title}
+                                    </h4>
+                                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                        <span className="bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">
+                                            {b.reward} {EMOJI} Reward
                                         </span>
+                                        {b.status === 'open' && remainingSpots > 1 && (
+                                            <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1">
+                                                <Users size={12}/> {remainingSpots} spots left
+                                            </span>
+                                        )}
+                                        {/* Time Limit Badge */}
+                                        {b.status === 'open' && hasTimer && (
+                                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1 ${isExpired ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-700'}`}>
+                                                <Clock size={12}/> {isExpired ? "Expired" : `${minsLeft}m left`}
+                                            </span>
+                                        )}
+                                        
+                                        {b.status === 'claimed' && (
+                                            <span className="text-xs text-slate-500 flex items-center gap-1 whitespace-nowrap">
+                                                <CheckSquare size={12}/> Claimed by {b.claimantName}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                
+                                <div className="flex gap-2 flex-shrink-0">
+                                    {b.status === 'open' && (
+                                        <>
+                                            <Button 
+                                                variant="outline" 
+                                                onClick={() => onClaim(b.id, remainingSpots)}
+                                                disabled={hasActiveJob || isExpired} 
+                                                className={hasActiveJob || isExpired ? "opacity-50 cursor-not-allowed" : ""}
+                                                title={isExpired ? "Job Expired" : hasActiveJob ? "Finish your current job first!" : "Claim this job"}
+                                            >
+                                                {isExpired ? "Expired" : "Claim"}
+                                            </Button>
+                                            {isAdmin && (
+                                                <button 
+                                                    onClick={() => onDelete(b.id)}
+                                                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                >
+                                                    <Trash2 size={20}/>
+                                                </button>
+                                            )}
+                                        </>
                                     )}
-                                    {b.status === 'claimed' && (
-                                        <span className="text-xs text-slate-500 flex items-center gap-1 whitespace-nowrap">
-                                            <CheckSquare size={12}/> Claimed by {b.claimantName}
+
+                                    {b.status === 'claimed' && isAdmin && (
+                                        <>
+                                            <button 
+                                                onClick={() => onUnclaim(b.id)}
+                                                className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                title="Revoke Claim"
+                                            >
+                                                <XCircle size={20} />
+                                            </button>
+                                            <Button variant="success" onClick={() => onPay(b.id, b.claimantName, b.reward)} className="whitespace-nowrap">
+                                                Pay & Close
+                                            </Button>
+                                        </>
+                                    )}
+
+                                    {b.status === 'claimed' && isMyClaim && !isAdmin && (
+                                        <Button variant="danger" onClick={() => onUnclaim(b.id)} className="text-xs px-2 whitespace-nowrap">
+                                            Cancel Claim
+                                        </Button>
+                                    )}
+
+                                    {b.status === 'claimed' && !isMyClaim && !isAdmin && (
+                                        <span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500 self-center whitespace-nowrap">
+                                            Busy
                                         </span>
                                     )}
                                 </div>
                             </div>
                             
-                            <div className="flex gap-2 flex-shrink-0">
-                                {b.status === 'open' && (
-                                    <>
-                                        <Button 
-                                            variant="outline" 
-                                            onClick={() => onClaim(b.id, remainingSpots)}
-                                            disabled={hasActiveJob} 
-                                            className={hasActiveJob ? "opacity-50 cursor-not-allowed" : ""}
-                                            title={hasActiveJob ? "Finish your current job first!" : "Claim this job"}
-                                        >
-                                            Claim
-                                        </Button>
-                                        {isAdmin && (
-                                            <button 
-                                                onClick={() => onDelete(b.id)}
-                                                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                            >
-                                                <Trash2 size={20}/>
-                                            </button>
-                                        )}
-                                    </>
-                                )}
-
-                                {b.status === 'claimed' && isAdmin && (
-                                    <>
-                                        <button 
-                                            onClick={() => onUnclaim(b.id)}
-                                            className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                            title="Revoke Claim"
-                                        >
-                                            <XCircle size={20} />
-                                        </button>
-                                        <Button variant="success" onClick={() => onPay(b.id, b.claimantName, b.reward)} className="whitespace-nowrap">
-                                            Pay & Close
-                                        </Button>
-                                    </>
-                                )}
-
-                                {b.status === 'claimed' && isMyClaim && !isAdmin && (
-                                    <Button variant="danger" onClick={() => onUnclaim(b.id)} className="text-xs px-2 whitespace-nowrap">
-                                        Cancel Claim
-                                    </Button>
-                                )}
-
-                                {b.status === 'claimed' && !isMyClaim && !isAdmin && (
-                                    <span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500 self-center whitespace-nowrap">
-                                        Busy
-                                    </span>
-                                )}
-                            </div>
+                            {/* PROGRESS BAR */}
+                            {b.status === 'open' && hasTimer && !isExpired && (
+                                <div className="w-full h-1.5 bg-slate-100 rounded-full mt-3 overflow-hidden relative">
+                                    <div 
+                                        className={`h-full transition-all duration-1000 ease-linear ${progressColor}`} 
+                                        style={{ width: `${progressWidth}%` }}
+                                    />
+                                </div>
+                            )}
                         </Card>
                     );
                 })}
