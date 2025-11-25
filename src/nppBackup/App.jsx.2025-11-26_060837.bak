@@ -12,7 +12,7 @@ import {
 import { 
   Trophy, Gift, Activity, MessageSquare, 
   LogOut, UserPlus, Heart, Zap, Search, CheckCircle, Target, Sparkles,
-  Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock, Users, Skull, Trash2, Edit2, RotateCcw
+  Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock, Users, Skull, Trash2, Clock, Calendar, Edit2, RotateCcw
 } from 'lucide-react';
 
 // --- CONFIGURATION START ---
@@ -201,6 +201,7 @@ export default function YumDonutApp() {
           if (docSnap.exists()) {
             setMyProfile(docSnap.data());
           } else {
+            // Profile is missing (could be deleted or new user)
             setMyProfile(null); 
           }
           setLoading(false);
@@ -274,7 +275,19 @@ export default function YumDonutApp() {
     }
   }, [user, myProfile, users]);
 
-  const openBountyCount = bounties.filter(b => b.status === 'open').length;
+  const openBountyCount = bounties.filter(b => {
+      if (b.status !== 'open') return false;
+      
+      // Safe check for expiration (using numbers directly since we store millis)
+      const now = Date.now();
+      const startsAt = b.startsAt || 0;
+      const expiresAt = b.expiresAt || 0;
+
+      if (startsAt > now) return false;
+      if (expiresAt > 0 && expiresAt < now && user.uid !== 'admin_uid_placeholder') return false; 
+      
+      return true;
+  }).length;
 
   // RANK LOGIC
   const currentPublicProfile = users.find(u => u.name === myProfile?.name);
@@ -331,10 +344,12 @@ export default function YumDonutApp() {
 
     try {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        // SUCCESS: Check if we need to resurrect the profile!
         const uid = userCredential.user.uid;
         const userRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data');
         const docSnap = await getDoc(userRef);
         if (!docSnap.exists()) {
+             // Profile missing! Recreate it.
              await createProfile(uid, name);
              showNotification(`Welcome back, ${name}! Profile restored.`);
         } else {
@@ -521,6 +536,7 @@ export default function YumDonutApp() {
       }
   };
 
+  // RESTORED: Admin Goal Controls
   const handleResetGoal = async () => {
       try {
           const goalRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'goals', 'active_goal');
@@ -603,28 +619,55 @@ export default function YumDonutApp() {
       }
   };
 
-  // --- SIMPLIFIED CREATE BOUNTY (No times) ---
-  const handleCreateBounty = async (title, reward, quantity) => {
+  const handleCreateBounty = async (title, reward, quantity, timeLimitMins, scheduleTime) => {
       const qty = parseInt(quantity) || 1;
+      const limitMins = parseInt(timeLimitMins) || 0;
       
+      let startsAt = null;
+      if (scheduleTime) {
+          const [hours, mins] = scheduleTime.split(':').map(Number);
+          const now = new Date();
+          const scheduled = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, mins);
+          // If time has already passed today, assume tomorrow
+          if (scheduled <= now) {
+              scheduled.setDate(scheduled.getDate() + 1);
+          }
+          startsAt = Timestamp.fromDate(scheduled);
+      }
+
+      let expiresAt = null;
+      if (limitMins > 0) {
+           const now = new Date();
+           const baseTime = startsAt ? startsAt.toDate().getTime() : now.getTime();
+           const expiryDate = new Date(baseTime + (limitMins * 60000));
+           expiresAt = Timestamp.fromDate(expiryDate);
+      } 
+
       await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'bounties'), {
           title,
           reward: parseInt(reward),
           status: 'open',
           remaining: qty, 
+          expiresAt: expiresAt ? expiresAt.toMillis() : null,
+          startsAt: startsAt ? startsAt.toMillis() : null,
           createdBy: myProfile.name,
           createdAt: serverTimestamp()
       });
       
-      await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
-          fromName: "Job Board",
-          toName: "EVERYONE",
-          message: `📢 New Job Posted: ${title} (${reward} ${EMOJI}) - ${qty} spots!`,
-          timestamp: serverTimestamp(),
-          emoji: "📢",
-          likes: []
-      });
-      showNotification("Job Posted & Announced!");
+      if (!startsAt || startsAt.toMillis() <= Date.now()) {
+          const timeMsg = limitMins > 0 ? ` (Expires in ${limitMins} mins)` : "";
+          await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
+              fromName: "Job Board",
+              toName: "EVERYONE",
+              message: `📢 New Job Posted: ${title} (${reward} ${EMOJI}) - ${qty} spots!${timeMsg}`,
+              timestamp: serverTimestamp(),
+              emoji: "📢",
+              likes: []
+          });
+          showNotification("Job Posted & Announced!");
+      } else {
+          showNotification(`Job scheduled for ${scheduleTime}.`);
+      }
   };
 
   const handleDeleteBounty = async (bountyId) => {
@@ -986,14 +1029,55 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic }) {
     );
 }
 
-// --- SIMPLIFIED BOUNTIES VIEW (No Time, Just Quantity & Delete) ---
 function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onClaim, onUnclaim, onPay }) {
     const [newTitle, setNewTitle] = useState("");
     const [newReward, setNewReward] = useState(5);
     const [newQty, setNewQty] = useState(1); 
+    const [newTimeLimit, setNewTimeLimit] = useState(""); 
+    const [newSchedule, setNewSchedule] = useState(""); 
     const isAdmin = currentUser.name === "Mr Rayner";
 
-    const activeBounties = bounties.filter(b => b.status !== 'paid');
+    // Filter Logic: Hide scheduled jobs if user is not admin
+    const activeBounties = bounties.filter(b => {
+        if (b.status === 'paid') return false;
+        
+        const now = Date.now();
+        
+        // Note: we do direct numeric comparison here since b.startsAt is a number in millis
+        // In the Create handler, we already convert timestamps to millis before saving.
+        const isExpired = b.expiresAt && b.expiresAt < now;
+        const isFuture = b.startsAt && b.startsAt > now;
+
+        if (isAdmin) return true; // Admins see everything
+
+        // Students
+        if (isFuture) return false; // Hide future jobs
+        if (b.status === 'open' && isExpired) return false; // Hide open expired jobs (they vanish)
+        
+        return true;
+    });
+
+    const getTimeLeft = (expiresAt) => {
+        if (!expiresAt) return null;
+        const diff = expiresAt - Date.now();
+        if (diff <= 0) return "Expired";
+        const mins = Math.ceil(diff / 60000);
+        return `${mins}m left`;
+    };
+    
+    const getStartsIn = (startsAt) => {
+        if (!startsAt) return null;
+        const diff = startsAt - Date.now();
+        if (diff <= 0) return null; // Already started
+        const mins = Math.ceil(diff / 60000);
+        return `Starts in ${mins}m`;
+    };
+
+    const [, setTick] = useState(0);
+    useEffect(() => {
+        const interval = setInterval(() => setTick(t => t + 1), 60000);
+        return () => clearInterval(interval);
+    }, []);
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1002,35 +1086,60 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                     <h3 className="font-bold text-pink-700 mb-3 flex items-center gap-2">
                         <Briefcase size={20}/> Post New Job
                     </h3>
-                    <div className="flex gap-2 flex-col md:flex-row">
-                        <input 
-                            className="flex-grow p-2 rounded-lg border border-pink-200"
-                            placeholder="Job Description (e.g. Film Assembly)"
-                            value={newTitle}
-                            onChange={e => setNewTitle(e.target.value)}
-                        />
-                        <div className="flex gap-2">
-                            <div className="flex flex-col w-20">
-                                <label className="text-[10px] text-pink-400 font-bold uppercase">Reward</label>
-                                <input 
-                                    type="number"
-                                    className="w-full p-2 rounded-lg border border-pink-200"
-                                    value={newReward}
-                                    onChange={e => setNewReward(e.target.value)}
-                                />
-                            </div>
-                            <div className="flex flex-col w-20">
-                                <label className="text-[10px] text-pink-400 font-bold uppercase">Spots</label>
-                                <input 
-                                    type="number"
-                                    min="1"
-                                    className="w-full p-2 rounded-lg border border-pink-200"
-                                    value={newQty}
-                                    onChange={e => setNewQty(e.target.value)}
-                                />
-                            </div>
-                            <Button className="self-end" onClick={() => { onCreate(newTitle, newReward, newQty); setNewTitle(""); setNewQty(1); }}>
-                                Post
+                    
+                    {/* NEW GRID LAYOUT */}
+                    <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                        <div className="col-span-2 md:col-span-6">
+                            <label className="text-[10px] text-pink-400 font-bold uppercase">Job Description</label>
+                            <input 
+                                className="w-full p-2 rounded-lg border border-pink-200"
+                                placeholder="e.g. Film Assembly"
+                                value={newTitle}
+                                onChange={e => setNewTitle(e.target.value)}
+                            />
+                        </div>
+                        
+                        <div>
+                            <label className="text-[10px] text-pink-400 font-bold uppercase">Reward</label>
+                            <input 
+                                type="number"
+                                className="w-full p-2 rounded-lg border border-pink-200"
+                                value={newReward}
+                                onChange={e => setNewReward(e.target.value)}
+                            />
+                        </div>
+                        <div>
+                            <label className="text-[10px] text-pink-400 font-bold uppercase">Spots</label>
+                            <input 
+                                type="number"
+                                min="1"
+                                className="w-full p-2 rounded-lg border border-pink-200"
+                                value={newQty}
+                                onChange={e => setNewQty(e.target.value)}
+                            />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="text-[10px] text-pink-400 font-bold uppercase flex items-center gap-1"><Clock size={10}/> Post At</label>
+                            <input 
+                                type="time"
+                                className="w-full p-2 rounded-lg border border-pink-200 text-sm"
+                                value={newSchedule}
+                                onChange={e => setNewSchedule(e.target.value)}
+                            />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="text-[10px] text-pink-400 font-bold uppercase flex items-center gap-1"><Clock size={10}/> Deadline</label>
+                            <input 
+                                type="time"
+                                className="w-full p-2 rounded-lg border border-pink-200 text-sm"
+                                value={newTimeLimit}
+                                onChange={e => setNewTimeLimit(e.target.value)}
+                            />
+                        </div>
+                        
+                        <div className="col-span-2 md:col-span-6">
+                            <Button className="w-full" onClick={() => { onCreate(newTitle, newReward, newQty, newTimeLimit, newSchedule); setNewTitle(""); setNewQty(1); setNewTimeLimit(""); setNewSchedule(""); }}>
+                                Post Job
                             </Button>
                         </div>
                     </div>
@@ -1047,78 +1156,124 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                     const isMyClaim = b.claimantId === userId;
                     const hasActiveJob = bounties.some(job => job.status === 'claimed' && job.claimantId === userId);
                     const remainingSpots = b.remaining || (b.status === 'open' ? 1 : 0); 
+                    
+                    const timeLeft = getTimeLeft(b.expiresAt);
+                    const startsIn = getStartsIn(b.startsAt);
+                    const isExpired = timeLeft === "Expired";
+                    const isScheduled = startsIn !== null;
+
+                    // Progress Bar Calculation
+                    let progressWidth = 100;
+                    let progressColor = 'bg-green-500';
+                    
+                    if (b.createdAt && b.expiresAt && !isExpired && !isScheduled) {
+                        const totalDuration = b.expiresAt - (b.startsAt ? b.startsAt : (b.createdAt.toMillis ? b.createdAt.toMillis() : Date.now()));
+                        const timeRemaining = b.expiresAt - Date.now();
+                        
+                        if (totalDuration > 0) {
+                            progressWidth = Math.max(0, Math.min(100, (timeRemaining / totalDuration) * 100));
+                        }
+                        
+                        if (progressWidth < 50) progressColor = 'bg-yellow-500';
+                        if (progressWidth < 20) progressColor = 'bg-orange-500';
+                        if (progressWidth < 10) progressColor = 'bg-red-500 animate-pulse';
+                    }
 
                     return (
-                        <Card key={b.id} className="flex justify-between items-center border-l-4 border-l-pink-500">
-                            <div className="flex-grow min-w-0 mr-2">
-                                <h4 className="font-bold text-slate-800 break-words">{b.title}</h4>
-                                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                    <span className="bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">
-                                        {b.reward} {EMOJI} Reward
-                                    </span>
-                                    {b.status === 'open' && remainingSpots > 1 && (
-                                        <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1">
-                                            <Users size={12}/> {remainingSpots} spots left
+                        <Card key={b.id} className={`flex flex-col border-l-4 ${isScheduled ? 'border-l-slate-300 bg-slate-50' : 'border-l-pink-500'}`}>
+                            <div className="flex justify-between items-center">
+                                <div className="flex-grow min-w-0 mr-2">
+                                    <h4 className="font-bold text-slate-800 break-words flex items-center gap-2 flex-wrap">
+                                        {b.title}
+                                        {isScheduled && <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full whitespace-nowrap">{startsIn}</span>}
+                                    </h4>
+                                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                        <span className="bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">
+                                            {b.reward} {EMOJI} Reward
                                         </span>
+                                        {b.status === 'open' && remainingSpots > 1 && (
+                                            <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1">
+                                                <Users size={12}/> {remainingSpots} spots left
+                                            </span>
+                                        )}
+                                        {/* Time Limit Badge */}
+                                        {b.status === 'open' && timeLeft && !isScheduled && (
+                                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1 ${isExpired ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-700'}`}>
+                                                <Clock size={12}/> {timeLeft}
+                                            </span>
+                                        )}
+                                        
+                                        {b.status === 'claimed' && (
+                                            <span className="text-xs text-slate-500 flex items-center gap-1 whitespace-nowrap">
+                                                <CheckSquare size={12}/> Claimed by {b.claimantName}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                
+                                <div className="flex gap-2 flex-shrink-0">
+                                    {b.status === 'open' && (
+                                        <>
+                                            {!isScheduled && (
+                                                <Button 
+                                                    variant="outline" 
+                                                    onClick={() => onClaim(b.id, remainingSpots)}
+                                                    disabled={hasActiveJob || isExpired} 
+                                                    className={hasActiveJob || isExpired ? "opacity-50 cursor-not-allowed" : ""}
+                                                    title={isExpired ? "Job Expired" : hasActiveJob ? "Finish your current job first!" : "Claim this job"}
+                                                >
+                                                    {isExpired ? "Expired" : "Claim"}
+                                                </Button>
+                                            )}
+                                            {isAdmin && (
+                                                <button 
+                                                    onClick={() => onDelete(b.id)}
+                                                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                >
+                                                    <Trash2 size={20}/>
+                                                </button>
+                                            )}
+                                        </>
                                     )}
-                                    {b.status === 'claimed' && (
-                                        <span className="text-xs text-slate-500 flex items-center gap-1 whitespace-nowrap">
-                                            <CheckSquare size={12}/> Claimed by {b.claimantName}
+
+                                    {b.status === 'claimed' && isAdmin && (
+                                        <>
+                                            <button 
+                                                onClick={() => onUnclaim(b.id)}
+                                                className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                title="Revoke Claim"
+                                            >
+                                                <XCircle size={20} />
+                                            </button>
+                                            <Button variant="success" onClick={() => onPay(b.id, b.claimantName, b.reward)} className="whitespace-nowrap">
+                                                Pay & Close
+                                            </Button>
+                                        </>
+                                    )}
+
+                                    {b.status === 'claimed' && isMyClaim && !isAdmin && (
+                                        <Button variant="danger" onClick={() => onUnclaim(b.id)} className="text-xs px-2 whitespace-nowrap">
+                                            Cancel Claim
+                                        </Button>
+                                    )}
+
+                                    {b.status === 'claimed' && !isMyClaim && !isAdmin && (
+                                        <span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500 self-center whitespace-nowrap">
+                                            Busy
                                         </span>
                                     )}
                                 </div>
                             </div>
                             
-                            <div className="flex gap-2 flex-shrink-0">
-                                {b.status === 'open' && (
-                                    <>
-                                        <Button 
-                                            variant="outline" 
-                                            onClick={() => onClaim(b.id, remainingSpots)}
-                                            disabled={hasActiveJob} 
-                                            className={hasActiveJob ? "opacity-50 cursor-not-allowed" : ""}
-                                            title={hasActiveJob ? "Finish your current job first!" : "Claim this job"}
-                                        >
-                                            Claim
-                                        </Button>
-                                        {isAdmin && (
-                                            <button 
-                                                onClick={() => onDelete(b.id)}
-                                                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                            >
-                                                <Trash2 size={20}/>
-                                            </button>
-                                        )}
-                                    </>
-                                )}
-
-                                {b.status === 'claimed' && isAdmin && (
-                                    <>
-                                        <button 
-                                            onClick={() => onUnclaim(b.id)}
-                                            className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                            title="Revoke Claim"
-                                        >
-                                            <XCircle size={20} />
-                                        </button>
-                                        <Button variant="success" onClick={() => onPay(b.id, b.claimantName, b.reward)} className="whitespace-nowrap">
-                                            Pay & Close
-                                        </Button>
-                                    </>
-                                )}
-
-                                {b.status === 'claimed' && isMyClaim && !isAdmin && (
-                                    <Button variant="danger" onClick={() => onUnclaim(b.id)} className="text-xs px-2 whitespace-nowrap">
-                                        Cancel Claim
-                                    </Button>
-                                )}
-
-                                {b.status === 'claimed' && !isMyClaim && !isAdmin && (
-                                    <span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500 self-center whitespace-nowrap">
-                                        Busy
-                                    </span>
-                                )}
-                            </div>
+                            {/* PROGRESS BAR */}
+                            {b.status === 'open' && timeLeft && !isScheduled && !isExpired && (
+                                <div className="w-full h-1.5 bg-slate-100 rounded-full mt-3 overflow-hidden relative">
+                                    <div 
+                                        className={`h-full transition-all duration-1000 ease-linear ${progressColor}`} 
+                                        style={{ width: `${progressWidth}%` }}
+                                    />
+                                </div>
+                            )}
                         </Card>
                     );
                 })}
@@ -1133,11 +1288,13 @@ function GoalView({ goalData, userBalance, onContribute, currentUserName, onActi
     const isMet = (goalData.current || 0) >= target;
     const isAdmin = currentUserName === "Mr Rayner";
     
+    // State for Admin Edit Mode
     const [isEditing, setIsEditing] = useState(false);
     const [editTitle, setEditTitle] = useState(goalData.title || "Team Goal");
     const [editTarget, setEditTarget] = useState(target);
 
     const contributors = goalData.contributors || {};
+    // Sort contributors by amount (desc)
     const sortedContributors = Object.entries(contributors)
         .sort(([,a], [,b]) => b - a);
 
@@ -1241,6 +1398,7 @@ function GoalView({ goalData, userBalance, onContribute, currentUserName, onActi
                 </div>
              </Card>
 
+             {/* CONTRIBUTORS LIST */}
              {sortedContributors.length > 0 && (
                  <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
                      <h3 className="font-bold text-slate-700 mb-3 flex items-center gap-2">
@@ -1265,6 +1423,7 @@ function GoalView({ goalData, userBalance, onContribute, currentUserName, onActi
     );
 }
 
+// ... LoginScreen, GiveView, FeedView, LeaderboardView, NavBtn ...
 function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, remaining }) {
     const [selectedUser, setSelectedUser] = useState("");
     const [message, setMessage] = useState("");
