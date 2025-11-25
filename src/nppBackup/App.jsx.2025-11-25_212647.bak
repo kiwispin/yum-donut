@@ -258,7 +258,6 @@ export default function YumDonutApp() {
 
   const openBountyCount = bounties.filter(b => {
       if (b.status !== 'open') return false;
-      if (b.startsAt && b.startsAt.toMillis() > Date.now()) return false;
       // Filter out expired open jobs for non-admins so they "vanish"
       if (b.expiresAt && b.expiresAt < Date.now() && user.uid !== 'admin_uid_placeholder') return false; 
       return true;
@@ -540,30 +539,25 @@ export default function YumDonutApp() {
       }
   };
 
-  const handleCreateBounty = async (title, reward, quantity, timeLimitMins, scheduleTime) => {
+  const handleCreateBounty = async (title, reward, quantity, deadlineTime, scheduleTime) => {
       const qty = parseInt(quantity) || 1;
-      const limitMins = parseInt(timeLimitMins) || 0;
       
-      let startsAt = null;
-      if (scheduleTime) {
-          const [hours, mins] = scheduleTime.split(':').map(Number);
+      // Helper to parse HH:MM into Timestamp
+      const calculateTimestamp = (timeStr) => {
+          if (!timeStr) return null;
+          const [hours, mins] = timeStr.split(':').map(Number);
           const now = new Date();
-          const scheduled = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, mins);
-          startsAt = Timestamp.fromDate(scheduled);
-      }
+          const date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, mins);
+          
+          // If time has already passed today, assume tomorrow
+          if (date <= now) {
+              date.setDate(date.getDate() + 1);
+          }
+          return Timestamp.fromDate(date);
+      };
 
-      let expiresAt = null;
-      if (limitMins > 0) {
-           const now = new Date();
-           // If it's scheduled for future, expiry is relative to that future start time
-           // If startsAt is null/now, expiry is relative to now.
-           const baseTime = startsAt ? startsAt.toDate().getTime() : now.getTime();
-           const expiryDate = new Date(baseTime + (limitMins * 60000));
-           expiresAt = Timestamp.fromDate(expiryDate);
-      } else if (timeLimitMins) { 
-           // Fallback if user entered time string in previous version, try to handle
-           // But we switched to minutes duration in the form.
-      }
+      const startsAt = calculateTimestamp(scheduleTime);
+      const expiresAt = calculateTimestamp(deadlineTime);
 
       await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'bounties'), {
           title,
@@ -576,8 +570,9 @@ export default function YumDonutApp() {
           createdAt: serverTimestamp()
       });
       
+      // Only announce if not scheduled for future
       if (!startsAt || startsAt.toMillis() <= Date.now()) {
-          const timeMsg = limitMins > 0 ? ` (Expires in ${limitMins} mins)` : "";
+          const timeMsg = deadlineTime ? ` (Deadline: ${deadlineTime})` : "";
           await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
               fromName: "Job Board",
               toName: "EVERYONE",
@@ -1199,392 +1194,4 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
     );
 }
 
-function GoalView({ goalData, userBalance, onContribute, currentUserName, onActivate }) {
-    const percent = Math.min(100, ((goalData.current || 0) / GOAL_TARGET) * 100);
-    const isMet = (goalData.current || 0) >= GOAL_TARGET;
-    const isAdmin = currentUserName === "Mr Rayner";
-
-    return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-             <Card className="text-center py-8 relative overflow-hidden">
-                {isMet && <div className="absolute inset-0 bg-yellow-100 opacity-20 animate-pulse"></div>}
-                <div className="relative z-10">
-                    <div className="inline-flex items-center justify-center p-3 bg-pink-100 rounded-full text-pink-500 mb-4">
-                        <Sparkles size={32} />
-                    </div>
-                    <h2 className="text-2xl font-bold text-slate-800 mb-2">Frosted Friday Goal</h2>
-                    <p className="text-slate-500 mb-6 max-w-md mx-auto">
-                        If we reach {GOAL_TARGET} donuts together, we unlock donuts for everyone!
-                    </p>
-
-                    <div className="max-w-lg mx-auto bg-slate-100 rounded-full h-8 mb-2 relative">
-                        <div 
-                            className="bg-gradient-to-r from-pink-500 to-purple-500 h-full rounded-full transition-all duration-1000 ease-out flex items-center justify-end pr-2"
-                            style={{ width: `${percent}%` }}
-                        >
-                            <span className="text-white text-xs font-bold drop-shadow-md">{Math.floor(percent)}%</span>
-                        </div>
-                    </div>
-                    <p className="text-sm font-bold text-slate-700 mb-8">
-                        {goalData.current} / {GOAL_TARGET} {EMOJI} raised
-                    </p>
-
-                    {isMet ? (
-                        <div className="space-y-4">
-                            <div className="bg-green-100 text-green-700 p-4 rounded-xl font-bold text-lg animate-bounce">
-                                🎉 GOAL REACHED! ({goalData.current}/{GOAL_TARGET})
-                            </div>
-                            {isAdmin ? (
-                                <Button 
-                                    onClick={onActivate} 
-                                    variant="success"
-                                    className="w-full py-3 text-lg"
-                                >
-                                    🚨 Activate Frosted Friday! 🚨
-                                </Button>
-                            ) : (
-                                <p className="text-sm text-slate-500 italic">Waiting for Mr Rayner to activate the event...</p>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="flex flex-col items-center gap-2">
-                             <Button 
-                                onClick={onContribute} 
-                                variant="primary"
-                                className="w-full max-w-xs py-3 text-lg"
-                            >
-                                Contribute 1 {EMOJI}
-                            </Button>
-                            <p className="text-xs text-slate-400">
-                                You have {userBalance} donuts available.
-                            </p>
-                        </div>
-                    )}
-                </div>
-             </Card>
-        </div>
-    );
-}
-
-// ... LoginScreen, GiveView, FeedView, LeaderboardView, NavBtn ...
-function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, remaining }) {
-    const [selectedUser, setSelectedUser] = useState("");
-    const [message, setMessage] = useState("");
-    const [filter, setFilter] = useState("");
-    const [amount, setAmount] = useState(1);
-    const [mode, setMode] = useState("give"); // 'give' or 'munch'
-    
-    const isAdmin = currentUserName === "Mr Rayner";
-    const isMunch = mode === "munch";
-
-    const filteredRoster = roster
-        .filter(name => name !== currentUserName)
-        .filter(name => name.toLowerCase().includes(filter.toLowerCase()));
-
-    const handleSubmit = () => {
-        if (!selectedUser || !message) return;
-        
-        if (isMunch) {
-            onMunch(selectedUser, message);
-        } else {
-            onGive(selectedUser, message, amount);
-        }
-        
-        setMessage("");
-        setSelectedUser("");
-        setFilter("");
-        setAmount(1);
-    };
-
-    return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className={`md:hidden p-6 rounded-2xl shadow-lg shadow-pink-200 flex justify-between items-center transition-colors ${isMunch ? 'bg-red-500 text-white' : 'bg-pink-500 text-white'}`}>
-                <div>
-                    <h2 className="font-bold text-lg opacity-90">{isMunch ? "The Muncher" : "Daily Balance"}</h2>
-                    <p className="text-xs opacity-75">{isMunch ? "Feeding Time 👾" : "Use them or lose them!"}</p>
-                </div>
-                <div className="text-4xl font-black">{isAdmin ? "∞" : remaining}</div>
-            </div>
-
-            <Card className={`space-y-4 transition-colors ${isMunch ? 'border-red-200 bg-red-50' : ''}`}>
-                <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2 mb-2">
-                        {isMunch ? <Skull className="text-red-500" size={24} /> : <Heart className="text-pink-500" size={24} />}
-                        <h2 className="text-xl font-bold text-slate-800">
-                            {isMunch ? "Who lost a donut?" : "Who deserves a donut?"}
-                        </h2>
-                    </div>
-                    
-                    {/* ADMIN TOGGLE */}
-                    {isAdmin && (
-                        <div className="flex bg-slate-100 rounded-lg p-1">
-                            <button 
-                                onClick={() => setMode("give")}
-                                className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${!isMunch ? 'bg-white text-pink-500 shadow-sm' : 'text-slate-400'}`}
-                            >
-                                😇 Give
-                            </button>
-                            <button 
-                                onClick={() => setMode("munch")}
-                                className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${isMunch ? 'bg-white text-red-500 shadow-sm' : 'text-slate-400'}`}
-                            >
-                                😈 Munch
-                            </button>
-                        </div>
-                    )}
-                </div>
-
-                {remaining === 0 && !isAdmin ? (
-                     <div className="bg-slate-100 p-6 rounded-xl text-center text-slate-500">
-                        <p className="text-lg font-medium">You're all out of donuts!</p>
-                        <p className="text-sm">Come back tomorrow for a fresh batch.</p>
-                     </div>
-                ) : (
-                    <>
-                        <div className="space-y-2">
-                            <label className="text-sm font-semibold text-slate-600">Select Teammate</label>
-                            {!selectedUser ? (
-                                <div className="relative">
-                                    <input 
-                                        className="w-full p-3 pl-10 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none"
-                                        placeholder="Search name..."
-                                        value={filter}
-                                        onChange={e => setFilter(e.target.value)}
-                                    />
-                                    <UserPlus className="absolute left-3 top-3.5 text-slate-400" size={18} />
-                                    
-                                    {filter && (
-                                        <div className="absolute top-full left-0 right-0 mt-1 bg-white shadow-xl rounded-xl border border-slate-100 max-h-60 overflow-y-auto z-10 divide-y divide-slate-50">
-                                            {filteredRoster.map(name => {
-                                                const userData = existingUsers.find(u => u.name === name);
-                                                const bgColor = userData?.avatar_color || "#cbd5e1"; 
-                                                
-                                                return (
-                                                    <button 
-                                                        key={name}
-                                                        onClick={() => { setSelectedUser(name); setFilter(""); }}
-                                                        className="w-full text-left p-3 hover:bg-pink-50 flex items-center gap-3 transition-colors"
-                                                    >
-                                                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{background: bgColor}}>
-                                                            {name[0]}
-                                                        </div>
-                                                        <span>{name}</span>
-                                                    </button>
-                                                )
-                                            })}
-                                            {filteredRoster.length === 0 && <div className="p-3 text-slate-400 text-sm">No users found</div>}
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (
-                                <div className="flex items-center justify-between p-3 bg-white border border-pink-200 rounded-xl">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" 
-                                             style={{background: existingUsers.find(u => u.name === selectedUser)?.avatar_color || "#cbd5e1"}}>
-                                            {selectedUser[0]}
-                                        </div>
-                                        <span className="font-medium text-slate-800">
-                                            {selectedUser}
-                                        </span>
-                                    </div>
-                                    <button onClick={() => setSelectedUser("")} className="text-slate-400 hover:text-red-500">
-                                        <LogOut size={18} />
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-sm font-semibold text-slate-600">Reason</label>
-                            <textarea 
-                                className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none resize-none"
-                                rows={3}
-                                placeholder={isMunch ? "Why did the Muncher strike? (e.g. Left batteries flat)" : "Thanks for helping me with the filming!"}
-                                value={message}
-                                onChange={e => setMessage(e.target.value)}
-                            />
-                        </div>
-
-                        {/* Admin Bulk Controls (Only show in Give Mode) */}
-                        {isAdmin && !isMunch && (
-                            <div className="space-y-2">
-                                <label className="text-sm font-semibold text-slate-600 flex items-center gap-2">
-                                    <Zap size={16} className="text-yellow-500"/> Admin Multiplier
-                                </label>
-                                <div className="flex gap-2">
-                                    {[1, 2, 5, 10].map(n => (
-                                        <button
-                                            key={n}
-                                            onClick={() => setAmount(n)}
-                                            className={`flex-1 py-2 rounded-lg font-bold text-sm transition-all ${
-                                                amount === n 
-                                                ? "bg-yellow-400 text-yellow-900 shadow-md scale-105" 
-                                                : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                                            }`}
-                                        >
-                                            {n}x
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        <Button 
-                            onClick={handleSubmit} 
-                            disabled={!selectedUser || !message}
-                            className="w-full py-3 text-lg"
-                            variant={isMunch ? "danger" : "primary"}
-                        >
-                            {isMunch ? `Feed The Muncher (1 ${EMOJI})` : 
-                            `Give ${amount > 1 ? `${amount} ${EMOJI}` : EMOJI}`}
-                            {!isMunch && <span className="text-sm opacity-80 ml-1">
-                                {isAdmin ? "(∞ left)" : `(${remaining} left)`}
-                            </span>}
-                        </Button>
-                    </>
-                )}
-            </Card>
-        </div>
-    );
-}
-
-function FeedView({ transactions, onReact }) {
-    return (
-        <div className="space-y-4 animate-in fade-in duration-500">
-            <h2 className="text-xl font-bold text-slate-800 px-1">Recent Activity</h2>
-            {transactions.length === 0 ? (
-                <div className="text-center py-10 text-slate-400">
-                    <p className="text-4xl mb-2">🦗</p>
-                    <p>No donuts given yet. Be the first!</p>
-                </div>
-            ) : (
-                transactions.map(tx => {
-                    const count = tx.amount || 1;
-                    const isMunch = tx.fromName === "The Donut Muncher";
-                    
-                    return (
-                    <Card key={tx.id} className={`flex gap-4 relative ${isMunch ? 'bg-red-50 border-red-100' : ''}`}>
-                        <div className={`flex-shrink-0 mt-1 p-2 rounded-full h-10 w-10 flex items-center justify-center text-lg shadow-sm ${isMunch ? 'bg-red-100 text-red-500' : 'bg-pink-100 text-pink-500'}`}>
-                            {tx.emoji || EMOJI}
-                        </div>
-                        <div className="flex-grow pb-6">
-                            <div className="flex flex-wrap items-baseline gap-x-1 mb-1">
-                                <span className="font-bold text-slate-900">{tx.fromName}</span>
-                                {tx.toName === "Frosted Friday" || tx.toName === "EVERYONE" || tx.toName === "The Shop" || tx.fromName === "Job Board" ? (
-                                    <span className="text-slate-500 text-sm ml-1">
-                                        {tx.message.includes("activated") ? "announced" : 
-                                         tx.message.includes("Purchased") ? "went shopping" : 
-                                         tx.emoji === "📢" ? "announced" : "contributed to"}
-                                    </span>
-                                ) : isMunch ? (
-                                    <>
-                                        <span className="text-red-500 text-sm mx-1 font-bold">ATE a donut from</span>
-                                        <span className="font-bold text-slate-900">{tx.toName}</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <span className="text-slate-500 text-sm mx-1">
-                                            gave {count > 1 ? <span className="font-bold text-pink-600">{count} donuts</span> : "a donut"} to
-                                        </span>
-                                        <span className="font-bold text-slate-900">{tx.toName}</span>
-                                    </>
-                                )}
-                            </div>
-                            <p className={`p-2 rounded-lg border italic text-sm ${isMunch ? 'text-red-700 bg-red-100 border-red-200' : 'text-slate-700 bg-slate-50 border-slate-100'}`}>
-                                "{tx.message}"
-                            </p>
-                            <p className="text-xs text-slate-400 mt-2 text-right">
-                                {tx.timestamp ? new Date(tx.timestamp.toDate()).toLocaleString() : 'Just now'}
-                            </p>
-                            
-                            <button 
-                                onClick={() => onReact(tx.id, tx.likes)}
-                                className="absolute bottom-3 left-16 text-xs bg-white hover:bg-orange-50 border border-slate-200 px-2 py-1 rounded-full flex items-center gap-1 transition-colors"
-                            >
-                                <Flame size={12} className={tx.likes?.length ? "text-orange-500 fill-orange-500" : "text-slate-400"} />
-                                <span className={tx.likes?.length ? "text-orange-600 font-bold" : "text-slate-500"}>
-                                    {tx.likes?.length || 0}
-                                </span>
-                            </button>
-                        </div>
-                    </Card>
-                )
-                })
-            )}
-        </div>
-    );
-}
-
-function LeaderboardView({ users, roster }) {
-    const combinedList = roster.map(name => {
-        const userData = users.find(u => u.name === name);
-        return {
-            name: name,
-            balance: userData ? userData.balance : 0,
-            avatar_color: userData ? userData.avatar_color : '#cbd5e1',
-            rainbow_name: userData ? userData.rainbow_name : false,
-            lifetime_received: userData ? userData.lifetime_received : 0,
-            lifetime_given: userData ? userData.lifetime_given : 0
-        };
-    }).sort((a, b) => b.balance - a.balance);
-
-    return (
-        <div className="space-y-4 animate-in fade-in duration-500">
-            <div className="flex justify-between items-end px-1">
-                <h2 className="text-xl font-bold text-slate-800">Leaderboard</h2>
-                <span className="text-xs font-medium bg-pink-100 text-pink-600 px-2 py-1 rounded-full">All Time</span>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                {combinedList.map((u, index) => {
-                    // Ranks based on GIVEN
-                    const rank = getRank(u.lifetime_given || 0); 
-                    return (
-                    <div key={u.name} className="flex items-center p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors last:border-none">
-                        <div className="w-8 font-bold text-slate-400 text-center flex-shrink-0">
-                            {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}
-                        </div>
-                        <div className="mx-4">
-                            <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" style={{background: u.avatar_color}}>
-                                {u.name[0]}
-                            </div>
-                        </div>
-                        <div className="flex-grow min-w-0">
-                            <div className="flex items-center gap-2">
-                                <p className={`font-bold truncate ${u.rainbow_name ? 'animate-text-rainbow bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-500 to-red-500' : 'text-slate-800'}`}>
-                                    {u.name}
-                                </p>
-                                <span className="text-[10px] bg-slate-100 px-1.5 rounded text-slate-500" title={`Given: ${u.lifetime_given || 0}`}>
-                                    {rank.icon} {rank.title}
-                                </span>
-                            </div>
-                            <p className="text-xs text-slate-500">{u.balance} donuts available</p>
-                        </div>
-                        <div className="text-right pl-2">
-                             <div className="inline-flex items-center bg-pink-50 text-pink-600 px-3 py-1 rounded-full font-bold text-sm">
-                                {u.balance} {EMOJI}
-                             </div>
-                        </div>
-                    </div>
-                )})}
-            </div>
-        </div>
-    );
-}
-
-const NavBtn = ({ icon: Icon, label, active, onClick, badge }) => (
-    <button 
-        onClick={onClick}
-        className={`flex flex-col items-center gap-1 w-16 transition-colors relative ${active ? 'text-pink-500' : 'text-slate-400 hover:text-slate-600'}`}
-    >
-        <div className="relative">
-            <Icon size={24} strokeWidth={active ? 2.5 : 2} />
-            {badge > 0 && (
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold h-4 w-4 flex items-center justify-center rounded-full shadow-sm">
-                    {badge}
-                </span>
-            )}
-        </div>
-        <span className="text-[10px] font-medium">{label}</span>
-    </button>
-);
+// ... (Rest of the file) ...
