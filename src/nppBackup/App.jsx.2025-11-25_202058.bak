@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import { 
   getFirestore, collection, addDoc, query, orderBy, limit, 
   onSnapshot, doc, updateDoc, setDoc, getDoc, serverTimestamp, 
-  runTransaction, arrayUnion, arrayRemove, deleteDoc, Timestamp 
+  runTransaction, arrayUnion, arrayRemove, deleteDoc
 } from 'firebase/firestore';
 import { 
   getAuth, onAuthStateChanged, signInWithCustomToken,
@@ -12,7 +12,7 @@ import {
 import { 
   Trophy, Gift, Activity, MessageSquare, 
   LogOut, UserPlus, Heart, Zap, Search, CheckCircle, Target, Sparkles,
-  Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock, Users, Skull, Trash2, Clock, Calendar
+  Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock, Users, Skull, Trash2, Clock
 } from 'lucide-react';
 
 // --- CONFIGURATION START ---
@@ -256,13 +256,7 @@ export default function YumDonutApp() {
     }
   }, [user, myProfile, users]);
 
-  const openBountyCount = bounties.filter(b => {
-      if (b.status !== 'open') return false;
-      // Only count open jobs that have started
-      if (b.startsAt && b.startsAt.toMillis() > Date.now()) return false;
-      return true;
-  }).length;
-
+  const openBountyCount = bounties.filter(b => b.status === 'open').length;
   // RANK LOGIC
   const currentPublicProfile = users.find(u => u.name === myProfile?.name);
   const currentRank = getRank(currentPublicProfile?.lifetime_given || 0);
@@ -284,6 +278,7 @@ export default function YumDonutApp() {
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 const uid = userCredential.user.uid;
                 
+                // FIX: Set the Display Name on the Auth Record so it shows up in Firebase Console
                 await updateProfile(userCredential.user, { displayName: name });
 
                 const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', name);
@@ -375,6 +370,7 @@ export default function YumDonutApp() {
             last_given_date: today
         });
 
+        // Update Sender's LIFETIME_GIVEN
         const senderPublicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
         const senderPublicDoc = await getDoc(senderPublicRef);
         if (senderPublicDoc.exists()) {
@@ -414,6 +410,7 @@ export default function YumDonutApp() {
     }
   };
 
+  // THE DONUT MUNCHER (Penalty Logic)
   const handleMunchDonut = async (victimName, reason) => {
       if (!myProfile) return;
 
@@ -432,13 +429,15 @@ export default function YumDonutApp() {
               return;
           }
 
+          // Deduct 1
           await updateDoc(recipientRef, {
               balance: currentBal - 1
           });
 
+          // Post Public Shaming (ANONYMOUS)
           await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
             fromName: "The Donut Muncher",
-            toName: "Someone", 
+            toName: "Someone", // Anonymous
             message: `Nom nom! Ate a donut because: ${reason}`,
             timestamp: serverTimestamp(),
             emoji: "👾",
@@ -538,42 +537,32 @@ export default function YumDonutApp() {
       }
   };
 
-  const handleCreateBounty = async (title, reward, quantity, timeLimitMins, scheduleMins) => {
+  const handleCreateBounty = async (title, reward, quantity, timeLimitMins) => {
       const qty = parseInt(quantity) || 1;
-      const limitMins = parseInt(timeLimitMins) || 0;
-      const startMins = parseInt(scheduleMins) || 0;
-
-      // Calculate timestamps
-      const startsAt = startMins > 0 ? Timestamp.fromMillis(Date.now() + (startMins * 60000)) : null;
-      const expiresAt = limitMins > 0 
-        ? (startsAt ? Timestamp.fromMillis(startsAt.toMillis() + (limitMins * 60000)) : Timestamp.fromMillis(Date.now() + (limitMins * 60000)))
-        : null;
+      const mins = parseInt(timeLimitMins) || 0;
+      const expiresAt = mins > 0 ? Date.now() + (mins * 60000) : null;
 
       await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'bounties'), {
           title,
           reward: parseInt(reward),
           status: 'open',
           remaining: qty, 
-          expiresAt: expiresAt ? expiresAt.toMillis() : null,
-          startsAt: startsAt ? startsAt.toMillis() : null,
+          expiresAt: expiresAt,
           createdBy: myProfile.name,
           createdAt: serverTimestamp()
       });
       
-      if (!startsAt) {
-          const timeMsg = limitMins > 0 ? ` (Expires in ${limitMins} mins)` : "";
-          await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
-              fromName: "Job Board",
-              toName: "EVERYONE",
-              message: `📢 New Job Posted: ${title} (${reward} ${EMOJI}) - ${qty} spots!${timeMsg}`,
-              timestamp: serverTimestamp(),
-              emoji: "📢",
-              likes: []
-          });
-          showNotification("Job Posted & Announced!");
-      } else {
-          showNotification(`Job scheduled for ${startMins} mins from now.`);
-      }
+      const timeMsg = mins > 0 ? ` (Expires in ${mins} mins)` : "";
+      
+      await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
+          fromName: "Job Board",
+          toName: "EVERYONE",
+          message: `📢 New Job Posted: ${title} (${reward} ${EMOJI}) - ${qty} spots!${timeMsg}`,
+          timestamp: serverTimestamp(),
+          emoji: "📢",
+          likes: []
+      });
+      showNotification("Job Posted & Announced!");
   };
 
   const handleDeleteBounty = async (bountyId) => {
@@ -742,7 +731,7 @@ export default function YumDonutApp() {
                 existingUsers={users}
                 currentUserName={myProfile.name}
                 onGive={handleGiveDonut} 
-                onMunch={handleMunchDonut} 
+                onMunch={handleMunchDonut} // Pass Munch handler
                 remaining={DAILY_LIMIT - (myProfile.last_given_date === new Date().toDateString() ? myProfile.given_today : 0)}
             />
         )}
@@ -753,7 +742,7 @@ export default function YumDonutApp() {
                 currentUser={myProfile}
                 userId={user.uid}
                 onCreate={handleCreateBounty}
-                onDelete={handleDeleteBounty} 
+                onDelete={handleDeleteBounty} // Pass Delete handler
                 onClaim={handleClaimBounty}
                 onUnclaim={handleUnclaimBounty}
                 onPay={handlePayBounty}
@@ -937,22 +926,12 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
     const [newTitle, setNewTitle] = useState("");
     const [newReward, setNewReward] = useState(5);
     const [newQty, setNewQty] = useState(1); 
-    const [newTimeLimit, setNewTimeLimit] = useState(0); 
-    const [newSchedule, setNewSchedule] = useState(0); 
+    const [newTimeLimit, setNewTimeLimit] = useState(0); // New State
     const isAdmin = currentUser.name === "Mr Rayner";
 
-    // Filter Logic: Hide scheduled jobs if user is not admin
-    const activeBounties = bounties.filter(b => {
-        if (b.status === 'paid') return false;
-        if (isAdmin) return true; // Admins see everything
-        
-        // Schedule check
-        const now = Date.now();
-        if (b.startsAt && b.startsAt > now) return false; // Hide future jobs
-        
-        return true;
-    });
+    const activeBounties = bounties.filter(b => b.status !== 'paid');
 
+    // Countdown Helper
     const getTimeLeft = (expiresAt) => {
         if (!expiresAt) return null;
         const diff = expiresAt - Date.now();
@@ -960,15 +939,8 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
         const mins = Math.ceil(diff / 60000);
         return `${mins}m left`;
     };
-    
-    const getStartsIn = (startsAt) => {
-        if (!startsAt) return null;
-        const diff = startsAt - Date.now();
-        if (diff <= 0) return null; // Already started
-        const mins = Math.ceil(diff / 60000);
-        return `Starts in ${mins}m`;
-    };
 
+    // Force re-render every minute for timers
     const [, setTick] = useState(0);
     useEffect(() => {
         const interval = setInterval(() => setTick(t => t + 1), 60000);
@@ -1009,8 +981,8 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                                     onChange={e => setNewQty(e.target.value)}
                                 />
                             </div>
-                            <div className="flex flex-col w-20">
-                                <label className="text-[10px] text-pink-400 font-bold uppercase">Dur(m)</label>
+                            <div className="flex flex-col w-24">
+                                <label className="text-[10px] text-pink-400 font-bold uppercase">Time (Mins)</label>
                                 <input 
                                     type="number"
                                     min="0"
@@ -1020,18 +992,7 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                                     onChange={e => setNewTimeLimit(e.target.value)}
                                 />
                             </div>
-                             <div className="flex flex-col w-20">
-                                <label className="text-[10px] text-pink-400 font-bold uppercase">Start(m)</label>
-                                <input 
-                                    type="number"
-                                    min="0"
-                                    className="w-full p-2 rounded-lg border border-pink-200"
-                                    placeholder="Now"
-                                    value={newSchedule}
-                                    onChange={e => setNewSchedule(e.target.value)}
-                                />
-                            </div>
-                            <Button className="self-end flex-grow" onClick={() => { onCreate(newTitle, newReward, newQty, newTimeLimit, newSchedule); setNewTitle(""); setNewQty(1); setNewTimeLimit(0); setNewSchedule(0); }}>
+                            <Button className="self-end flex-grow" onClick={() => { onCreate(newTitle, newReward, newQty, newTimeLimit); setNewTitle(""); setNewQty(1); setNewTimeLimit(0); }}>
                                 Post
                             </Button>
                         </div>
@@ -1051,17 +1012,12 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                     const remainingSpots = b.remaining || (b.status === 'open' ? 1 : 0); 
                     
                     const timeLeft = getTimeLeft(b.expiresAt);
-                    const startsIn = getStartsIn(b.startsAt);
                     const isExpired = timeLeft === "Expired";
-                    const isScheduled = startsIn !== null;
 
                     return (
-                        <Card key={b.id} className={`flex justify-between items-center border-l-4 ${isScheduled ? 'border-l-slate-300 bg-slate-50' : 'border-l-pink-500'}`}>
+                        <Card key={b.id} className="flex justify-between items-center border-l-4 border-l-pink-500">
                             <div className="flex-grow min-w-0 mr-2">
-                                <h4 className="font-bold text-slate-800 break-words flex items-center gap-2">
-                                    {b.title}
-                                    {isScheduled && <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">{startsIn}</span>}
-                                </h4>
+                                <h4 className="font-bold text-slate-800 break-words">{b.title}</h4>
                                 <div className="flex items-center gap-2 mt-1 flex-wrap">
                                     <span className="bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">
                                         {b.reward} {EMOJI} Reward
@@ -1071,11 +1027,13 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                                             <Users size={12}/> {remainingSpots} spots left
                                         </span>
                                     )}
-                                    {b.status === 'open' && timeLeft && !isScheduled && (
+                                    {/* Time Limit Badge */}
+                                    {b.status === 'open' && timeLeft && (
                                         <span className={`px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1 ${isExpired ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-700'}`}>
                                             <Clock size={12}/> {timeLeft}
                                         </span>
                                     )}
+                                    
                                     {b.status === 'claimed' && (
                                         <span className="text-xs text-slate-500 flex items-center gap-1 whitespace-nowrap">
                                             <CheckSquare size={12}/> Claimed by {b.claimantName}
@@ -1087,17 +1045,15 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                             <div className="flex gap-2 flex-shrink-0">
                                 {b.status === 'open' && (
                                     <>
-                                        {!isScheduled && (
-                                            <Button 
-                                                variant="outline" 
-                                                onClick={() => onClaim(b.id, remainingSpots)}
-                                                disabled={hasActiveJob || isExpired} 
-                                                className={hasActiveJob || isExpired ? "opacity-50 cursor-not-allowed" : ""}
-                                                title={isExpired ? "Job Expired" : hasActiveJob ? "Finish your current job first!" : "Claim this job"}
-                                            >
-                                                {isExpired ? "Expired" : "Claim"}
-                                            </Button>
-                                        )}
+                                        <Button 
+                                            variant="outline" 
+                                            onClick={() => onClaim(b.id, remainingSpots)}
+                                            disabled={hasActiveJob || isExpired} 
+                                            className={hasActiveJob || isExpired ? "opacity-50 cursor-not-allowed" : ""}
+                                            title={isExpired ? "Job Expired" : hasActiveJob ? "Finish your current job first!" : "Claim this job"}
+                                        >
+                                            {isExpired ? "Expired" : "Claim"}
+                                        </Button>
                                         {isAdmin && (
                                             <button 
                                                 onClick={() => onDelete(b.id)}
@@ -1144,8 +1100,6 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
     );
 }
 
-// ... Other Components (GiveView, FeedView, LeaderboardView, etc.)
-// All other views remain unchanged but included in the file structure above for completeness
 function GoalView({ goalData, userBalance, onContribute, currentUserName, onActivate }) {
     const percent = Math.min(100, ((goalData.current || 0) / GOAL_TARGET) * 100);
     const isMet = (goalData.current || 0) >= GOAL_TARGET;
