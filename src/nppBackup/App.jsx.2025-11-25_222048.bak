@@ -57,7 +57,6 @@ const SCHOOL_ROSTER = [
 ];
 
 const DAILY_LIMIT = 5;
-const GOAL_TARGET = 50; 
 const EMOJI = "🍩";
 const APP_ID = 'yum-donut-school'; 
 
@@ -469,12 +468,13 @@ export default function YumDonutApp() {
               const goalCurrent = (goalDoc.data()?.current || 0) + 1;
               const contributors = goalDoc.data()?.contributors || {};
               const myContribution = (contributors[myProfile.name] || 0) + 1;
-
+              
               transaction.update(publicUserRef, { balance: newBalance });
               transaction.update(goalRef, { 
                   current: goalCurrent,
                   [`contributors.${myProfile.name}`]: myContribution
               });
+              
               const txRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
               transaction.set(txRef, { fromName: myProfile.name, toName: goalDoc.data()?.title || "Team Goal", message: "Contributed to the goal!", timestamp: serverTimestamp(), emoji: "🚀", likes: [] });
           });
@@ -511,20 +511,6 @@ export default function YumDonutApp() {
       } catch (e) {
           console.error(e);
           showNotification("Update failed.", "error");
-      }
-  };
-
-  const handleActivateFrostedFriday = async () => {
-      try {
-          const goalRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'goals', 'active_goal');
-          await updateDoc(goalRef, { current: 0 });
-          await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), { fromName: "Mr Rayner", toName: "EVERYONE", message: "🚨 FROSTED FRIDAY IS ON! The goal was met! 🍩🎉", timestamp: serverTimestamp(), emoji: "🚨", likes: [] });
-          showNotification("Activated! Goal reset.");
-          triggerConfetti();
-          setView('feed');
-      } catch (e) {
-          console.error(e);
-          showNotification("Failed to activate.", "error");
       }
   };
 
@@ -660,7 +646,6 @@ export default function YumDonutApp() {
           if (recipientDoc.exists()) {
               const currentBal = recipientDoc.data().balance || 0;
               const currentLifetime = recipientDoc.data().lifetime_received || currentBal;
-              
               await updateDoc(recipientRef, {
                   balance: currentBal + reward,
                   lifetime_received: currentLifetime + reward 
@@ -833,8 +818,7 @@ export default function YumDonutApp() {
   );
 }
 
-// --- Sub-Components ---
-
+// ... LoginScreen ...
 function LoginScreen({ onLogin, existingUsers }) {
   const [search, setSearch] = useState("");
   const [selectedName, setSelectedName] = useState(null);
@@ -922,6 +906,7 @@ function LoginScreen({ onLogin, existingUsers }) {
   );
 }
 
+// ... ShopView, BountiesView ...
 function ShopView({ items, userBalance, onPurchase, currentUserPublic }) {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1105,19 +1090,7 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                     let progressColor = 'bg-green-500';
                     
                     if (b.createdAt && b.expiresAt && !isExpired && !isScheduled) {
-                        // Safe check: ensure b.createdAt exists and has a method toMillis, OR assume it's a number if it doesn't.
-                        // Note: createdAt comes from serverTimestamp(). In snapshots it's usually a Timestamp object.
-                        
-                        let createdTime = Date.now();
-                        if (b.createdAt) {
-                             if (typeof b.createdAt.toMillis === 'function') {
-                                 createdTime = b.createdAt.toMillis();
-                             } else if (typeof b.createdAt === 'number') {
-                                 createdTime = b.createdAt;
-                             }
-                        }
-                        
-                        const totalDuration = b.expiresAt - (b.startsAt ? b.startsAt : createdTime);
+                        const totalDuration = b.expiresAt - (b.startsAt ? b.startsAt.toMillis() : b.createdAt.toMillis());
                         const timeRemaining = b.expiresAt - Date.now();
                         
                         if (totalDuration > 0) {
@@ -1231,6 +1204,8 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
         </div>
     );
 }
+
+// --- Updated GoalView for Contributors & Admin Edit ---
 
 function GoalView({ goalData, userBalance, onContribute, currentUserName, onActivate, onUpdateGoal, onResetGoal }) {
     const percent = Math.min(100, ((goalData.current || 0) / (goalData.target || GOAL_TARGET)) * 100);
@@ -1577,7 +1552,7 @@ function FeedView({ transactions, onReact }) {
                         <div className="flex-grow pb-6">
                             <div className="flex flex-wrap items-baseline gap-x-1 mb-1">
                                 <span className="font-bold text-slate-900">{tx.fromName}</span>
-                                {tx.toName === "Frosted Friday" || tx.toName === "EVERYONE" || tx.toName === "The Shop" || tx.fromName === "Job Board" || tx.fromName === "Goal" || tx.toName === "Team Goal" ? (
+                                {tx.toName === "Frosted Friday" || tx.toName === "EVERYONE" || tx.toName === "The Shop" || tx.fromName === "Job Board" || tx.fromName === "Goal" ? (
                                     <span className="text-slate-500 text-sm ml-1">
                                         {tx.message.includes("activated") ? "announced" : 
                                          tx.message.includes("Purchased") ? "went shopping" : 
