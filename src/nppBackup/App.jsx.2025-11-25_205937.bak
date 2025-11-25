@@ -7,7 +7,7 @@ import {
 } from 'firebase/firestore';
 import { 
   getAuth, onAuthStateChanged, signInWithCustomToken,
-  signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updateProfile
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInAnonymously, updateProfile
 } from 'firebase/auth';
 import { 
   Trophy, Gift, Activity, MessageSquare, 
@@ -164,6 +164,18 @@ export default function YumDonutApp() {
 
   // Auth & Profile Listener
   useEffect(() => {
+    const initAuth = async () => {
+        await auth.authStateReady();
+        if (!auth.currentUser) {
+            try {
+                await signInAnonymously(auth);
+            } catch (e) {
+                console.warn("Guest login skipped:", e.code);
+            }
+        }
+    }
+    initAuth();
+    
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
@@ -528,16 +540,24 @@ export default function YumDonutApp() {
       }
   };
 
-  const handleCreateBounty = async (title, reward, quantity, timeLimitMins, scheduleMins) => {
+  const handleCreateBounty = async (title, reward, quantity, timeLimit, startTime) => {
       const qty = parseInt(quantity) || 1;
-      const limitMins = parseInt(timeLimitMins) || 0;
-      const startMins = parseInt(scheduleMins) || 0;
+      
+      let startsAt = null;
+      if (startTime) {
+          const [hours, mins] = startTime.split(':').map(Number);
+          const now = new Date();
+          const scheduled = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, mins);
+          startsAt = Timestamp.fromDate(scheduled);
+      }
 
-      // Calculate timestamps
-      const startsAt = startMins > 0 ? Timestamp.fromMillis(Date.now() + (startMins * 60000)) : null;
-      const expiresAt = limitMins > 0 
-        ? (startsAt ? Timestamp.fromMillis(startsAt.toMillis() + (limitMins * 60000)) : Timestamp.fromMillis(Date.now() + (limitMins * 60000)))
-        : null;
+      let expiresAt = null;
+      if (timeLimit) {
+          const [hours, mins] = timeLimit.split(':').map(Number);
+          const now = new Date();
+          const scheduled = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, mins);
+          expiresAt = Timestamp.fromDate(scheduled);
+      }
 
       await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'bounties'), {
           title,
@@ -550,8 +570,8 @@ export default function YumDonutApp() {
           createdAt: serverTimestamp()
       });
       
-      if (!startsAt) {
-          const timeMsg = limitMins > 0 ? ` (Expires in ${limitMins} mins)` : "";
+      if (!startsAt || startsAt.toMillis() <= Date.now()) {
+          const timeMsg = timeLimit ? ` (Until ${timeLimit})` : "";
           await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
               fromName: "Job Board",
               toName: "EVERYONE",
@@ -562,7 +582,7 @@ export default function YumDonutApp() {
           });
           showNotification("Job Posted & Announced!");
       } else {
-          showNotification(`Job scheduled for ${startMins} mins from now.`);
+          showNotification(`Job scheduled for ${startTime}.`);
       }
   };
 
@@ -977,9 +997,9 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                     <h3 className="font-bold text-pink-700 mb-3 flex items-center gap-2">
                         <Briefcase size={20}/> Post New Job
                     </h3>
-                    <div className="flex gap-2 flex-col md:flex-row">
+                    <div className="flex flex-col gap-3">
                         <input 
-                            className="flex-grow p-2 rounded-lg border border-pink-200"
+                            className="w-full p-2 rounded-lg border border-pink-200"
                             placeholder="Job Description (e.g. Film Assembly)"
                             value={newTitle}
                             onChange={e => setNewTitle(e.target.value)}
@@ -1045,6 +1065,31 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                     const startsIn = getStartsIn(b.startsAt);
                     const isExpired = timeLeft === "Expired";
                     const isScheduled = startsIn !== null;
+
+                    // Logic: If expired, and status is open, we don't show it to students (filtered above).
+                    // But admins see it.
+                    
+                    // Progress Bar Calculation
+                    let progressWidth = 100;
+                    let progressColor = 'bg-green-500';
+                    
+                    if (b.createdAt && b.expiresAt && !isExpired && !isScheduled) {
+                        const start = b.createdAt.toMillis(); // or startsAt if set?
+                        // Actually, if it was scheduled, the duration should arguably start from startsAt.
+                        // But let's keep it simple: Deadline is fixed time. 
+                        // Duration is (Deadline - Now) / (Deadline - Created).
+                        
+                        const totalDuration = b.expiresAt - (b.startsAt ? b.startsAt.toMillis() : b.createdAt.toMillis());
+                        const timeRemaining = b.expiresAt - Date.now();
+                        
+                        if (totalDuration > 0) {
+                            progressWidth = Math.max(0, Math.min(100, (timeRemaining / totalDuration) * 100));
+                        }
+                        
+                        if (progressWidth < 50) progressColor = 'bg-yellow-500';
+                        if (progressWidth < 20) progressColor = 'bg-orange-500';
+                        if (progressWidth < 10) progressColor = 'bg-red-500 animate-pulse';
+                    }
 
                     return (
                         <Card key={b.id} className={`flex flex-col border-l-4 ${isScheduled ? 'border-l-slate-300 bg-slate-50' : 'border-l-pink-500'}`}>
