@@ -184,7 +184,6 @@ export default function YumDonutApp() {
           if (docSnap.exists()) {
             setMyProfile(docSnap.data());
           } else {
-            // Profile is missing (could be deleted or new user)
             setMyProfile(null); 
           }
           setLoading(false);
@@ -261,12 +260,10 @@ export default function YumDonutApp() {
   const openBountyCount = bounties.filter(b => {
       if (b.status !== 'open') return false;
       if (b.startsAt && b.startsAt.toMillis() > Date.now()) return false;
-      // Filter out expired open jobs for non-admins so they "vanish"
       if (b.expiresAt && b.expiresAt < Date.now() && user.uid !== 'admin_uid_placeholder') return false; 
       return true;
   }).length;
 
-  // RANK LOGIC
   const currentPublicProfile = users.find(u => u.name === myProfile?.name);
   const currentRank = getRank(currentPublicProfile?.lifetime_given || 0);
 
@@ -316,23 +313,18 @@ export default function YumDonutApp() {
   const handleLoginOrRegister = async (name, password) => {
     if (!name || !password) return;
     setLoading(true);
-    
     const email = `${name.replace(/\s+/g, '').toLowerCase()}@yumdonut.school`;
-
     try {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        // SUCCESS: Check if we need to resurrect the profile!
         const uid = userCredential.user.uid;
         const userRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data');
         const docSnap = await getDoc(userRef);
         if (!docSnap.exists()) {
-             // Profile missing! Recreate it.
              await createProfile(uid, name);
              showNotification(`Welcome back, ${name}! Profile restored.`);
         } else {
              showNotification(`Welcome back, ${name}!`);
         }
-
     } catch (error) {
         if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/invalid-email') {
             try {
@@ -340,10 +332,9 @@ export default function YumDonutApp() {
                 await updateProfile(userCredential.user, { displayName: name });
                 await createProfile(userCredential.user.uid, name);
                 showNotification(`Account created for ${name}!`);
-
             } catch (createError) {
                 console.error(createError);
-                showNotification("Could not create account. Password too short?", "error");
+                showNotification("Could not create account.", "error");
             }
         } else {
             console.error(error);
@@ -360,7 +351,6 @@ export default function YumDonutApp() {
 
   const handleGiveDonut = async (recipientName, message, amount = 1) => {
     if (!myProfile) return;
-    
     const today = new Date().toDateString();
     let currentGiven = myProfile.last_given_date === today ? myProfile.given_today : 0;
     const isAdmin = myProfile.name === "Mr Rayner";
@@ -372,7 +362,6 @@ export default function YumDonutApp() {
 
     try {
         triggerConfetti(); 
-
         await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
             fromName: myProfile.name,
             toName: recipientName,
@@ -389,7 +378,6 @@ export default function YumDonutApp() {
             last_given_date: today
         });
 
-        // Update Sender's LIFETIME_GIVEN
         const senderPublicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
         const senderPublicDoc = await getDoc(senderPublicRef);
         if (senderPublicDoc.exists()) {
@@ -400,11 +388,9 @@ export default function YumDonutApp() {
 
         const recipientRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', recipientName);
         const recipientDoc = await getDoc(recipientRef);
-        
         if (recipientDoc.exists()) {
             const currentBal = recipientDoc.data().balance || 0;
             const currentLifetime = recipientDoc.data().lifetime_received || currentBal;
-
             await updateDoc(recipientRef, {
                 balance: currentBal + amount,
                 lifetime_received: currentLifetime + amount 
@@ -419,38 +405,29 @@ export default function YumDonutApp() {
                 claimed: false
             });
         }
-
         showNotification(`Sent ${amount} ${EMOJI} successfully!`);
         setView('feed');
-
     } catch (e) {
         console.error(e);
-        showNotification("Failed to send donut. Try again.", "error");
+        showNotification("Failed to send donut.", "error");
     }
   };
 
   const handleMunchDonut = async (victimName, reason) => {
       if (!myProfile) return;
-
       try {
           const recipientRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', victimName);
           const recipientDoc = await getDoc(recipientRef);
-          
           if (!recipientDoc.exists()) {
               showNotification("User has no wallet to munch!", "error");
               return;
           }
-          
           const currentBal = recipientDoc.data().balance || 0;
           if (currentBal < 1) {
-              showNotification("They have 0 donuts. The Muncher goes hungry.", "error");
+              showNotification("The Muncher goes hungry (0 donuts).", "error");
               return;
           }
-
-          await updateDoc(recipientRef, {
-              balance: currentBal - 1
-          });
-
+          await updateDoc(recipientRef, { balance: currentBal - 1 });
           await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
             fromName: "The Donut Muncher",
             toName: "Someone", 
@@ -460,10 +437,8 @@ export default function YumDonutApp() {
             amount: 1,
             likes: []
         });
-
         showNotification(`Munched 1 donut from ${victimName}!`);
         setView('feed');
-
       } catch (e) {
           console.error(e);
           showNotification("Munch failed.", "error");
@@ -476,8 +451,6 @@ export default function YumDonutApp() {
       await updateDoc(txRef, { likes: arrayUnion(myProfile.name) });
   };
 
-  // --- GOAL LOGIC (Including Admin Controls) ---
-  
   const handleContributeToGoal = async () => {
       if (!myProfile || myProfile.balance < 1) {
           showNotification("Not enough donuts!", "error");
@@ -494,8 +467,6 @@ export default function YumDonutApp() {
               if (newBalance < 0) throw "Not enough donuts!";
               
               const goalCurrent = (goalDoc.data()?.current || 0) + 1;
-              
-              // Store contributors as a map: { "Jacey": 5, "Marina": 2 }
               const contributors = goalDoc.data()?.contributors || {};
               const myContribution = (contributors[myProfile.name] || 0) + 1;
 
@@ -504,7 +475,6 @@ export default function YumDonutApp() {
                   current: goalCurrent,
                   [`contributors.${myProfile.name}`]: myContribution
               });
-              
               const txRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
               transaction.set(txRef, { fromName: myProfile.name, toName: goalDoc.data()?.title || "Team Goal", message: "Contributed to the goal!", timestamp: serverTimestamp(), emoji: "🚀", likes: [] });
           });
@@ -518,6 +488,7 @@ export default function YumDonutApp() {
       }
   };
 
+  // Admin Goal Controls
   const handleResetGoal = async () => {
       try {
           const goalRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'goals', 'active_goal');
@@ -547,20 +518,10 @@ export default function YumDonutApp() {
       try {
           const goalRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'goals', 'active_goal');
           await updateDoc(goalRef, { current: 0 });
-          
-          await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
-              fromName: "Mr Rayner",
-              toName: "EVERYONE",
-              message: "🚨 FROSTED FRIDAY IS ON! The goal was met! 🍩🎉",
-              timestamp: serverTimestamp(),
-              emoji: "🚨",
-              likes: []
-          });
-
+          await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), { fromName: "Mr Rayner", toName: "EVERYONE", message: "🚨 FROSTED FRIDAY IS ON! The goal was met! 🍩🎉", timestamp: serverTimestamp(), emoji: "🚨", likes: [] });
           showNotification("Activated! Goal reset.");
           triggerConfetti();
           setView('feed');
-
       } catch (e) {
           console.error(e);
           showNotification("Failed to activate.", "error");
@@ -872,8 +833,7 @@ export default function YumDonutApp() {
   );
 }
 
-// ... LoginScreen, GiveView, FeedView, LeaderboardView, NavBtn, ShopView, BountiesView ...
-// (ALL Sub-components included here - truncated for brevity in this display but included in full file generation)
+// --- Sub-Components ---
 
 function LoginScreen({ onLogin, existingUsers }) {
   const [search, setSearch] = useState("");
