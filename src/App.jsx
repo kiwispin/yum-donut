@@ -63,8 +63,8 @@ const APP_ID = 'yum-donut-school';
 
 // 3. Shop Inventory
 const SHOP_ITEMS = [
-    { id: 'snack_box', name: 'Snack Box Treat', cost: 2, icon: '🍪', desc: 'One treat from the box.', type: 'physical' },
-    { id: 'snack_2', name: 'Double Snack Attack', cost: 10, icon: '🍫', desc: 'Permission to take a SECOND treat.', type: 'physical' },
+    { id: 'snack_box', name: 'Snack Box Treat', cost: 5, icon: '🍪', desc: 'One treat from the box.', type: 'physical' },
+    { id: 'snack_2', name: 'Double Snack Attack', cost: 8, icon: '🍫', desc: 'Permission to take a SECOND treat.', type: 'physical' },
     { id: 'vip_schedule', name: 'VIP Schedule Bump', cost: 25, icon: '📅', desc: "Bump your show to the top of the 'let's work on it' list.", type: 'physical' },
     { id: 'comfy_chair', name: 'Comfy Chair Rental', cost: 30, icon: '🪑', desc: 'Rent the good chair for a day.', type: 'physical' },
     { id: 'rainbow_name', name: 'Rainbow Name', cost: 60, icon: '🌈', desc: 'Your name glows on the leaderboard!', type: 'digital' },
