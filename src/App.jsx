@@ -1699,10 +1699,11 @@ function LeaderboardView({ users, roster }) {
                                 </div>
                                 <p className="text-xs text-slate-500">{u.balance} donuts available</p>
                             </div>
-                            <div className="text-right pl-2">
-                                <div className="inline-flex items-center bg-pink-50 text-pink-600 px-3 py-1 rounded-full font-bold text-sm">
-                                    {u.balance} {EMOJI}
+                            <div className="text-right pl-2 flex flex-col items-center">
+                                <div className="inline-flex items-center bg-pink-50 text-pink-600 px-3 py-1 rounded-full font-bold">
+                                    {u.lifetime_given || 0} {EMOJI}
                                 </div>
+                                <span className="text-[10px] text-slate-400 font-medium mt-0.5">Given</span>
                             </div>
                         </div>
                     )
