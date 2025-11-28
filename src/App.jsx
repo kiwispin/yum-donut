@@ -2294,16 +2294,6 @@ function PatchNotesModal({ onClose }) {
                         </p>
                     </div>
 
-                    {import.meta.env.DEV && (
-                        <div className="space-y-2">
-                            <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                                <Shield className="text-blue-500" size={20} /> Sandbox Mode
-                            </h3>
-                            <p className="text-slate-600 text-sm">
-                                A safe testing environment for developers. Use the [DEV] login buttons to test features without affecting real data.
-                            </p>
-                        </div>
-                    )}
                 </div>
 
                 <div className="p-4 bg-slate-50 border-t border-slate-100 text-center">
