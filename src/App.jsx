@@ -133,16 +133,14 @@ const TRAINING_QUOTES = [
 ];
 
 const TECHNICAL_PARAGRAPHS = [
-    "ISO measures the sensor's sensitivity to light. A lower number means less sensitivity and a cleaner image, while a higher number increases sensitivity but introduces digital noise.",
-    "Shutter speed controls the duration of light exposure. Fast speeds freeze motion for crisp action shots, while slow speeds create motion blur for artistic effects like light trails.",
-    "Aperture controls the depth of field. A wide aperture (low f-number) creates a blurry background, while a narrow aperture (high f-number) keeps everything in sharp focus.",
-    "White balance adjusts the color temperature. It ensures that white objects appear white, regardless of whether the light source is cool daylight or warm tungsten.",
-    "Frame rate determines the number of images captured per second. 24fps gives a cinematic look, while 60fps or higher is used for smooth slow-motion playback.",
-    "The rule of thirds involves dividing the frame into a 3x3 grid. Placing key elements along these lines or intersections creates a more balanced and visually interesting composition.",
-    "Dynamic range refers to the difference between the darkest and brightest parts of an image. A camera with high dynamic range can capture detail in both deep shadows and bright highlights.",
-    "Focal length determines the angle of view and magnification. Wide-angle lenses capture more of the scene, while telephoto lenses zoom in and compress the background.",
-    "Bit rate is the amount of data used to encode video per second. Higher bit rates result in better quality but larger file sizes, while lower bit rates save space but may introduce artifacts.",
-    "Color grading is the process of altering and enhancing the color of a motion picture, video image, or still image. It is used to create a specific mood or style.",
+    "The ISO setting on a digital camera determines the image sensor's sensitivity to light. While a lower ISO value produces a cleaner image with less digital noise, increasing the ISO allows for shooting in low-light conditions without reducing shutter speed, albeit at the cost of introducing grain. Professional cinematographers often strive to shoot at the camera's native ISO to maximize dynamic range and ensure the highest possible signal-to-noise ratio for the final grade.",
+    "Shutter angle is a terminology used in motion picture cameras to describe the duration of exposure. A standard 180-degree shutter angle means the shutter is open for half the duration of each frame, resulting in natural-looking motion blur that mimics the human eye. Deviating from this standard, such as using a narrow 45-degree shutter, creates a staccato, choppy effect often used in action sequences to heighten the sense of chaos and intensity.",
+    "Depth of field is controlled by the aperture, focal length, and distance to the subject. A wide aperture (low f-stop) creates a shallow depth of field, isolating the subject against a soft, bokeh-filled background, which is a hallmark of the cinematic look. Conversely, a narrow aperture (high f-stop) increases the depth of field, keeping both the foreground and background in sharp focus, often used in landscape photography or deep-focus cinematography.",
+    "Color grading is the post-production process of altering and enhancing the color of a motion picture, video image, or still image. Unlike color correction, which fixes exposure and white balance issues, grading is a creative choice used to establish a visual tone or mood. For example, a 'teal and orange' look is commonly used in blockbusters to create color contrast between skin tones and the environment.",
+    "Video compression codecs like H.264 and ProRes determine how video data is stored and played back. Intra-frame codecs compress each frame individually, resulting in larger file sizes but requiring less processing power to edit. Inter-frame codecs, however, save space by only storing the differences between frames, which makes them efficient for delivery but more taxing on the CPU during the editing process.",
+    "Three-point lighting is a standard method used in visual media. It consists of a key light, which is the primary light source illuminating the subject; a fill light, which softens the shadows created by the key light; and a backlight (or rim light), which separates the subject from the background by creating a glowing edge. Mastering this setup is fundamental to creating professional-looking interviews and narrative scenes.",
+    "The sample rate in digital audio determines how many times per second the sound wave is measured. The standard for video production is 48kHz, which is sufficient to capture the full range of human hearing. Bit depth, on the other hand, determines the dynamic range of the audio. Recording at 24-bit provides a much lower noise floor than 16-bit, allowing for more flexibility in post-production when adjusting levels.",
+    "Focal length affects not just magnification but also the psychological impact of a shot. A wide-angle lens exaggerates perspective, making objects appear further apart and movement seem faster, often creating a sense of unease or dynamism. A telephoto lens compresses space, making background elements appear closer to the subject, which can feel claustrophobic or intimate depending on the context."
 ];
 
 const RESOLVE_SHORTCUTS = [
@@ -1867,7 +1865,7 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
                         </h2>
                         <p className="opacity-90 mt-1">
                             {mode === 'sudden_death' ? "100% Accuracy Required. One mistake = Game Over." :
-                                mode === 'shortcut_ninja' ? "Hit the shortcuts fast! Build your combo." :
+                                mode === 'shortcut_ninja' ? "Hit shortcuts fast! Build your combo." :
                                     hasLicense ? "Type the movie quote. Earn donuts." : "Practice Mode. Get licensed to earn rewards."}
                         </p>
                     </div>
@@ -1875,23 +1873,23 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
                         <div className="flex bg-black/20 rounded-lg p-1">
                             <button
                                 onClick={() => setMode('scriptwriter')}
-                                className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${mode === 'scriptwriter' ? 'bg-white text-blue-600 shadow-sm' : 'text-white/70 hover:text-white'}`}
+                                className={`px-3 py-1 rounded-md text-xs font-bold transition-all whitespace-nowrap ${mode === 'scriptwriter' ? 'bg-white text-blue-600 shadow-sm' : 'text-white/70 hover:text-white'}`}
                             >
                                 Scriptwriter
                             </button>
                             <button
                                 onClick={() => setMode('sudden_death')}
-                                className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${mode === 'sudden_death' ? 'bg-red-600 text-white shadow-sm' : 'text-white/70 hover:text-white'}`}
+                                className={`px-3 py-1 rounded-md text-xs font-bold transition-all whitespace-nowrap ${mode === 'sudden_death' ? 'bg-red-600 text-white shadow-sm' : 'text-white/70 hover:text-white'}`}
                             >
                                 Sudden Death
                             </button>
                             <button
                                 onClick={() => setMode('shortcut_ninja')}
-                                className={`hidden md:block px-3 py-1 rounded-md text-xs font-bold transition-all ${mode === 'shortcut_ninja' ? 'bg-yellow-400 text-slate-900 shadow-sm' : 'text-white/70 hover:text-white'}`}
+                                className={`hidden md:block px-3 py-1 rounded-md text-xs font-bold transition-all whitespace-nowrap ${mode === 'shortcut_ninja' ? 'bg-yellow-400 text-slate-900 shadow-sm' : 'text-white/70 hover:text-white'}`}
                             >
                                 Ninja
                             </button>
-                            <span className="md:hidden px-3 py-1 text-xs font-bold text-white/30 cursor-not-allowed">
+                            <span className="md:hidden px-3 py-1 text-xs font-bold text-white/30 cursor-not-allowed whitespace-nowrap">
                                 Ninja (PC)
                             </span>
                         </div>
@@ -1903,7 +1901,7 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
                         hasLicense ? 'bg-white/20' : 'bg-yellow-400 text-slate-900'
                     }`}>
                     {mode === 'sudden_death' ? "Reward: 10 Donuts + 🎯 Badge" :
-                        mode === 'shortcut_ninja' ? "Reward: 1 Donut (Score > 1000)" :
+                        mode === 'shortcut_ninja' ? "Reward: 1 Donut (>1000 pts)" :
                             hasLicense ? "Daily Goal: >30 WPM & 95% Accuracy" : "PRACTICE MODE (0 Donuts)"}
                 </div>
             </div>
@@ -2254,21 +2252,31 @@ function PatchNotesModal({ onClose }) {
                 <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
                     <div className="space-y-2">
                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <Zap className="text-yellow-500" size={20} /> Shortcut Ninja
+                            <Zap className="text-yellow-500" size={20} /> Shortcut Ninja (Reforged)
                         </h3>
                         <p className="text-slate-600 text-sm">
-                            A new high-speed game mode! Test your reflexes with DaVinci Resolve shortcuts.
-                            Build your combo, earn belts (White, Green, Black), and score 1000+ to win a donut.
+                            New "Reflex Training" mode! See the key, hit it instantly.
+                            <br />
+                            <span className="text-xs italic text-slate-500">* PC Only (Requires Keyboard)</span>
                         </p>
                     </div>
 
                     <div className="space-y-2">
                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <Target className="text-red-500" size={20} /> Sudden Death
+                            <Target className="text-red-500" size={20} /> Sudden Death (Harder)
                         </h3>
                         <p className="text-slate-600 text-sm">
-                            For the perfectionists. Type technical paragraphs with <strong>100% accuracy</strong>.
-                            One mistake and it's GAME OVER. Reward: 10 Donuts + Perfectionist Badge.
+                            We've increased the difficulty with longer, more complex technical paragraphs.
+                            Still 100% accuracy required. Still 10 Donuts. Good luck. 💀
+                        </p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                            <Landmark className="text-green-500" size={20} /> Bank Interest
+                        </h3>
+                        <p className="text-slate-600 text-sm">
+                            Savers rejoice! The bank now pays interest on deposits. Keep your donuts in the vault to earn passive income. 💸
                         </p>
                     </div>
 
