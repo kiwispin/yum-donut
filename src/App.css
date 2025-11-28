@@ -1,42 +1,63 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
-}
-
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
+@keyframes text-rainbow {
+  0% {
+    background-position: 0% 50%;
   }
-  to {
-    transform: rotate(360deg);
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
   }
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
+.animate-text-rainbow {
+  background-size: 200% auto;
+  animation: text-rainbow 3s linear infinite;
+}
+
+.gold-border {
+  box-shadow: 0 0 0 3px #fbbf24, 0 0 10px #f59e0b;
+  border: 2px solid #fff;
+}
+
+.neon-text {
+  color: #fff;
+  text-shadow:
+    0 0 5px #fff,
+    0 0 10px #fff,
+    0 0 20px #ff00de,
+    0 0 30px #ff00de,
+    0 0 40px #ff00de;
+}
+
+.silver-border {
+  box-shadow: 0 0 0 3px #e2e8f0, 0 0 10px #94a3b8;
+  border: 2px solid #fff;
+}
+
+.flame-text {
+  color: #fff;
+  text-shadow:
+    0 0 5px #fff,
+    0 0 10px #ffea00,
+    0 0 20px #ffae00,
+    0 0 30px #ff0000,
+    0 0 40px #ff0000;
+  animation: flame-flicker 1.5s infinite alternate;
+}
+
+@keyframes flame-flicker {
+  0% {
+    text-shadow: 0 0 5px #fff, 0 0 10px #ffea00, 0 0 20px #ffae00, 0 0 30px #ff0000;
   }
-}
 
-.card {
-  padding: 2em;
-}
-
-.read-the-docs {
-  color: #888;
+  100% {
+    text-shadow: 0 0 2px #fff, 0 0 5px #ffea00, 0 0 15px #ffae00, 0 0 20px #ff0000;
+  }
 }

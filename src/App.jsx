@@ -12,7 +12,7 @@ import {
 import {
     Trophy, Gift, Activity, MessageSquare,
     LogOut, UserPlus, Heart, Zap, Search, CheckCircle, Target, Sparkles,
-    Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock, Users, Skull, Trash2, Clock, Calendar, Edit2, RotateCcw
+    Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock, Users, Skull, Trash2, Clock, Calendar, Edit2, RotateCcw, Landmark, PiggyBank, ArrowRight, ArrowLeft, UserCheck, Keyboard, Shield
 } from 'lucide-react';
 
 // --- CONFIGURATION START ---
@@ -26,6 +26,10 @@ const firebaseConfig = {
     messagingSenderId: "910400935670",
     appId: "1:910400935670:web:8f196e7da498d67ca17ed7"
 };
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
 
 // 2. School Roster
 const SCHOOL_ROSTER = [
@@ -46,7 +50,7 @@ const SCHOOL_ROSTER = [
     "Mackenzie",
     "Kanin",
     "Faith",
-    "Olivia",
+    "Kiara",
     "Seoyeon",
     "Lara",
     "Armani",
@@ -63,13 +67,104 @@ const APP_ID = 'yum-donut-school';
 
 // 3. Shop Inventory
 const SHOP_ITEMS = [
+    { id: 'raffle_ticket', name: 'Weekly Raffle Ticket', cost: 2, icon: '🎟️', desc: 'Win the FRIDAY JACKPOT! (Prize: 2 items from the box).', type: 'physical' },
     { id: 'snack_box', name: 'Snack Box Treat', cost: 5, icon: '🍪', desc: 'One treat from the box.', type: 'physical' },
     { id: 'snack_2', name: 'Double Snack Attack', cost: 8, icon: '🍫', desc: 'Permission to take a SECOND treat.', type: 'physical' },
     { id: 'vip_schedule', name: 'VIP Schedule Bump', cost: 25, icon: '📅', desc: "Bump your show to the top of the 'let's work on it' list.", type: 'physical' },
     { id: 'comfy_chair', name: 'Comfy Chair Rental', cost: 30, icon: '🪑', desc: 'Rent the good chair for a day.', type: 'physical' },
-    { id: 'rainbow_name', name: 'Rainbow Name', cost: 60, icon: '🌈', desc: 'Your name glows on the leaderboard!', type: 'digital' },
+    { id: 'rainbow_name', name: 'Rainbow Name', cost: 50, icon: '🌈', desc: 'Make your name shimmer on the leaderboard!', type: 'digital' },
+    { id: 'gold_border', name: 'Gold Border', cost: 50, icon: '✨', desc: 'A shiny gold border for your avatar!', type: 'digital' },
+    { id: 'neon_name', name: 'Neon Name', cost: 75, icon: '💡', desc: 'Make your name glow with neon light!', type: 'digital' },
+    { id: 'verified_badge', name: 'Verified Badge', cost: 150, icon: '✅', desc: 'Official blue checkmark. Serious business.', type: 'digital' },
     { id: 'gold_pass', name: 'The GOLD Pass', cost: 100, icon: '🎫', desc: 'A physical, laminated Gold VIP Lanyard.', type: 'physical' },
     { id: 'name_camera', name: 'Name a Camera', cost: 500, icon: '🎥', desc: 'Permanently name a DJI or Sony camera!', type: 'physical' },
+];
+
+const MOVIE_QUOTES = [
+    { text: "May the Force be with you.", source: "Star Wars (1977)", reward: 1 },
+    { text: "There's no place like home.", source: "The Wizard of Oz (1939)", reward: 1 },
+    { text: "I'm the king of the world!", source: "Titanic (1997)", reward: 1 },
+    { text: "Carpe diem. Seize the day, boys. Make your lives extraordinary.", source: "Dead Poets Society (1989)", reward: 1 },
+    { text: "Elementary, my dear Watson.", source: "The Adventures of Sherlock Holmes (1939)", reward: 1 },
+    { text: "It's alive! It's alive!", source: "Frankenstein (1931)", reward: 1 },
+    { text: "My mama always said life was like a box of chocolates. You never know what you're gonna get.", source: "Forrest Gump (1994)", reward: 5 },
+    { text: "I'll have what she's having.", source: "When Harry Met Sally... (1989)", reward: 1 },
+    { text: "You're gonna need a bigger boat.", source: "Jaws (1975)", reward: 1 },
+    { text: "Here's looking at you, kid.", source: "Casablanca (1942)", reward: 1 },
+    { text: "Houston, we have a problem.", source: "Apollo 13 (1995)", reward: 1 },
+    { text: "You can't handle the truth!", source: "A Few Good Men (1992)", reward: 1 },
+    { text: "Life moves pretty fast. If you don't stop and look around once in a while, you could miss it.", source: "Ferris Bueller's Day Off (1986)", reward: 5 },
+    { text: "To infinity and beyond!", source: "Toy Story (1995)", reward: 1 },
+    { text: "Honey, where is my super suit?", source: "The Incredibles (2004)", reward: 1 },
+    { text: "I am your father.", source: "Star Wars: The Empire Strikes Back (1980)", reward: 1 },
+    { text: "With great power comes great responsibility.", source: "Spider-Man (2002)", reward: 1 },
+    { text: "It does not do to dwell on dreams and forget to live.", source: "Harry Potter and the Sorcerer's Stone (2001)", reward: 1 },
+    { text: "Roads? Where we're going, we don't need roads.", source: "Back to the Future (1985)", reward: 1 },
+    { text: "Hakuna Matata! It means no worries for the rest of your days.", source: "The Lion King (1994)", reward: 1 },
+    { text: "E.T. phone home.", source: "E.T. the Extra-Terrestrial (1982)", reward: 1 },
+    { text: "Bond. James Bond.", source: "Dr. No (1962)", reward: 1 },
+    { text: "You shall not pass!", source: "The Lord of the Rings: The Fellowship of the Ring (2001)", reward: 1 },
+    { text: "I see dead people.", source: "The Sixth Sense (1999)", reward: 1 },
+    { text: "Hasta la vista, baby.", source: "Terminator 2: Judgment Day (1991)", reward: 1 },
+    { text: "Just keep swimming.", source: "Finding Nemo (2003)", reward: 1 },
+    { text: "Magic Mirror on the wall, who is the fairest one of all?", source: "Snow White and the Seven Dwarfs (1937)", reward: 1 },
+    { text: "Nobody puts Baby in a corner.", source: "Dirty Dancing (1987)", reward: 1 },
+    { text: "I'm walking here! I'm walking here!", source: "Midnight Cowboy (1969)", reward: 1 },
+    { text: "You had me at 'hello'.", source: "Jerry Maguire (1996)", reward: 1 },
+    { text: "It ain't about how hard you hit. It's about how hard you can get hit and keep moving forward.", source: "Rocky Balboa (2006)", reward: 5 },
+    { text: "We will not go quietly into the night! We will not vanish without a fight! We're going to live on!", source: "Independence Day (1996)", reward: 5 },
+    { text: "All we have to decide is what to do with the time that is given us.", source: "The Lord of the Rings: The Fellowship of the Ring (2001)", reward: 5 },
+];
+
+const TRAINING_QUOTES = [
+    "The best camera is the one you have with you, but a tripod never hurts.",
+    "We'll fix it in post-production, said every director who regretted it later.",
+    "Lighting isn't just about exposure; it's about mood, depth, and storytelling.",
+    "Sound is half the picture, so never underestimate the power of a good microphone.",
+    "A film is made three times: when it is written, when it is shot, and when it is edited.",
+    "Continuity is key, so make sure the actor holds the cup in the same hand.",
+    "Wide angle lenses exaggerate distance, while telephoto lenses compress it.",
+    "The rule of thirds is a guideline, not a law, but you should learn it before you break it.",
+    "Magic hour offers the most beautiful light, but it only lasts for a short time.",
+    "Don't cross the 180-degree line unless you want to confuse your audience.",
+    "Every cut should be motivated by the story, not just because you're bored.",
+    "Show, don't tell, is the golden rule of visual storytelling.",
+    "Good editing is invisible; it guides the audience without drawing attention to itself.",
+];
+
+const TECHNICAL_PARAGRAPHS = [
+    "ISO measures the sensor's sensitivity to light. A lower number means less sensitivity and a cleaner image, while a higher number increases sensitivity but introduces digital noise.",
+    "Shutter speed controls the duration of light exposure. Fast speeds freeze motion for crisp action shots, while slow speeds create motion blur for artistic effects like light trails.",
+    "Aperture controls the depth of field. A wide aperture (low f-number) creates a blurry background, while a narrow aperture (high f-number) keeps everything in sharp focus.",
+    "White balance adjusts the color temperature. It ensures that white objects appear white, regardless of whether the light source is cool daylight or warm tungsten.",
+    "Frame rate determines the number of images captured per second. 24fps gives a cinematic look, while 60fps or higher is used for smooth slow-motion playback.",
+    "The rule of thirds involves dividing the frame into a 3x3 grid. Placing key elements along these lines or intersections creates a more balanced and visually interesting composition.",
+    "Dynamic range refers to the difference between the darkest and brightest parts of an image. A camera with high dynamic range can capture detail in both deep shadows and bright highlights.",
+    "Focal length determines the angle of view and magnification. Wide-angle lenses capture more of the scene, while telephoto lenses zoom in and compress the background.",
+    "Bit rate is the amount of data used to encode video per second. Higher bit rates result in better quality but larger file sizes, while lower bit rates save space but may introduce artifacts.",
+    "Color grading is the process of altering and enhancing the color of a motion picture, video image, or still image. It is used to create a specific mood or style.",
+];
+
+const RESOLVE_SHORTCUTS = [
+    { id: 'blade', label: 'Blade Tool', keys: ['b'], level: 1 },
+    { id: 'select', label: 'Selection Mode', keys: ['a'], level: 1 },
+    { id: 'trim', label: 'Trim Mode', keys: ['t'], level: 1 },
+    { id: 'mark_in', label: 'Mark In', keys: ['i'], level: 1 },
+    { id: 'mark_out', label: 'Mark Out', keys: ['o'], level: 1 },
+    { id: 'play_reverse', label: 'Play Reverse', keys: ['j'], level: 1 },
+    { id: 'stop', label: 'Stop', keys: ['k'], level: 1 },
+    { id: 'play_forward', label: 'Play Forward', keys: ['l'], level: 1 },
+    { id: 'marker', label: 'Add Marker', keys: ['m'], level: 1 },
+    { id: 'snapping', label: 'Toggle Snapping', keys: ['n'], level: 1 },
+];
+const TRAINING_QUOTES_CONTINUED = [
+    "Always check your focus, because a blurry shot is usually a useless shot.",
+    "Filmmaking is a collaborative art form, so treat your crew with respect.",
+    "Storyboards help you visualize the film before you even pick up a camera.",
+    "White balance ensures that your colors look natural in different lighting conditions.",
+    "Depth of field can be used to isolate your subject and guide the viewer's eye.",
+    "Foley artists create sound effects that bring the world of the film to life.",
+    "The final cut is the director's vision, but the editor is the one who stitches it together."
 ];
 
 // 4. Career Ranks (Based on GIVING)
@@ -85,9 +180,8 @@ const CAREER_RANKS = [
 // --- CONFIGURATION END ---
 
 // --- Firebase Init ---
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+// --- Firebase Init ---
+// Moved to top
 
 // --- Helpers ---
 
@@ -167,6 +261,159 @@ const NavBtn = ({ icon: Icon, label, active, onClick, badge }) => (
 
 // --- Main Application ---
 
+function BankView({ user, onDeposit, onWithdraw, onPayInterest, isAdmin, allUsers }) {
+    const [amount, setAmount] = useState("");
+    const walletBalance = user.balance || 0;
+    const bankBalance = user.bank_balance || 0;
+    const interestRate = 0.10;
+    const projectedInterest = Math.floor(bankBalance * interestRate);
+    const nextMilestone = Math.floor((projectedInterest + 1) / interestRate);
+    const neededForNext = nextMilestone - bankBalance;
+
+    // Admin Calc
+    const totalBanked = allUsers.reduce((sum, u) => sum + (u.bank_balance || 0), 0);
+    const totalInterestPayout = allUsers.reduce((sum, u) => sum + Math.floor((u.bank_balance || 0) * interestRate), 0);
+
+    return (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <Card className="bg-gradient-to-br from-slate-800 to-slate-900 text-white relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-8 opacity-10">
+                    <Landmark size={120} />
+                </div>
+                <div className="relative z-10">
+                    <h2 className="text-2xl font-bold flex items-center gap-2 mb-1">
+                        <Landmark className="text-yellow-400" /> The Donut Bank
+                    </h2>
+                    <p className="text-slate-400 text-sm mb-6">Secure your sweets. Earn interest.</p>
+
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                        <div className="bg-white/10 p-4 rounded-xl backdrop-blur-sm">
+                            <p className="text-xs text-slate-400 uppercase font-bold">Wallet</p>
+                            <p className="text-2xl font-bold">{walletBalance} {EMOJI}</p>
+                        </div>
+                        <div className="bg-white/10 p-4 rounded-xl backdrop-blur-sm border border-yellow-500/30">
+                            <p className="text-xs text-yellow-400 uppercase font-bold">Bank Balance</p>
+                            <p className="text-2xl font-bold text-yellow-400">{bankBalance} {EMOJI}</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-white/5 p-4 rounded-xl border border-white/10">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="text-sm font-bold text-slate-300">Projected Interest (10%)</span>
+                            <span className="text-xl font-bold text-green-400">+{projectedInterest} {EMOJI}</span>
+                        </div>
+                        <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                            <div className="bg-green-500 h-full" style={{ width: `${(bankBalance % 10) * 10}%` }}></div>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-2 text-right">
+                            {neededForNext > 0 ? `Deposit ${neededForNext} more to earn +1 interest!` : "Maximizing interest!"}
+                        </p>
+                        <p className="text-[10px] text-slate-500 mt-1 italic text-center">
+                            "The Bank doesn't deal in crumbs. We round down."
+                        </p>
+                    </div>
+                </div>
+            </Card>
+
+            <Card>
+                <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                    <ArrowRight size={16} /> Teller Window
+                </h3>
+
+                <div className="flex flex-col gap-4">
+                    <div className="relative">
+                        <span className="absolute left-3 top-3 text-slate-400 font-bold">{EMOJI}</span>
+                        <input
+                            type="number"
+                            className="w-full pl-10 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none font-bold text-lg"
+                            placeholder="Amount"
+                            value={amount}
+                            onChange={e => setAmount(e.target.value)}
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <Button
+                            onClick={() => { onDeposit(parseInt(amount)); setAmount(""); }}
+                            disabled={!amount || parseInt(amount) <= 0 || parseInt(amount) > walletBalance}
+                            className="w-full py-3"
+                        >
+                            Deposit
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={() => { onWithdraw(parseInt(amount)); setAmount(""); }}
+                            disabled={!amount || parseInt(amount) <= 0 || parseInt(amount) > bankBalance}
+                            className="w-full py-3"
+                        >
+                            Withdraw
+                        </Button>
+                    </div>
+
+                    <div className="flex justify-center gap-4 text-xs text-slate-400">
+                        <button onClick={() => setAmount(walletBalance)} className="hover:text-pink-500">Max Deposit</button>
+                        <button onClick={() => setAmount(bankBalance)} className="hover:text-pink-500">Max Withdraw</button>
+                    </div>
+                </div>
+            </Card>
+
+            {isAdmin && (
+                <div className="bg-slate-800 text-white border border-slate-700 rounded-xl shadow-sm p-4">
+                    <h3 className="font-bold text-yellow-400 mb-2 flex items-center gap-2">
+                        <Crown size={16} /> Bank Manager Controls
+                    </h3>
+                    <div className="space-y-2 text-sm text-slate-300 mb-4">
+                        <div className="flex justify-between">
+                            <span>Total Deposits:</span>
+                            <span className="font-bold">{totalBanked} {EMOJI}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span>Total Payout:</span>
+                            <span className="font-bold text-green-400">{totalInterestPayout} {EMOJI}</span>
+                        </div>
+                    </div>
+                    <Button
+                        variant="success"
+                        className="w-full"
+                        onClick={() => {
+                            if (confirm(`Pay out ${totalInterestPayout} donuts in interest to all users?`)) {
+                                onPayInterest();
+                            }
+                        }}
+                        disabled={totalInterestPayout === 0}
+                    >
+                        Pay Interest (10%)
+                    </Button>
+
+                    <div className="mt-6 pt-6 border-t border-slate-700">
+                        <h4 className="font-bold text-sm text-slate-400 mb-3 uppercase tracking-wider flex items-center gap-2">
+                            <PiggyBank size={14} /> Depositor Ledger
+                        </h4>
+                        <div className="space-y-1 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                            {allUsers
+                                .filter(u => (u.bank_balance || 0) > 0)
+                                .sort((a, b) => (b.bank_balance || 0) - (a.bank_balance || 0))
+                                .map((u, i) => (
+                                    <div key={u.id} className="flex justify-between items-center text-sm p-2 rounded hover:bg-white/5 transition-colors">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-slate-500 font-mono text-xs w-4">{i + 1}.</span>
+                                            <span className="font-bold text-slate-200">{u.name}</span>
+                                        </div>
+                                        <span className="font-mono text-yellow-400 font-bold">{u.bank_balance} {EMOJI}</span>
+                                    </div>
+                                ))
+                            }
+                            {allUsers.filter(u => (u.bank_balance || 0) > 0).length === 0 && (
+                                <p className="text-slate-500 text-xs italic text-center py-4">The vault is empty.</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function YumDonutApp() {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -175,10 +422,13 @@ export default function YumDonutApp() {
     // Data State
     const [users, setUsers] = useState([]);
     const [transactions, setTransactions] = useState([]);
+    const [raffleState, setRaffleState] = useState({ tickets: [], lastWinner: null, lastWinDate: null });
     const [bounties, setBounties] = useState([]);
     const [goalData, setGoalData] = useState({ current: 0, target: 50, title: "Frosted Friday Goal", contributors: {} });
     const [myProfile, setMyProfile] = useState(null);
     const [notification, setNotification] = useState(null);
+    const [isSandbox, setIsSandbox] = useState(false);
+    const [showPatchNotes, setShowPatchNotes] = useState(false);
 
     // Auth & Profile Listener
     useEffect(() => {
@@ -259,22 +509,39 @@ export default function YumDonutApp() {
             setBounties(bList);
         }, (e) => console.error("Bounties error", e));
 
-        return () => { unsubUsers(); unsubFeed(); unsubGoal(); unsubBounties(); };
+        const raffleRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'raffle', 'state');
+        const unsubRaffle = onSnapshot(raffleRef, (docSnap) => {
+            if (docSnap.exists()) {
+                setRaffleState(docSnap.data());
+            } else {
+                // Do NOT reset the state if missing. Let the first purchase create it.
+                // setDoc(raffleRef, { tickets: [], lastWinner: null, lastWinDate: null });
+                setRaffleState(null);
+            }
+        }, (e) => console.error("Raffle error", e));
+
+        return () => { unsubUsers(); unsubFeed(); unsubGoal(); unsubBounties(); unsubRaffle(); };
     }, [user]);
 
-    // Auto-Sync Wallet
+    // Auto-Sync Wallet & Bank
     useEffect(() => {
-        if (!user || !myProfile || users.length === 0) return;
+        if (!user || !myProfile || users.length === 0 || isSandbox) return; // Added isSandbox check
         const publicProfile = users.find(u => u.name === myProfile.name);
         if (publicProfile) {
             const publicBalance = publicProfile.balance || 0;
             const privateBalance = myProfile.balance || 0;
-            if (publicBalance !== privateBalance) {
+            const publicBank = publicProfile.bank_balance || 0;
+            const privateBank = myProfile.bank_balance || 0;
+
+            if (publicBalance !== privateBalance || publicBank !== privateBank) {
                 const userRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
-                updateDoc(userRef, { balance: publicBalance }).catch(console.error);
+                updateDoc(userRef, {
+                    balance: publicBalance,
+                    bank_balance: publicBank
+                }).catch(console.error);
             }
         }
-    }, [user, myProfile, users]);
+    }, [user, myProfile, users, isSandbox]); // Added isSandbox to dependencies
 
     const openBountyCount = bounties.filter(b => {
         if (b.status !== 'open') return false;
@@ -311,8 +578,13 @@ export default function YumDonutApp() {
         const initialPrivateData = {
             name: name,
             balance: currentBalance,
+            bank_balance: 0,
             given_today: 0,
             last_given_date: new Date().toDateString(),
+            last_training_date: null, // New field for Typing Dojo
+            last_training_date_sudden_death: null,
+            last_training_date_ninja: null,
+            typing_license: false, // New field for Typing License
             avatar_color: avatarColor
         };
 
@@ -326,15 +598,53 @@ export default function YumDonutApp() {
             avatar_color: avatarColor,
             rainbow_name: rainbowName,
             claimed: true,
-            uid: uid
+            uid: uid,
+            typing_license: false // New field for Typing License
         }, { merge: true });
     };
 
-    const handleLoginOrRegister = async (name, password) => {
+    // --- AUTHENTICATION ---
+    const handleLoginOrRegister = async (name, password, sandboxMode = false) => {
         if (!name || !password) return;
         setLoading(true);
-        const email = `${name.replace(/\s+/g, '').toLowerCase()}@yumdonut.school`;
         try {
+            if (sandboxMode) {
+                setIsSandbox(true);
+                // Simulate login by finding user in existing users
+                const existing = users.find(u => u.name === name);
+                if (existing) {
+                    setUser({ uid: existing.uid || "dev-uid", name: existing.name }); // Mock user object
+                    // We need to fetch profile manually since onAuthStateChanged won't trigger
+                    const userRef = doc(db, 'artifacts', APP_ID, 'users', existing.uid, 'profile', 'data');
+                    const userSnap = await getDoc(userRef);
+                    if (userSnap.exists()) {
+                        setMyProfile(userSnap.data());
+                    } else {
+                        // If profile doesn't exist for sandbox user, create a mock one
+                        setMyProfile({
+                            name: existing.name,
+                            balance: existing.balance || 0,
+                            bank_balance: existing.bank_balance || 0,
+                            given_today: 0,
+                            last_given_date: new Date().toDateString(),
+                            last_training_date: null, // Always allow training in sandbox
+                            typing_license: true, // Grant license for testing
+                            avatar_color: existing.avatar_color || `hsl(${Math.random() * 360}, 70%, 50%)`
+                        });
+                    }
+                    showNotification(`Welcome to Sandbox, ${name}!`);
+                    setLoading(false);
+                    return;
+                } else {
+                    showNotification("Sandbox user not found. Try a real user name or create one first.", "error");
+                    setLoading(false);
+                    return;
+                }
+            }
+
+            // Real Login Logic
+            setIsSandbox(false);
+            const email = `${name.replace(/\s+/g, '').toLowerCase()}@yumdonut.school`;
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const uid = userCredential.user.uid;
             const userRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data');
@@ -348,6 +658,7 @@ export default function YumDonutApp() {
         } catch (error) {
             if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/invalid-email') {
                 try {
+                    const email = `${name.replace(/\s+/g, '').toLowerCase()}@yumdonut.school`;
                     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                     await updateProfile(userCredential.user, { displayName: name });
                     await createProfile(userCredential.user.uid, name);
@@ -366,11 +677,20 @@ export default function YumDonutApp() {
 
     const handleLogout = () => {
         signOut(auth);
+        setIsSandbox(false); // Reset sandbox mode on logout
         window.location.reload();
     };
 
     const handleGiveDonut = async (recipientName, message, amount = 1) => {
         if (!myProfile) return;
+
+        if (isSandbox) {
+            showNotification(`Sandbox: Gave ${amount} donut(s) to ${recipientName} (Simulated)`, "info");
+            // Optionally, you could update a local state for sandbox users to reflect the change
+            // For simplicity, we'll just show a notification.
+            return;
+        }
+
         const today = new Date().toDateString();
         let currentGiven = myProfile.last_given_date === today ? myProfile.given_today : 0;
         const isAdmin = myProfile.name === "Mr Rayner";
@@ -422,7 +742,8 @@ export default function YumDonutApp() {
                     lifetime_given: 0,
                     lifetime_received: amount,
                     avatar_color: `hsl(${Math.random() * 360}, 60%, 80%)`,
-                    claimed: false
+                    claimed: false,
+                    last_training_date: null, // New field for Typing Dojo
                 });
             }
             showNotification(`Sent ${amount} ${EMOJI} successfully!`);
@@ -435,6 +756,12 @@ export default function YumDonutApp() {
 
     const handleMunchDonut = async (victimName, reason) => {
         if (!myProfile) return;
+
+        if (isSandbox) {
+            showNotification(`Sandbox: Munched 1 donut from ${victimName} (Simulated)`, "info");
+            return;
+        }
+
         try {
             const recipientRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', victimName);
             const recipientDoc = await getDoc(recipientRef);
@@ -442,22 +769,36 @@ export default function YumDonutApp() {
                 showNotification("User has no wallet to munch!", "error");
                 return;
             }
+
             const currentBal = recipientDoc.data().balance || 0;
-            if (currentBal < 1) {
-                showNotification("The Muncher goes hungry (0 donuts).", "error");
+            const currentBank = recipientDoc.data().bank_balance || 0;
+
+            let updateData = {};
+            let munchSource = "";
+
+            if (currentBal >= 1) {
+                updateData = { balance: currentBal - 1 };
+                munchSource = "wallet";
+            } else if (currentBank >= 1) {
+                updateData = { bank_balance: currentBank - 1 };
+                munchSource = "bank";
+            } else {
+                showNotification("The Muncher goes hungry (0 donuts anywhere).", "error");
                 return;
             }
-            await updateDoc(recipientRef, { balance: currentBal - 1 });
+
+            await updateDoc(recipientRef, updateData);
+
             await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
                 fromName: "The Donut Muncher",
                 toName: "Someone",
-                message: `Nom nom! Ate a donut because: ${reason}`,
+                message: `Nom nom! Ate a donut from ${munchSource === 'bank' ? 'the BANK' : 'wallet'} because: ${reason}`,
                 timestamp: serverTimestamp(),
                 emoji: "👾",
                 amount: 1,
                 likes: []
             });
-            showNotification(`Munched 1 donut from ${victimName}!`);
+            showNotification(`Munched 1 donut from ${victimName}'s ${munchSource}!`);
             setView('feed');
         } catch (e) {
             console.error(e);
@@ -510,13 +851,34 @@ export default function YumDonutApp() {
 
     // RESTORED: Admin Goal Controls
     const handleResetGoal = async () => {
+        if (!isAdmin) return;
+        if (!confirm("Are you sure you want to reset the goal? This will clear all contributions.")) return;
+
+        const goalRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'goals', 'active_goal');
+        await setDoc(goalRef, {
+            current: 0,
+            target: 50,
+            title: "Frosted Friday Goal",
+            contributors: {},
+            isActive: true // Default to true on reset
+        });
+        showNotification("Goal has been reset!");
+    };
+
+    const handleToggleGoalActive = async (isActive) => {
+        console.log("Toggling Goal Active:", isActive, "Is Admin:", isAdmin);
+        if (!isAdmin) {
+            console.error("Not admin, cannot toggle.");
+            return;
+        }
         try {
             const goalRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'goals', 'active_goal');
-            await updateDoc(goalRef, { current: 0, contributors: {} });
-            showNotification("Goal reset to 0!");
+            await updateDoc(goalRef, { isActive });
+            console.log("Goal updated successfully to:", isActive);
+            showNotification(`Goal is now ${isActive ? 'Active' : 'Inactive'}`);
         } catch (e) {
-            console.error(e);
-            showNotification("Failed to reset.", "error");
+            console.error("Error toggling goal:", e);
+            showNotification("Failed to toggle goal.", "error");
         }
     };
 
@@ -554,20 +916,60 @@ export default function YumDonutApp() {
             return;
         }
         const currentUserPublic = users.find(u => u.name === myProfile.name);
-        if (item.type === 'digital' && item.id === 'rainbow_name' && currentUserPublic?.rainbow_name) {
-            showNotification("Already owned!", "error");
-            return;
+        if (item.type === 'digital') {
+            if (item.id === 'rainbow_name' && currentUserPublic?.rainbow_name) {
+                showNotification("Already owned!", "error");
+                return;
+            }
+            if (item.id === 'gold_border' && currentUserPublic?.gold_border) {
+                showNotification("Already owned!", "error");
+                return;
+            }
+            if (item.id === 'neon_name' && currentUserPublic?.neon_name) {
+                showNotification("Already owned!", "error");
+                return;
+            }
+            if (item.id === 'verified_badge' && currentUserPublic?.verified_badge) {
+                showNotification("Already owned!", "error");
+                return;
+            }
         }
         try {
             const publicUserRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
             await runTransaction(db, async (transaction) => {
                 const userDoc = await transaction.get(publicUserRef);
                 if (!userDoc.exists()) throw "User missing";
+
+                // Read Raffle State if needed
+                let raffleDoc = null;
+                const raffleRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'raffle', 'state');
+                if (item.id === 'raffle_ticket') {
+                    raffleDoc = await transaction.get(raffleRef);
+                }
+
                 const currentBal = userDoc.data().balance || 0;
                 if (currentBal < item.cost) throw "Not enough funds";
+
+                // --- WRITES START HERE ---
                 const updates = { balance: currentBal - item.cost };
-                if (item.type === 'digital' && item.id === 'rainbow_name') { updates.rainbow_name = true; }
+                if (item.type === 'digital') {
+                    if (item.id === 'rainbow_name') updates.rainbow_name = true;
+                    if (item.id === 'gold_border') updates.gold_border = true;
+                    if (item.id === 'neon_name') updates.neon_name = true;
+                    if (item.id === 'verified_badge') updates.verified_badge = true;
+                }
                 transaction.update(publicUserRef, updates);
+
+                // Handle Raffle Ticket Write
+                if (item.id === 'raffle_ticket') {
+                    if (raffleDoc && raffleDoc.exists()) {
+                        const currentTickets = raffleDoc.data().tickets || [];
+                        transaction.update(raffleRef, { tickets: [...currentTickets, myProfile.name] });
+                    } else {
+                        transaction.set(raffleRef, { tickets: [myProfile.name], lastWinner: null, lastWinDate: null });
+                    }
+                }
+
                 const txRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
                 transaction.set(txRef, { fromName: myProfile.name, toName: "The Shop", message: `Purchased: ${item.name}`, timestamp: serverTimestamp(), emoji: "🛍️", likes: [] });
             });
@@ -581,16 +983,88 @@ export default function YumDonutApp() {
         }
     };
 
+    const handleDrawRaffle = async () => {
+        if (raffleState.tickets.length === 0) {
+            showNotification("No tickets sold yet!", "error");
+            return;
+        }
+
+        const winnerIndex = Math.floor(Math.random() * raffleState.tickets.length);
+        const winnerName = raffleState.tickets[winnerIndex];
+
+        try {
+            const raffleRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'raffle', 'state');
+            await updateDoc(raffleRef, {
+                tickets: [],
+                lastWinner: winnerName,
+                lastWinDate: Date.now()
+            });
+
+            // Announce in Feed
+            await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
+                fromName: "The Raffle",
+                toName: winnerName,
+                message: "🎰 RAFFLE WINNER! 🎰",
+                timestamp: serverTimestamp(),
+                emoji: "🏆",
+                likes: []
+            });
+
+            triggerConfetti();
+            showNotification(`Winner: ${winnerName}!`);
+        } catch (e) {
+            console.error(e);
+            showNotification("Draw failed.", "error");
+        }
+    };
+
+    const handleRestoreRaffle = async () => {
+        try {
+            const q = query(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), orderBy('timestamp', 'desc'), limit(500));
+            const snapshot = await getDocs(q);
+            const tickets = [];
+
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.message && data.message.includes("Purchased: Weekly Raffle Ticket")) {
+                    tickets.push(data.fromName);
+                }
+            });
+
+            // Reverse to preserve order (oldest first) if needed, though order doesn't matter for raffle
+            // But transactions are desc, so tickets are newest first.
+
+            if (tickets.length > 0) {
+                const raffleRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'raffle', 'state');
+                await setDoc(raffleRef, {
+                    tickets: tickets,
+                    lastWinner: null,
+                    lastWinDate: null
+                }, { merge: true });
+                showNotification(`Restored ${tickets.length} tickets!`);
+                triggerConfetti();
+            } else {
+                showNotification("No ticket purchases found.", "info");
+            }
+        } catch (e) {
+            console.error(e);
+            showNotification("Restore failed.", "error");
+        }
+    };
+
     // --- CREATE BOUNTY (Time Limit = Minutes from Now) ---
-    const handleCreateBounty = async (title, reward, quantity, durationMins, scheduledFor = null) => {
+    // --- CREATE BOUNTY (Time Limit = Date Picker) ---
+    const handleCreateBounty = async (title, reward, quantity, expiresAtString, scheduledFor = null) => {
         const qty = parseInt(quantity) || 1;
-        const duration = parseInt(durationMins) || 0;
 
         // If scheduledFor is provided, use it as the start time, otherwise use now
         const startTime = scheduledFor ? new Date(scheduledFor).getTime() : Date.now();
 
-        // If duration is set, calculate absolute expiry time (number) based on START time
-        const expiresAt = duration > 0 ? startTime + (duration * 60000) : null;
+        // Calculate absolute expiry time (number) based on Date Picker
+        let expiresAt = null;
+        if (expiresAtString) {
+            expiresAt = new Date(expiresAtString).getTime();
+        }
 
         await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'bounties'), {
             title,
@@ -603,11 +1077,9 @@ export default function YumDonutApp() {
             createdAt: serverTimestamp()
         });
 
-        const timeMsg = duration > 0 ? ` (Expires in ${duration} mins)` : "";
+        const timeMsg = expiresAt ? ` (Due: ${new Date(expiresAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })})` : "";
         const scheduleMsg = scheduledFor ? ` [Scheduled for ${new Date(scheduledFor).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}]` : "";
 
-        // Only announce immediately if NOT scheduled (or maybe announce it's scheduled?)
-        // For now, we'll announce it as scheduled so people know it's coming.
         await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
             fromName: "Job Board",
             toName: "EVERYONE",
@@ -664,6 +1136,18 @@ export default function YumDonutApp() {
         showNotification("Job is open again.");
     };
 
+    const handleMarkDone = async (bountyId) => {
+        const bountyRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'bounties', bountyId);
+        await updateDoc(bountyRef, { status: 'pending_review' });
+        showNotification("Marked as done! Wait for inspection.");
+    };
+
+    const handleRejectWork = async (bountyId) => {
+        const bountyRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'bounties', bountyId);
+        await updateDoc(bountyRef, { status: 'claimed' });
+        showNotification("Work rejected. Student must redo.");
+    };
+
     const handlePayBounty = async (bountyId, claimantName, reward) => {
         try {
             const recipientRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', claimantName);
@@ -695,6 +1179,261 @@ export default function YumDonutApp() {
         }
     };
 
+    // --- BANK ACTIONS ---
+    const handleDeposit = async (amount) => {
+        if (!myProfile || amount <= 0) return;
+        if (myProfile.balance < amount) {
+            showNotification("Not enough donuts in wallet!", "error");
+            return;
+        }
+        try {
+            const userRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
+            const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
+
+            await runTransaction(db, async (transaction) => {
+                const userDoc = await transaction.get(userRef);
+                const publicDoc = await transaction.get(publicRef);
+                if (!userDoc.exists() || !publicDoc.exists()) throw "User missing";
+
+                const currentWallet = userDoc.data().balance || 0;
+                const currentBank = userDoc.data().bank_balance || 0;
+
+                if (currentWallet < amount) throw "Insufficient funds";
+
+                if (isSandbox) {
+                    showNotification(`Sandbox: Deposited ${amount} donuts (Simulated)`, "info");
+                    return;
+                }
+
+                transaction.update(userRef, {
+                    balance: currentWallet - amount,
+                    bank_balance: currentBank + amount
+                });
+                transaction.update(publicRef, {
+                    balance: currentWallet - amount,
+                    bank_balance: currentBank + amount
+                });
+            });
+            showNotification(`Deposited ${amount} donuts!`);
+        } catch (e) {
+            console.error(e);
+            showNotification("Deposit failed.", "error");
+        }
+    };
+
+    const handleWithdraw = async (amount) => {
+        if (!myProfile || amount <= 0) return;
+        const currentBank = myProfile.bank_balance || 0;
+        if (currentBank < amount) {
+            showNotification("Not enough donuts in bank!", "error");
+            return;
+        }
+        try {
+            const userRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
+            const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
+
+            await runTransaction(db, async (transaction) => {
+                const userDoc = await transaction.get(userRef);
+                const publicDoc = await transaction.get(publicRef);
+
+                const currentWallet = userDoc.data().balance || 0;
+                const currentBank = userDoc.data().bank_balance || 0;
+
+                if (currentBank < amount) throw "Insufficient bank funds";
+
+                if (isSandbox) {
+                    showNotification(`Sandbox: Withdrew ${amount} donuts (Simulated)`, "info");
+                    return;
+                }
+
+                transaction.update(userRef, {
+                    balance: currentWallet + amount,
+                    bank_balance: currentBank - amount
+                });
+                transaction.update(publicRef, {
+                    balance: currentWallet + amount,
+                    bank_balance: currentBank - amount
+                });
+            });
+            showNotification(`Withdrew ${amount} donuts!`);
+        } catch (e) {
+            console.error(e);
+            showNotification("Withdrawal failed.", "error");
+        }
+    };
+
+    const handlePayInterest = async () => {
+        // Admin only function to pay 10% interest (rounded down)
+        if (myProfile.name !== "Mr Rayner") return;
+
+        if (isSandbox) {
+            showNotification("Sandbox: Interest paid (Simulated)", "info");
+            return;
+        }
+
+        try {
+            let totalPaid = 0;
+
+            for (const u of users) {
+                const bBalance = u.bank_balance || 0;
+                if (bBalance < 10) continue; // Minimum to earn 1 donut (10 * 0.1 = 1)
+
+                const interest = Math.floor(bBalance * 0.10);
+                if (interest > 0) {
+                    const userPublicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', u.id);
+
+                    if (u.uid) {
+                        const userPrivateRef = doc(db, 'artifacts', APP_ID, 'users', u.uid, 'profile', 'data');
+
+                        await updateDoc(userPublicRef, {
+                            bank_balance: bBalance + interest
+                        });
+
+                        await updateDoc(userPrivateRef, {
+                            bank_balance: bBalance + interest
+                        });
+
+                        totalPaid += interest;
+                    }
+                }
+            }
+
+            if (totalPaid > 0) {
+                await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
+                    fromName: "The Bank",
+                    toName: "EVERYONE",
+                    message: `PAID INTEREST! Total of ${totalPaid} Donuts distributed to savers! 🏦`,
+                    timestamp: serverTimestamp(),
+                    emoji: "💸",
+                    likes: []
+                });
+                triggerConfetti();
+                showNotification(`Paid ${totalPaid} donuts in interest!`);
+            } else {
+                showNotification("No interest to pay (nobody has enough savings).");
+            }
+
+        } catch (e) {
+            console.error(e);
+            showNotification("Interest payout failed.", "error");
+        }
+    };
+
+    // --- TYPING DOJO REWARD ---
+    // --- TYPING DOJO REWARD ---
+    const handleTrainingReward = async (wpm, accuracy, rewardAmount = 1, badgeToGrant = null, mode = 'scriptwriter') => {
+        if (!myProfile) return;
+
+        if (isSandbox) {
+            showNotification(`Sandbox: Earned ${rewardAmount} donut(s) (Simulated)`, "info");
+            return;
+        }
+
+        if (!myProfile.typing_license) {
+            showNotification("Practice complete! Get your license from Mr Rayner to earn donuts.", "info");
+            return;
+        }
+
+        const today = new Date().toDateString();
+
+        // Determine which date field to check/update based on mode
+        let dateField = 'last_training_date'; // Default for Scriptwriter
+        if (mode === 'sudden_death') dateField = 'last_training_date_sudden_death';
+        if (mode === 'shortcut_ninja') dateField = 'last_training_date_ninja';
+
+        if (myProfile[dateField] === today) {
+            showNotification(`You've already trained in ${mode === 'scriptwriter' ? 'Scriptwriter' : mode === 'sudden_death' ? 'Sudden Death' : 'Ninja'} mode today!`, "error");
+            return;
+        }
+
+        if (wpm < 30 || accuracy < 95) {
+            showNotification("Goal not met. Keep practicing!", "error");
+            return;
+        }
+
+        try {
+            const userRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
+            const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
+
+            await runTransaction(db, async (transaction) => {
+                const userDoc = await transaction.get(userRef);
+                const publicDoc = await transaction.get(publicRef);
+
+                if (!userDoc.exists() || !publicDoc.exists()) throw "User missing";
+
+                const currentBal = userDoc.data().balance || 0;
+                const currentLifetime = userDoc.data().lifetime_received || currentBal;
+
+                const updateData = {
+                    balance: currentBal + rewardAmount,
+                    lifetime_received: currentLifetime + rewardAmount,
+                    [dateField]: today
+                };
+
+                if (badgeToGrant) {
+                    updateData[badgeToGrant] = true;
+                }
+
+                // WPM Tiers (The Flex)
+                if (wpm >= 50) updateData.silver_border = true;
+                if (wpm >= 70) updateData.gold_border = true;
+                if (wpm >= 90) updateData.flame_name = true;
+
+                transaction.update(userRef, updateData);
+                transaction.update(publicRef, updateData);
+
+                // Add to Feed
+                const feedRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
+                transaction.set(feedRef, {
+                    fromName: "Typing Dojo",
+                    toName: myProfile.name,
+                    message: `Earned ${rewardAmount} donut(s) in ${mode === 'sudden_death' ? 'Sudden Death' : mode === 'shortcut_ninja' ? 'Ninja Mode' : 'Training'}! (${wpm} WPM, ${accuracy}%)`,
+                    timestamp: serverTimestamp(),
+                    emoji: mode === 'sudden_death' ? "💀" : mode === 'shortcut_ninja' ? "⚡" : "🥋",
+                    amount: rewardAmount,
+                    likes: []
+                });
+            });
+
+            triggerConfetti();
+            showNotification(`Earned ${rewardAmount} donut(s)!`, "success");
+            // Update local state immediately for UI responsiveness
+            setUser(prev => ({ ...prev, balance: (prev.balance || 0) + rewardAmount }));
+            let msg = `Training Complete! +${rewardAmount} Donut${rewardAmount > 1 ? 's' : ''} 🍩`;
+
+            if (wpm >= 90) msg += " & GOD SPEED UNLOCKED! 🔥";
+            else if (wpm >= 70) msg += " & Gold Fingers Unlocked! ✨";
+            else if (wpm >= 50) msg += " & Silver Fingers Unlocked! 🥈";
+
+            if (badgeToGrant === 'perfectionist_badge') {
+                msg += " & Perfectionist Badge Unlocked! 🎯";
+            }
+            showNotification(msg);
+        } catch (e) {
+            console.error(e);
+            showNotification("Reward failed.", "error");
+        }
+    };
+
+    const handleUpdateLicense = async (targetUid, targetName, hasLicense) => {
+        if (isSandbox) {
+            showNotification(`Sandbox: ${hasLicense ? "Granted" : "Revoked"} license for ${targetName} (Simulated)`, "info");
+            return;
+        }
+        try {
+            const userRef = doc(db, 'artifacts', APP_ID, 'users', targetUid, 'profile', 'data');
+            const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', targetName);
+
+            await updateDoc(userRef, { typing_license: hasLicense });
+            await updateDoc(publicRef, { typing_license: hasLicense });
+
+            showNotification(`${hasLicense ? "Granted" : "Revoked"} license for ${targetName}!`);
+        } catch (e) {
+            console.error(e);
+            showNotification("Failed to update license.", "error");
+        }
+    };
+
     const showNotification = (msg, type = "success") => {
         setNotification({ msg, type });
         setTimeout(() => setNotification(null), 3000);
@@ -713,12 +1452,25 @@ export default function YumDonutApp() {
     return (
         <div className={`min-h-screen font-sans text-slate-800 pb-20 md:pb-0 transition-colors duration-500 ${view === 'give' && notification?.type === 'munch' ? 'bg-red-50' : 'bg-slate-50'}`}>
             <div className="bg-white border-b border-slate-200 sticky top-0 z-10 px-4 py-3 flex justify-between items-center shadow-sm">
+                {isSandbox && (
+                    <div className="absolute top-0 left-0 w-full bg-yellow-400 text-yellow-900 text-[10px] font-bold text-center uppercase tracking-widest">
+                        ⚠️ Sandbox Mode: Read Only ⚠️
+                    </div>
+                )}
                 <div className="flex items-center gap-2">
                     <div className="bg-pink-100 p-2 rounded-lg">
                         <span className="text-xl leading-none">{EMOJI}</span>
                     </div>
                     <div>
-                        <h1 className="font-bold text-lg text-slate-900 leading-tight">YumDonut</h1>
+                        <div className="flex items-center gap-2">
+                            <h1 className="font-bold text-lg text-slate-900 leading-tight">YumDonut</h1>
+                            <button
+                                onClick={() => setShowPatchNotes(true)}
+                                className="text-[10px] font-bold bg-gradient-to-r from-pink-500 to-purple-600 text-white px-2 py-0.5 rounded-full hover:scale-105 transition-transform shadow-sm flex items-center gap-1"
+                            >
+                                <Sparkles size={10} /> What's New
+                            </button>
+                        </div>
                         <div className="flex flex-col">
                             <p className="text-xs text-slate-500">Berkley TV Recognition</p>
                             <div className="flex items-center gap-1 text-[10px] bg-slate-100 px-1.5 rounded-full w-fit mt-0.5">
@@ -750,7 +1502,9 @@ export default function YumDonutApp() {
                 </div>
             </div>
 
-            <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-6">
+            {/* VIEWS */}
+            <div className="max-w-md md:max-w-2xl mx-auto p-4 pb-24 md:pb-4">
+                {showPatchNotes && <PatchNotesModal onClose={() => setShowPatchNotes(false)} />}
 
                 {notification && (
                     <div className={`fixed top-4 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full shadow-xl z-50 animate-bounce ${notification.type === 'error' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'
@@ -759,12 +1513,12 @@ export default function YumDonutApp() {
                     </div>
                 )}
 
-                <div className="flex overflow-x-auto space-x-2 border-b border-slate-200 mb-4 pb-1">
-                    {['give', 'jobs', 'shop', 'goal', 'feed', 'leaderboard'].map(tab => (
+                <div className="flex overflow-x-auto justify-between border-b border-slate-200 mb-4 pb-1 no-scrollbar">
+                    {['give', 'jobs', 'shop', 'bank', 'training', 'goal', 'feed', 'leaderboard'].map(tab => (
                         <button
                             key={tab}
                             onClick={() => setView(tab)}
-                            className={`px-4 py-2 font-medium text-sm capitalize border-b-2 transition-colors whitespace-nowrap relative ${view === tab ? 'border-pink-500 text-pink-600' : 'border-transparent text-slate-500 hover:text-slate-700'
+                            className={`px-3 py-2 font-medium text-sm capitalize border-b-2 transition-colors whitespace-nowrap relative ${view === tab ? 'border-pink-500 text-pink-600' : 'border-transparent text-slate-500 hover:text-slate-700'
                                 }`}
                         >
                             {tab}
@@ -798,6 +1552,8 @@ export default function YumDonutApp() {
                         onClaim={handleClaimBounty}
                         onUnclaim={handleUnclaimBounty}
                         onPay={handlePayBounty}
+                        onMarkDone={handleMarkDone}
+                        onReject={handleRejectWork}
                     />
                 )}
 
@@ -807,6 +1563,29 @@ export default function YumDonutApp() {
                         userBalance={myProfile.balance}
                         onPurchase={handlePurchase}
                         currentUserPublic={users.find(u => u.name === myProfile.name)}
+                        raffleState={raffleState}
+                        onDrawRaffle={handleDrawRaffle}
+                        onRestoreRaffle={handleRestoreRaffle}
+                    />
+                )}
+
+                {view === 'bank' && (
+                    <BankView
+                        user={myProfile}
+                        onDeposit={handleDeposit}
+                        onWithdraw={handleWithdraw}
+                        onPayInterest={handlePayInterest}
+                        isAdmin={myProfile.name === "Mr Rayner"}
+                        allUsers={users}
+                    />
+                )}
+
+                {view === 'training' && (
+                    <TrainingView
+                        user={myProfile}
+                        onReward={handleTrainingReward}
+                        allUsers={users}
+                        onUpdateLicense={handleUpdateLicense}
                     />
                 )}
 
@@ -819,6 +1598,7 @@ export default function YumDonutApp() {
                         onActivate={handleActivateFrostedFriday}
                         onUpdateGoal={handleUpdateGoal}
                         onResetGoal={handleResetGoal}
+                        onToggleActive={handleToggleGoalActive}
                     />
                 )}
 
@@ -836,6 +1616,8 @@ export default function YumDonutApp() {
                 <NavBtn icon={Gift} label="Give" active={view === 'give'} onClick={() => setView('give')} />
                 <NavBtn icon={Briefcase} label="Jobs" active={view === 'jobs'} onClick={() => setView('jobs')} badge={openBountyCount} />
                 <NavBtn icon={ShoppingBag} label="Shop" active={view === 'shop'} onClick={() => setView('shop')} />
+                <NavBtn icon={Landmark} label="Bank" active={view === 'bank'} onClick={() => setView('bank')} />
+                <NavBtn icon={Keyboard} label="Train" active={view === 'training'} onClick={() => setView('training')} />
                 <NavBtn icon={Activity} label="Feed" active={view === 'feed'} onClick={() => setView('feed')} />
             </div>
         </div>
@@ -844,10 +1626,480 @@ export default function YumDonutApp() {
 
 // --- Sub-Components (Defined BEFORE Main App to avoid ReferenceErrors) ---
 
+function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
+    const [gameState, setGameState] = useState('idle'); // idle, playing, finished, failed
+    const [mode, setMode] = useState('scriptwriter'); // 'scriptwriter' | 'sudden_death' | 'shortcut_ninja'
+
+    // Common State
+    const [startTime, setStartTime] = useState(null);
+    const [endTime, setEndTime] = useState(null);
+
+    // Typing Dojo State
+    const [currentQuote, setCurrentQuote] = useState("");
+    const [targetQuoteObject, setTargetQuoteObject] = useState(null);
+    const [userInput, setUserInput] = useState("");
+    const [wpm, setWpm] = useState(0);
+    const [accuracy, setAccuracy] = useState(0);
+    const inputRef = useRef(null);
+
+    // Shortcut Ninja State
+    const [ninjaScore, setNinjaScore] = useState(0);
+    const [ninjaLives, setNinjaLives] = useState(3);
+    const [ninjaCombo, setNinjaCombo] = useState(0);
+    const [ninjaTimeLeft, setNinjaTimeLeft] = useState(60);
+    const [currentShortcut, setCurrentShortcut] = useState(null);
+    const [feedbackState, setFeedbackState] = useState(null); // 'correct', 'wrong', null
+    const timerRef = useRef(null);
+
+    // --- SHORTCUT NINJA LOGIC ---
+    useEffect(() => {
+        if (mode === 'shortcut_ninja' && gameState === 'playing') {
+            const handleKeyDown = (e) => {
+                // Prevent default for game keys to avoid browser actions
+                if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
+                    // e.preventDefault(); // Optional: might annoy user if they want to scroll
+                }
+
+                if (!currentShortcut) return;
+
+                const key = e.key.toLowerCase();
+                const targetKey = currentShortcut.keys[0].toLowerCase(); // Assuming single key for Level 1
+
+                if (key === targetKey) {
+                    // Correct!
+                    handleNinjaCorrect();
+                } else {
+                    // Wrong!
+                    // Ignore modifier keys alone
+                    if (['shift', 'control', 'alt', 'meta'].includes(key)) return;
+                    handleNinjaWrong();
+                }
+            };
+
+            window.addEventListener('keydown', handleKeyDown);
+            return () => window.removeEventListener('keydown', handleKeyDown);
+        }
+    }, [mode, gameState, currentShortcut]);
+
+    useEffect(() => {
+        if (mode === 'shortcut_ninja' && gameState === 'playing') {
+            timerRef.current = setInterval(() => {
+                setNinjaTimeLeft(prev => {
+                    if (prev <= 1) {
+                        endNinjaGame();
+                        return 0;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+            return () => clearInterval(timerRef.current);
+        }
+    }, [mode, gameState]);
+
+    const startNinjaGame = () => {
+        setNinjaScore(0);
+        setNinjaLives(3);
+        setNinjaCombo(0);
+        setNinjaTimeLeft(60);
+        setGameState('playing');
+        nextShortcut();
+    };
+
+    const nextShortcut = () => {
+        const random = RESOLVE_SHORTCUTS[Math.floor(Math.random() * RESOLVE_SHORTCUTS.length)];
+        setCurrentShortcut(random);
+    };
+
+    const handleNinjaCorrect = () => {
+        // Visual Feedback
+        setFeedbackState('correct');
+        setTimeout(() => setFeedbackState(null), 200);
+
+        // Score Logic
+        const multiplier = ninjaCombo >= 10 ? 3 : ninjaCombo >= 5 ? 2 : 1;
+        setNinjaScore(prev => prev + (10 * multiplier));
+        setNinjaCombo(prev => prev + 1);
+
+        // Next Card
+        nextShortcut();
+    };
+
+    const handleNinjaWrong = () => {
+        // Visual Feedback
+        setFeedbackState('wrong');
+        setTimeout(() => setFeedbackState(null), 200);
+
+        // Penalty Logic
+        setNinjaScore(prev => Math.max(0, prev - 5));
+        setNinjaCombo(0); // Streak Breaker!
+        setNinjaLives(prev => {
+            const newLives = prev - 1;
+            if (newLives <= 0) {
+                endNinjaGame();
+            }
+            return newLives;
+        });
+    };
+
+    const endNinjaGame = () => {
+        clearInterval(timerRef.current);
+        setGameState('finished');
+        if (ninjaScore >= 1000 && user.typing_license) {
+            onReward(0, 0, 1); // 0 WPM/Acc, just 1 donut reward
+        }
+    };
+
+    // --- TYPING DOJO LOGIC ---
+    const startGame = () => {
+        if (mode === 'shortcut_ninja') {
+            startNinjaGame();
+            return;
+        }
+
+        let randomQuote;
+        let quoteObject = null;
+
+        if (mode === 'sudden_death') {
+            randomQuote = TECHNICAL_PARAGRAPHS[Math.floor(Math.random() * TECHNICAL_PARAGRAPHS.length)];
+            quoteObject = { text: randomQuote, source: "Technical Manual", reward: 10 };
+        } else if (user.typing_license) {
+            // Licensed users get Movie Quotes
+            quoteObject = MOVIE_QUOTES[Math.floor(Math.random() * MOVIE_QUOTES.length)];
+            randomQuote = quoteObject.text;
+        } else {
+            // Unlicensed users get standard training quotes
+            randomQuote = TRAINING_QUOTES[Math.floor(Math.random() * TRAINING_QUOTES.length)];
+        }
+
+        setTargetQuoteObject(quoteObject);
+        setCurrentQuote(randomQuote);
+        setUserInput("");
+        setGameState('playing');
+        setStartTime(Date.now());
+        setEndTime(null);
+        setTimeout(() => inputRef.current?.focus(), 100);
+    };
+
+    const handleInput = (e) => {
+        const value = e.target.value;
+
+        // Sudden Death Logic: Fail immediately on mismatch
+        if (mode === 'sudden_death') {
+            if (!currentQuote.startsWith(value)) {
+                setGameState('failed');
+                return;
+            }
+        }
+
+        setUserInput(value);
+
+        if (value === currentQuote) {
+            endGame(value);
+        }
+    };
+
+    const endGame = (finalInput) => {
+        const end = Date.now();
+        setEndTime(end);
+        setGameState('finished');
+
+        const timeInMinutes = (end - startTime) / 60000;
+        const words = currentQuote.split(" ").length;
+        const calculatedWpm = Math.round(words / timeInMinutes);
+
+        // Calculate accuracy using finalInput
+        let correctChars = 0;
+        const inputToCheck = finalInput || userInput;
+        for (let i = 0; i < currentQuote.length; i++) {
+            if (inputToCheck[i] === currentQuote[i]) correctChars++;
+        }
+        const calculatedAccuracy = Math.round((correctChars / currentQuote.length) * 100);
+
+        setWpm(calculatedWpm);
+        setAccuracy(calculatedAccuracy);
+
+        if (user.typing_license) {
+            if (mode === 'sudden_death') {
+                if (calculatedAccuracy === 100 && calculatedWpm > 30) {
+                    onReward(calculatedWpm, 100, 10, 'perfectionist_badge', mode);
+                } else {
+                    // Sudden Death failure - no reward
+                }
+            } else if (calculatedWpm > 30 && calculatedAccuracy >= 95) {
+                onReward(calculatedWpm, calculatedAccuracy, targetQuoteObject?.reward || 1, null, mode);
+            }
+        }
+    };
+
+    const today = new Date().toDateString();
+
+    // Determine if trained based on current mode
+    let hasTrainedToday = false;
+    if (mode === 'scriptwriter' && user.last_training_date === today) hasTrainedToday = true;
+    if (mode === 'sudden_death' && user.last_training_date_sudden_death === today) hasTrainedToday = true;
+    if (mode === 'shortcut_ninja' && user.last_training_date_ninja === today) hasTrainedToday = true;
+    const hasLicense = user.typing_license;
+    const isAdmin = user.name === "Mr Rayner";
+
+    return (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className={`rounded-xl shadow-sm p-6 text-white transition-colors duration-500 ${mode === 'sudden_death' ? 'bg-slate-900' :
+                mode === 'shortcut_ninja' ? 'bg-slate-800' :
+                    hasLicense ? 'bg-gradient-to-r from-cyan-500 to-blue-500' : 'bg-slate-600'
+                }`}>
+                <div className="flex justify-between items-start">
+                    <div>
+                        <h2 className="text-2xl font-bold flex items-center gap-2 whitespace-nowrap">
+                            {mode === 'sudden_death' ? <Target className="text-red-500" /> :
+                                mode === 'shortcut_ninja' ? <Zap className="text-yellow-400" /> : <Keyboard />}
+                            {mode === 'sudden_death' ? "Sudden Death" :
+                                mode === 'shortcut_ninja' ? "Shortcut Ninja" : "Typing Dojo"}
+                        </h2>
+                        <p className="opacity-90 mt-1">
+                            {mode === 'sudden_death' ? "100% Accuracy Required. One mistake = Game Over." :
+                                mode === 'shortcut_ninja' ? "Hit the shortcuts fast! Build your combo." :
+                                    hasLicense ? "Type the movie quote. Earn donuts." : "Practice Mode. Get licensed to earn rewards."}
+                        </p>
+                    </div>
+                    {(hasLicense || isAdmin) && (
+                        <div className="flex bg-black/20 rounded-lg p-1">
+                            <button
+                                onClick={() => setMode('scriptwriter')}
+                                className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${mode === 'scriptwriter' ? 'bg-white text-blue-600 shadow-sm' : 'text-white/70 hover:text-white'}`}
+                            >
+                                Scriptwriter
+                            </button>
+                            <button
+                                onClick={() => setMode('sudden_death')}
+                                className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${mode === 'sudden_death' ? 'bg-red-600 text-white shadow-sm' : 'text-white/70 hover:text-white'}`}
+                            >
+                                Sudden Death
+                            </button>
+                            <button
+                                onClick={() => setMode('shortcut_ninja')}
+                                className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${mode === 'shortcut_ninja' ? 'bg-yellow-400 text-slate-900 shadow-sm' : 'text-white/70 hover:text-white'}`}
+                            >
+                                Ninja
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                <div className={`mt-4 text-sm font-bold inline-block px-3 py-1 rounded-full ${mode === 'sudden_death' ? 'bg-red-500/20 text-red-200 border border-red-500/50' :
+                    mode === 'shortcut_ninja' ? 'bg-yellow-400/20 text-yellow-200 border border-yellow-400/50' :
+                        hasLicense ? 'bg-white/20' : 'bg-yellow-400 text-slate-900'
+                    }`}>
+                    {mode === 'sudden_death' ? "Reward: 10 Donuts + 🎯 Badge" :
+                        mode === 'shortcut_ninja' ? "Reward: 1 Donut (Score > 1000)" :
+                            hasLicense ? "Daily Goal: >30 WPM & 95% Accuracy" : "PRACTICE MODE (0 Donuts)"}
+                </div>
+            </div>
+
+            <Card className={`text-center py-8 transition-colors duration-200 ${feedbackState === 'correct' ? 'bg-green-50 border-green-200 scale-[1.02]' :
+                feedbackState === 'wrong' ? 'bg-red-50 border-red-200 translate-x-1' : ''
+                }`}>
+                {gameState === 'failed' && mode === 'sudden_death' && (
+                    <div className="space-y-4 animate-in zoom-in duration-300">
+                        <div className="w-20 h-20 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4">
+                            <XCircle size={40} />
+                        </div>
+                        <h3 className="text-2xl font-bold text-red-600">GAME OVER</h3>
+                        <p className="text-slate-600">One mistake is all it takes.</p>
+                        <Button onClick={() => setGameState('idle')} variant="outline" className="mt-4">
+                            Try Again
+                        </Button>
+                    </div>
+                )}
+
+                {gameState === 'finished' && mode === 'shortcut_ninja' && (
+                    <div className="space-y-4 animate-in zoom-in duration-300">
+                        <div className="w-20 h-20 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center mx-auto mb-4">
+                            <Zap size={40} />
+                        </div>
+                        <h3 className="text-2xl font-bold text-slate-800">DOJO CLOSED</h3>
+                        <div className="text-4xl font-black text-slate-900 my-4">{ninjaScore} PTS</div>
+
+                        <div className="inline-block px-4 py-2 rounded-full font-bold text-white mb-4" style={{
+                            backgroundColor: ninjaScore >= 1500 ? '#000' : ninjaScore >= 500 ? '#22c55e' : '#cbd5e1'
+                        }}>
+                            {ninjaScore >= 1500 ? "🥋 BLACK BELT" : ninjaScore >= 500 ? "🥋 GREEN BELT" : "🥋 WHITE BELT"}
+                        </div>
+
+                        <p className="text-slate-600">
+                            {ninjaScore >= 1000 ? "Incredible reflexes! You earned a donut." : "Keep training to reach 1000 points!"}
+                        </p>
+                        <Button onClick={() => setGameState('idle')} variant="outline" className="mt-4">
+                            Train Again
+                        </Button>
+                    </div>
+                )}
+
+                {gameState === 'idle' && (
+                    <div className="space-y-4">
+                        <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 ${mode === 'sudden_death' ? 'bg-red-100 text-red-600' :
+                            mode === 'shortcut_ninja' ? 'bg-yellow-100 text-yellow-600' :
+                                hasLicense ? 'bg-blue-100 text-blue-500' : 'bg-slate-100 text-slate-500'
+                            }`}>
+                            {mode === 'sudden_death' ? <Target size={40} /> :
+                                mode === 'shortcut_ninja' ? <Zap size={40} /> : <Keyboard size={40} />}
+                        </div>
+                        <h3 className="text-xl font-bold text-slate-800">Ready to Train?</h3>
+                        <p className="text-slate-500 max-w-md mx-auto">
+                            {mode === 'shortcut_ninja' ? "Press the correct keys as fast as you can. Don't break your streak!" :
+                                "Type the filmmaking quote exactly as it appears. Speed and precision are key!"}
+                        </p>
+                        {hasTrainedToday && hasLicense ? (
+                            <div className="bg-green-100 text-green-700 p-3 rounded-lg font-bold">
+                                You've already earned your daily donut! Come back tomorrow.
+                            </div>
+                        ) : (
+                            <Button onClick={startGame} className="w-full max-w-xs py-3 text-lg mx-auto">
+                                {hasLicense ? "Start Challenge" : "Start Practice"}
+                            </Button>
+                        )}
+                    </div>
+                )}
+
+                {gameState === 'playing' && mode === 'shortcut_ninja' && (
+                    <div className="max-w-md mx-auto">
+                        <div className="flex justify-between items-center mb-8">
+                            <div className="flex gap-1">
+                                {[...Array(3)].map((_, i) => (
+                                    <Heart key={i} size={24} className={i < ninjaLives ? "text-red-500 fill-red-500" : "text-slate-200"} />
+                                ))}
+                            </div>
+                            <div className="text-2xl font-black text-slate-900">{ninjaScore}</div>
+                            <div className="font-mono font-bold text-slate-500">{ninjaTimeLeft}s</div>
+                        </div>
+
+                        <div className="py-12">
+                            <div className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">PRESS</div>
+                            <div className="text-5xl font-black text-slate-800 mb-8">{currentShortcut?.label}</div>
+
+                            {ninjaCombo >= 5 && (
+                                <div className="animate-bounce text-orange-500 font-black text-xl">
+                                    {ninjaCombo}x COMBO! 🔥
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {gameState === 'playing' && mode !== 'shortcut_ninja' && (
+                    <div className="space-y-6">
+                        <div className="flex justify-between items-center px-2">
+                            <span className="text-sm font-bold text-slate-500 italic">
+                                {targetQuoteObject?.source}
+                            </span>
+                            {hasLicense && (
+                                <span className={`text-xs font-bold px-2 py-1 rounded-full ${targetQuoteObject?.reward > 1 ? 'bg-yellow-100 text-yellow-700' : 'bg-pink-100 text-pink-600'}`}>
+                                    Reward: {targetQuoteObject?.reward} {EMOJI}
+                                </span>
+                            )}
+                        </div>
+                        <div className="bg-slate-100 p-6 rounded-xl text-xl font-serif text-slate-700 leading-relaxed select-none">
+                            {currentQuote.split('').map((char, index) => {
+                                let color = "text-slate-700";
+                                if (index < userInput.length) {
+                                    color = userInput[index] === char ? "text-green-600" : "text-red-500 bg-red-100";
+                                }
+                                return <span key={index} className={color}>{char}</span>;
+                            })}
+                        </div>
+                        <input
+                            ref={inputRef}
+                            type="text"
+                            className="w-full p-4 text-lg border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all"
+                            placeholder="Type here..."
+                            value={userInput}
+                            onChange={handleInput}
+                            onPaste={(e) => e.preventDefault()} // No cheating!
+                        />
+                        <p className="text-xs text-slate-400 uppercase font-bold tracking-wider">
+                            Timer Running...
+                        </p>
+                    </div>
+                )}
+
+                {gameState === 'finished' && (
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-slate-50 p-4 rounded-xl">
+                                <p className="text-xs text-slate-400 font-bold uppercase">Speed</p>
+                                <p className={`text-3xl font-black ${wpm > 30 ? 'text-green-500' : 'text-orange-500'}`}>
+                                    {wpm} <span className="text-sm text-slate-400 font-normal">WPM</span>
+                                </p>
+                            </div>
+                            <div className="bg-slate-50 p-4 rounded-xl">
+                                <p className="text-xs text-slate-400 font-bold uppercase">Accuracy</p>
+                                <p className={`text-3xl font-black ${accuracy >= 95 ? 'text-green-500' : 'text-orange-500'}`}>
+                                    {accuracy}%
+                                </p>
+                            </div>
+                        </div>
+
+                        {wpm > 30 && accuracy >= 95 ? (
+                            <div className={`p-6 rounded-xl animate-bounce ${hasLicense ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700'}`}>
+                                <h3 className="text-xl font-bold mb-1">🎉 {hasLicense ? "Challenge Complete!" : "Practice Complete!"}</h3>
+                                <p>{mode === 'sudden_death' ? "You earned 10 Donuts! 💀" : hasLicense ? `You earned ${targetQuoteObject?.reward || 1} Donut${(targetQuoteObject?.reward || 1) > 1 ? 's' : ''}!` : "Great job! Get licensed to earn rewards."}</p>
+                            </div>
+                        ) : (
+                            <div className="bg-orange-50 text-orange-700 p-6 rounded-xl">
+                                <h3 className="text-xl font-bold mb-1">So Close!</h3>
+                                <p>You need &gt;30 WPM and 95% Accuracy. Try again!</p>
+                            </div>
+                        )}
+
+                        <div className="flex flex-col items-center gap-3 mt-6">
+                            <Button onClick={startGame} variant="outline" className="w-full max-w-xs">
+                                Try Again
+                            </Button>
+                            <button onClick={() => setGameState('idle')} className="text-slate-400 hover:text-slate-600 text-sm">
+                                Back to Menu
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </Card>
+
+            {isAdmin && allUsers && (
+                <Card className="bg-white border-2 border-slate-200">
+                    <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <Crown size={16} className="text-yellow-500" /> Instructor Controls
+                    </h3>
+                    <div className="space-y-2">
+                        {allUsers.filter(u => u.name !== "Mr Rayner").map(u => (
+                            <div key={u.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                <span className="font-bold text-slate-700">{u.name}</span>
+                                {u.typing_license ? (
+                                    <button
+                                        onClick={() => onUpdateLicense(u.uid, u.name, false)}
+                                        className="text-xs bg-red-100 text-red-600 px-3 py-1.5 rounded-lg font-bold hover:bg-red-200 transition-colors"
+                                    >
+                                        Revoke License
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => onUpdateLicense(u.uid, u.name, true)}
+                                        className="text-xs bg-green-100 text-green-600 px-3 py-1.5 rounded-lg font-bold hover:bg-green-200 transition-colors"
+                                    >
+                                        Grant License
+                                    </button>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </Card>
+            )}
+        </div>
+    );
+}
+
 function LoginScreen({ onLogin, existingUsers }) {
     const [search, setSearch] = useState("");
     const [selectedName, setSelectedName] = useState(null);
     const [password, setPassword] = useState("");
+    const [showPatchNotes, setShowPatchNotes] = useState(false);
 
     const availableNames = SCHOOL_ROSTER.filter(name => {
         return name.toLowerCase().includes(search.toLowerCase());
@@ -861,7 +2113,14 @@ function LoginScreen({ onLogin, existingUsers }) {
 
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4">
-            <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center border-t-8 border-pink-500">
+            {showPatchNotes && <PatchNotesModal onClose={() => setShowPatchNotes(false)} />}
+            <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center border-t-8 border-pink-500 relative">
+                <button
+                    onClick={() => setShowPatchNotes(true)}
+                    className="absolute top-4 right-4 text-[10px] font-bold bg-gradient-to-r from-pink-500 to-purple-600 text-white px-2 py-0.5 rounded-full hover:scale-105 transition-transform shadow-sm flex items-center gap-1"
+                >
+                    <Sparkles size={10} /> What's New
+                </button>
                 <div className="text-6xl mb-4">{EMOJI}</div>
                 <h1 className="text-2xl font-bold mb-2 text-slate-800">Welcome to YumDonut</h1>
                 <p className="text-slate-500 mb-6">Select your name to get started.</p>
@@ -926,12 +2185,104 @@ function LoginScreen({ onLogin, existingUsers }) {
                         </Button>
                     </div>
                 )}
+
+                {import.meta.env.DEV && (
+                    <div className="flex gap-2 mt-6">
+                        <button
+                            onClick={() => onLogin("Mr Rayner", "123", true)}
+                            className="flex-1 py-2 text-xs text-slate-400 hover:text-slate-600 font-mono border border-dashed border-slate-300 rounded-lg"
+                        >
+                            [DEV] Admin
+                        </button>
+                        <button
+                            onClick={() => onLogin("Alice", "123", true)}
+                            className="flex-1 py-2 text-xs text-slate-400 hover:text-slate-600 font-mono border border-dashed border-slate-300 rounded-lg"
+                        >
+                            [DEV] Student
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );
 }
 
-function ShopView({ items, userBalance, onPurchase, currentUserPublic }) {
+function PatchNotesModal({ onClose }) {
+    return (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full m-4 overflow-hidden animate-in zoom-in-95 duration-200">
+                <div className="bg-gradient-to-r from-pink-500 to-purple-600 p-6 text-white flex justify-between items-start">
+                    <div>
+                        <h2 className="text-2xl font-bold flex items-center gap-2">
+                            <Sparkles className="text-yellow-300" /> What's New in v2.0
+                        </h2>
+                        <p className="opacity-90 text-sm mt-1">Big updates for the Typing Dojo!</p>
+                    </div>
+                    <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
+                        <XCircle size={24} />
+                    </button>
+                </div>
+
+                <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                    <div className="space-y-2">
+                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                            <Zap className="text-yellow-500" size={20} /> Shortcut Ninja
+                        </h3>
+                        <p className="text-slate-600 text-sm">
+                            A new high-speed game mode! Test your reflexes with DaVinci Resolve shortcuts.
+                            Build your combo, earn belts (White, Green, Black), and score 1000+ to win a donut.
+                        </p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                            <Target className="text-red-500" size={20} /> Sudden Death
+                        </h3>
+                        <p className="text-slate-600 text-sm">
+                            For the perfectionists. Type technical paragraphs with <strong>100% accuracy</strong>.
+                            One mistake and it's GAME OVER. Reward: 10 Donuts + Perfectionist Badge.
+                        </p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                            <Flame className="text-orange-500" size={20} /> WPM Tiers
+                        </h3>
+                        <p className="text-slate-600 text-sm">
+                            Show off your speed on the leaderboard!
+                            <ul className="list-disc list-inside mt-1 ml-2 text-xs space-y-1">
+                                <li><strong>50+ WPM</strong>: Silver Border</li>
+                                <li><strong>70+ WPM</strong>: Gold Border</li>
+                                <li><strong>90+ WPM</strong>: <span className="flame-text">Flame Name Effect</span></li>
+                            </ul>
+                        </p>
+                    </div>
+
+                    {import.meta.env.DEV && (
+                        <div className="space-y-2">
+                            <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                                <Shield className="text-blue-500" size={20} /> Sandbox Mode
+                            </h3>
+                            <p className="text-slate-600 text-sm">
+                                A safe testing environment for developers. Use the [DEV] login buttons to test features without affecting real data.
+                            </p>
+                        </div>
+                    )}
+                </div>
+
+                <div className="p-4 bg-slate-50 border-t border-slate-100 text-center">
+                    <Button onClick={onClose} className="w-full">
+                        Got it!
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleState, onDrawRaffle, onRestoreRaffle }) {
+    const isAdmin = currentUserPublic?.name === "Mr Rayner";
+
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <Card className="bg-gradient-to-r from-purple-500 to-pink-500 text-white">
@@ -944,10 +2295,48 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic }) {
                 </div>
             </Card>
 
+            {/* RAFFLE BANNER */}
+            {raffleState && (
+                <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4 text-center relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-300 via-orange-400 to-yellow-300"></div>
+                    <h3 className="font-bold text-yellow-800 text-lg flex items-center justify-center gap-2">
+                        🎰 WEEKLY RAFFLE 🎰
+                    </h3>
+                    {raffleState.lastWinner ? (
+                        <div className="mt-2 animate-bounce">
+                            <p className="text-xs text-yellow-600 uppercase font-bold">Last Winner</p>
+                            <p className="text-xl font-black text-purple-600">{raffleState.lastWinner}</p>
+                            <p className="text-[10px] text-slate-400">{new Date(raffleState.lastWinDate).toLocaleDateString()}</p>
+                        </div>
+                    ) : (
+                        <p className="text-sm text-yellow-700 mt-1">Buy a ticket to win the jackpot!</p>
+                    )}
+                    <div className="mt-3 text-xs font-bold text-slate-500 bg-white/50 inline-block px-3 py-1 rounded-full">
+                        {raffleState.tickets?.length || 0} Tickets in the Hat
+                    </div>
+
+                    {isAdmin && (
+                        <div className="mt-4 border-t border-yellow-200 pt-3">
+                            <Button
+                                onClick={onDrawRaffle}
+                                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2"
+                            >
+                                🎲 Draw Winner
+                            </Button>
+                        </div>
+                    )}
+                </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {items.map(item => {
                     const canAfford = userBalance >= item.cost;
-                    const isOwned = item.type === 'digital' && item.id === 'rainbow_name' && currentUserPublic?.rainbow_name;
+                    const isOwned = item.type === 'digital' && (
+                        (item.id === 'rainbow_name' && currentUserPublic?.rainbow_name) ||
+                        (item.id === 'gold_border' && currentUserPublic?.gold_border) ||
+                        (item.id === 'neon_name' && currentUserPublic?.neon_name) ||
+                        (item.id === 'verified_badge' && currentUserPublic?.verified_badge)
+                    );
 
                     return (
                         <Card key={item.id} className="flex flex-col justify-between relative overflow-hidden border-2 border-slate-100 hover:border-pink-200 transition-colors">
@@ -976,11 +2365,11 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic }) {
     );
 }
 
-function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onClaim, onUnclaim, onPay }) {
+function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onClaim, onUnclaim, onPay, onMarkDone, onReject }) {
     const [newTitle, setNewTitle] = useState("");
     const [newReward, setNewReward] = useState(5);
     const [newQty, setNewQty] = useState(1);
-    const [newDuration, setNewDuration] = useState("");
+    const [newExpiresAt, setNewExpiresAt] = useState("");
     const [isScheduled, setIsScheduled] = useState(false);
     const [scheduleTime, setScheduleTime] = useState("");
     const isAdmin = currentUser.name === "Mr Rayner";
@@ -1023,7 +2412,7 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
     }, []);
 
     // Calculate preview time for new job
-    const previewTime = newDuration ? formatTime(Date.now() + (parseInt(newDuration) * 60000)) : "";
+    const previewTime = newExpiresAt ? formatTime(new Date(newExpiresAt).getTime()) : "";
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1065,20 +2454,14 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                             />
                         </div>
                         <div>
-                            <label className="text-[10px] text-pink-400 font-bold uppercase">Time (m)</label>
+                            <label className="text-[10px] text-pink-400 font-bold uppercase">Due Date</label>
                             <div className="relative">
                                 <input
-                                    type="number"
+                                    type="datetime-local"
                                     className="w-full p-2 rounded-lg border border-pink-200"
-                                    placeholder="∞"
-                                    value={newDuration}
-                                    onChange={e => setNewDuration(e.target.value)}
+                                    value={newExpiresAt}
+                                    onChange={e => setNewExpiresAt(e.target.value)}
                                 />
-                                {previewTime && (
-                                    <div className="absolute top-full left-0 text-[10px] text-pink-600 font-bold mt-1 whitespace-nowrap">
-                                        Due: {previewTime}
-                                    </div>
-                                )}
                             </div>
                         </div>
 
@@ -1106,8 +2489,8 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
 
                         <div className="col-span-2 md:col-span-5">
                             <Button className="w-full h-[42px]" onClick={() => {
-                                onCreate(newTitle, newReward, newQty, newDuration, isScheduled ? scheduleTime : null);
-                                setNewTitle(""); setNewQty(1); setNewDuration(""); setIsScheduled(false); setScheduleTime("");
+                                onCreate(newTitle, newReward, newQty, newExpiresAt, isScheduled ? scheduleTime : null);
+                                setNewTitle(""); setNewQty(1); setNewExpiresAt(""); setIsScheduled(false); setScheduleTime("");
                             }}>
                                 {isScheduled ? "Schedule Job" : "Post Job"}
                             </Button>
@@ -1156,11 +2539,16 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                     }
 
                     return (
-                        <Card key={b.id} className={`flex flex-col border-l-4 ${isExpired ? 'border-l-slate-300 bg-slate-50' : 'border-l-pink-500'}`}>
+                        <Card key={b.id} className={`flex flex-col border-l-4 ${isExpired ? 'border-l-slate-300 bg-slate-50' : b.status === 'pending_review' ? 'border-l-green-500 bg-green-50' : 'border-l-pink-500'}`}>
                             <div className="flex justify-between items-center">
                                 <div className="flex-grow min-w-0 mr-2">
                                     <h4 className="font-bold text-slate-800 break-words flex items-center gap-2 flex-wrap">
                                         {b.title}
+                                        {b.status === 'pending_review' && (
+                                            <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1 animate-pulse">
+                                                <CheckCircle size={12} /> Ready for Inspection
+                                            </span>
+                                        )}
                                     </h4>
                                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                                         <span className="bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">
@@ -1188,6 +2576,11 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                                         {b.status === 'claimed' && (
                                             <span className="text-xs text-slate-500 flex items-center gap-1 whitespace-nowrap">
                                                 <CheckSquare size={12} /> Claimed by {b.claimantName}
+                                            </span>
+                                        )}
+                                        {b.status === 'pending_review' && (
+                                            <span className="text-xs text-green-600 flex items-center gap-1 whitespace-nowrap font-bold">
+                                                <UserCheck size={12} /> Done by {b.claimantName}
                                             </span>
                                         )}
                                     </div>
@@ -1225,19 +2618,45 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                                             >
                                                 <XCircle size={20} />
                                             </button>
-                                            <Button variant="success" onClick={() => onPay(b.id, b.claimantName, b.reward)} className="whitespace-nowrap">
+                                            <Button variant="outline" onClick={() => onPay(b.id, b.claimantName, b.reward)} className="whitespace-nowrap opacity-50 hover:opacity-100">
+                                                Pay Now
+                                            </Button>
+                                        </>
+                                    )}
+
+                                    {b.status === 'pending_review' && isAdmin && (
+                                        <>
+                                            <button
+                                                onClick={() => onReject(b.id)}
+                                                className="p-2 text-orange-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                                                title="Reject Work (Redo)"
+                                            >
+                                                <RotateCcw size={20} />
+                                            </button>
+                                            <Button variant="success" onClick={() => onPay(b.id, b.claimantName, b.reward)} className="whitespace-nowrap animate-bounce">
                                                 Pay & Close
                                             </Button>
                                         </>
                                     )}
 
                                     {b.status === 'claimed' && isMyClaim && !isAdmin && (
-                                        <Button variant="danger" onClick={() => onUnclaim(b.id)} className="text-xs px-2 whitespace-nowrap">
-                                            Cancel Claim
-                                        </Button>
+                                        <div className="flex gap-2">
+                                            <Button variant="danger" onClick={() => onUnclaim(b.id)} className="text-xs px-2 whitespace-nowrap">
+                                                Cancel
+                                            </Button>
+                                            <Button variant="success" onClick={() => onMarkDone(b.id)} className="text-xs px-2 whitespace-nowrap">
+                                                Mark Done
+                                            </Button>
+                                        </div>
                                     )}
 
-                                    {b.status === 'claimed' && !isMyClaim && !isAdmin && (
+                                    {b.status === 'pending_review' && isMyClaim && !isAdmin && (
+                                        <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-bold whitespace-nowrap">
+                                            Waiting for Review...
+                                        </span>
+                                    )}
+
+                                    {(b.status === 'claimed' || b.status === 'pending_review') && !isMyClaim && !isAdmin && (
                                         <span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500 self-center whitespace-nowrap">
                                             Busy
                                         </span>
@@ -1246,7 +2665,7 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                             </div>
 
                             {/* PROGRESS BAR */}
-                            {(b.status === 'open' || b.status === 'claimed') && hasTimer && !isExpired && (
+                            {(b.status === 'open' || b.status === 'claimed' || b.status === 'pending_review') && hasTimer && !isExpired && (
                                 <div className="w-full h-2 bg-slate-100 rounded-full mt-3 relative">
                                     <div
                                         className={`h-full rounded-full transition-all duration-1000 ease-linear ${progressColor} relative`}
@@ -1266,11 +2685,12 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
     );
 }
 
-function GoalView({ goalData, userBalance, onContribute, currentUserName, onActivate, onUpdateGoal, onResetGoal }) {
-    const percent = Math.min(100, ((goalData.current || 0) / (goalData.target || GOAL_TARGET)) * 100);
-    const target = goalData.target || GOAL_TARGET;
+function GoalView({ goalData, userBalance, onContribute, currentUserName, onActivate, onUpdateGoal, onResetGoal, onToggleActive }) {
+    const target = goalData.target !== undefined ? goalData.target : GOAL_TARGET;
+    const percent = target === 0 ? 100 : Math.min(100, ((goalData.current || 0) / target) * 100);
     const isMet = (goalData.current || 0) >= target;
     const isAdmin = currentUserName === "Mr Rayner";
+    const isActive = goalData.isActive !== false; // Default to true if undefined
 
     // State for Admin Edit Mode
     const [isEditing, setIsEditing] = useState(false);
@@ -1282,14 +2702,40 @@ function GoalView({ goalData, userBalance, onContribute, currentUserName, onActi
     const sortedContributors = Object.entries(contributors)
         .sort(([, a], [, b]) => b - a);
 
+    if (!isActive && !isAdmin) {
+        return (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <Card className="text-center py-12 bg-slate-50 border-2 border-dashed border-slate-200">
+                    <div className="inline-flex items-center justify-center p-4 bg-slate-100 rounded-full text-slate-400 mb-4">
+                        <Lock size={32} />
+                    </div>
+                    <h2 className="text-2xl font-bold text-slate-400 mb-2">Coming Soon</h2>
+                    <p className="text-slate-400">The next goal hasn't started yet. Stay tuned!</p>
+                </Card>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <Card className="text-center py-8 relative overflow-hidden">
-                {isMet && <div className="absolute inset-0 bg-yellow-100 opacity-20 animate-pulse"></div>}
+            <Card className={`text-center py-8 relative overflow-hidden ${!isActive ? 'opacity-75 grayscale' : ''}`}>
+                {isMet && isActive && <div className="absolute inset-0 bg-yellow-100 opacity-20 animate-pulse"></div>}
                 <div className="relative z-10">
-                    <div className="inline-flex items-center justify-center p-3 bg-pink-100 rounded-full text-pink-500 mb-4">
-                        <Sparkles size={32} />
+                    <div className={`inline-flex items-center justify-center p-3 rounded-full mb-4 ${isMet ? 'bg-yellow-100 text-yellow-600' : 'bg-pink-100 text-pink-500'}`}>
+                        {isMet ? <Trophy size={32} /> : <Sparkles size={32} />}
                     </div>
+
+                    {/* ADMIN CONTROLS */}
+                    {isAdmin && (
+                        <div className="mb-4 flex justify-end">
+                            <button
+                                onClick={() => onToggleActive(!isActive)}
+                                className={`text-xs font-bold px-3 py-1 rounded-full border ${isActive ? 'bg-green-100 text-green-600 border-green-200' : 'bg-red-100 text-red-600 border-red-200'}`}
+                            >
+                                {isActive ? "🟢 Goal Active" : "🔴 Goal Inactive"}
+                            </button>
+                        </div>
+                    )}
 
                     {/* ADMIN EDIT MODE */}
                     {isAdmin && isEditing ? (
@@ -1306,7 +2752,7 @@ function GoalView({ goalData, userBalance, onContribute, currentUserName, onActi
                                     className="p-2 border rounded"
                                     type="number"
                                     value={editTarget}
-                                    onChange={e => setEditTarget(e.target.value)}
+                                    onChange={e => setEditTarget(parseInt(e.target.value) || 0)}
                                     placeholder="Target Amount"
                                 />
                                 <div className="flex gap-2 mt-2">
@@ -1318,7 +2764,9 @@ function GoalView({ goalData, userBalance, onContribute, currentUserName, onActi
                     ) : (
                         <>
                             <div className="flex justify-center items-center gap-2 mb-2">
-                                <h2 className="text-2xl font-bold text-slate-800">{goalData.title || "Team Goal"}</h2>
+                                <h2 className={`text-2xl font-bold ${isMet ? 'text-yellow-600' : 'text-slate-800'}`}>
+                                    {isMet ? `REWARD UNLOCKED: ${goalData.title || "Team Goal"}` : (goalData.title || "Team Goal")}
+                                </h2>
                                 {isAdmin && (
                                     <button onClick={() => setIsEditing(true)} className="text-slate-400 hover:text-pink-500">
                                         <Edit2 size={16} />
@@ -1326,14 +2774,14 @@ function GoalView({ goalData, userBalance, onContribute, currentUserName, onActi
                                 )}
                             </div>
                             <p className="text-slate-500 mb-6 max-w-md mx-auto">
-                                If we reach {target} donuts together, we unlock a reward for everyone!
+                                {isMet ? "We did it! Enjoy the victory!" : `If we reach ${target} donuts together, we unlock a reward for everyone!`}
                             </p>
                         </>
                     )}
 
-                    <div className="max-w-lg mx-auto bg-slate-100 rounded-full h-8 mb-2 relative">
+                    <div className="max-w-lg mx-auto bg-slate-100 rounded-full h-8 mb-2 relative overflow-hidden border border-slate-200">
                         <div
-                            className="bg-gradient-to-r from-pink-500 to-purple-500 h-full rounded-full transition-all duration-1000 ease-out flex items-center justify-end pr-2"
+                            className={`h-full rounded-full transition-all duration-1000 ease-out flex items-center justify-end pr-2 ${isMet ? 'bg-gradient-to-r from-yellow-300 via-yellow-500 to-yellow-300 animate-shimmer bg-[length:200%_100%]' : 'bg-gradient-to-r from-pink-500 to-purple-500'}`}
                             style={{ width: `${percent}%` }}
                         >
                             <span className="text-white text-xs font-bold drop-shadow-md">{Math.floor(percent)}%</span>
@@ -1345,15 +2793,15 @@ function GoalView({ goalData, userBalance, onContribute, currentUserName, onActi
 
                     {isMet ? (
                         <div className="space-y-4">
-                            <div className="bg-green-100 text-green-700 p-4 rounded-xl font-bold text-lg animate-bounce">
-                                🎉 GOAL REACHED! ({goalData.current}/{target})
+                            <div className="bg-yellow-100 text-yellow-800 p-4 rounded-xl font-bold text-lg animate-bounce border-2 border-yellow-300 shadow-sm">
+                                🏆 GOAL REACHED! ({goalData.current}/{target})
                             </div>
                             {isAdmin ? (
                                 <div className="flex flex-col gap-2">
                                     <Button
                                         onClick={onActivate}
                                         variant="success"
-                                        className="w-full py-3 text-lg"
+                                        className="w-full py-3 text-lg shadow-lg shadow-green-200"
                                     >
                                         🚨 Activate Reward! 🚨
                                     </Button>
@@ -1362,47 +2810,59 @@ function GoalView({ goalData, userBalance, onContribute, currentUserName, onActi
                                     </button>
                                 </div>
                             ) : (
-                                <p className="text-sm text-slate-500 italic">Waiting for Mr Rayner to activate the event...</p>
+                                <div className="text-sm text-slate-500 italic">
+                                    Wait for Mr Rayner to activate the reward!
+                                </div>
                             )}
                         </div>
                     ) : (
-                        <div className="flex flex-col items-center gap-2">
+                        <div className="flex gap-2 justify-center max-w-sm mx-auto">
                             <Button
-                                onClick={onContribute}
-                                variant="primary"
-                                className="w-full max-w-xs py-3 text-lg"
+                                onClick={() => onContribute(1)}
+                                disabled={userBalance < 1}
+                                className="flex-1"
                             >
-                                Contribute 1 {EMOJI}
+                                Give 1 {EMOJI}
                             </Button>
-                            <p className="text-xs text-slate-400">
-                                You have {userBalance} donuts available.
-                            </p>
+                            <Button
+                                onClick={() => onContribute(5)}
+                                disabled={userBalance < 5}
+                                className="flex-1"
+                            >
+                                Give 5 {EMOJI}
+                            </Button>
                         </div>
                     )}
                 </div>
             </Card>
 
             {/* CONTRIBUTORS LIST */}
-            {sortedContributors.length > 0 && (
-                <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
-                    <h3 className="font-bold text-slate-700 mb-3 flex items-center gap-2">
-                        <Trophy size={16} className="text-yellow-500" /> Top Contributors
-                    </h3>
-                    <div className="space-y-2">
-                        {sortedContributors.map(([name, count], index) => (
-                            <div key={name} className="flex justify-between items-center text-sm p-2 hover:bg-slate-50 rounded">
-                                <div className="flex items-center gap-2">
-                                    <span className={`font-bold w-6 text-center ${index === 0 ? 'text-yellow-500 text-lg' : 'text-slate-400'}`}>
-                                        {index + 1}
-                                    </span>
-                                    <span className="font-medium text-slate-700">{name}</span>
-                                </div>
-                                <span className="font-bold text-pink-500">{count} {EMOJI}</span>
-                            </div>
-                        ))}
+            <div className="space-y-2">
+                <h3 className="font-bold text-slate-700 flex items-center gap-2">
+                    <Users size={16} /> Top Contributors
+                </h3>
+                {sortedContributors.length === 0 ? (
+                    <div className="text-center py-8 text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                        No contributions yet. Be the hero!
                     </div>
-                </div>
-            )}
+                ) : (
+                    sortedContributors.map(([name, amount], index) => (
+                        <div key={name} className={`flex justify-between items-center p-3 rounded-lg border ${index < 3 && isMet ? 'bg-yellow-50 border-yellow-200' : 'bg-white border-slate-100'}`}>
+                            <div className="flex items-center gap-3">
+                                {isMet && index < 3 && (
+                                    <span className="text-xl">
+                                        {index === 0 ? '👑' : index === 1 ? '🥈' : '🥉'}
+                                    </span>
+                                )}
+                                <span className={`font-bold ${index === 0 && isMet ? 'text-yellow-700' : 'text-slate-700'}`}>{name}</span>
+                            </div>
+                            <span className="font-bold text-pink-500 bg-pink-50 px-2 py-1 rounded-md text-xs">
+                                +{amount} {EMOJI}
+                            </span>
+                        </div>
+                    ))
+                )}
+            </div>
         </div>
     );
 }
@@ -1498,6 +2958,9 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
                                             {filteredRoster.map(name => {
                                                 const userData = existingUsers.find(u => u.name === name);
                                                 const bgColor = userData?.avatar_color || "#cbd5e1";
+                                                const hasGoldBorder = userData?.gold_border;
+                                                const hasNeonName = userData?.neon_name;
+                                                const hasVerified = userData?.verified_badge;
 
                                                 return (
                                                     <button
@@ -1505,10 +2968,13 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
                                                         onClick={() => { setSelectedUser(name); setFilter(""); }}
                                                         className="w-full text-left p-3 hover:bg-pink-50 flex items-center gap-3 transition-colors"
                                                     >
-                                                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ background: bgColor }}>
+                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${hasGoldBorder ? 'gold-border' : ''}`} style={{ background: bgColor }}>
                                                             {name[0]}
                                                         </div>
-                                                        <span>{name}</span>
+                                                        <span className={`flex items-center gap-1 ${hasNeonName ? 'neon-text font-bold' : ''}`}>
+                                                            {name}
+                                                            {hasVerified && <span className="text-blue-500 text-[10px]">✅</span>}
+                                                        </span>
                                                     </button>
                                                 )
                                             })}
@@ -1662,10 +3128,17 @@ function LeaderboardView({ users, roster }) {
             balance: userData ? userData.balance : 0,
             avatar_color: userData ? userData.avatar_color : '#cbd5e1',
             rainbow_name: userData ? userData.rainbow_name : false,
+            gold_border: userData ? userData.gold_border : false,
+            silver_border: userData ? userData.silver_border : false,
+            neon_name: userData ? userData.neon_name : false,
+            flame_name: userData ? userData.flame_name : false,
+            verified_badge: userData ? userData.verified_badge : false,
+            perfectionist_badge: userData ? userData.perfectionist_badge : false,
+            typing_license: userData ? userData.typing_license : false,
             lifetime_received: userData ? userData.lifetime_received : 0,
             lifetime_given: userData ? userData.lifetime_given : 0
         };
-    }).sort((a, b) => b.balance - a.balance);
+    }).filter(u => u.name !== "Mr Rayner").sort((a, b) => b.lifetime_given - a.lifetime_given);
 
     return (
         <div className="space-y-4 animate-in fade-in duration-500">
@@ -1684,15 +3157,21 @@ function LeaderboardView({ users, roster }) {
                                 {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}
                             </div>
                             <div className="mx-4">
-                                <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" style={{ background: u.avatar_color }}>
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm ${u.gold_border ? 'gold-border' : u.silver_border ? 'silver-border' : ''}`} style={{ background: u.avatar_color }}>
                                     {u.name[0]}
                                 </div>
                             </div>
                             <div className="flex-grow min-w-0">
                                 <div className="flex items-center gap-2">
-                                    <p className={`font-bold truncate ${u.rainbow_name ? 'animate-text-rainbow bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-500 to-red-500' : 'text-slate-800'}`}>
+                                    <p className={`font-bold truncate ${u.flame_name ? 'flame-text' :
+                                        u.rainbow_name ? 'animate-text-rainbow bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-500 to-red-500' :
+                                            u.neon_name ? 'neon-text' : 'text-slate-800'
+                                        }`}>
                                         {u.name}
                                     </p>
+                                    {u.verified_badge && <span className="text-blue-500 text-xs" title="Verified">✅</span>}
+                                    {u.perfectionist_badge && <span className="text-red-500 text-xs" title="Perfectionist">🎯</span>}
+                                    {u.typing_license && <span className="text-slate-500 text-[10px] flex items-center" title="Typing License">⌨️</span>}
                                     <span className="text-[10px] bg-slate-100 px-1.5 rounded text-slate-500" title={`Given: ${u.lifetime_given || 0}`}>
                                         {rank.icon} {rank.title}
                                     </span>
