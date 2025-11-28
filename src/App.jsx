@@ -146,16 +146,14 @@ const TECHNICAL_PARAGRAPHS = [
 ];
 
 const RESOLVE_SHORTCUTS = [
-    { id: 'blade', label: 'Blade Tool', keys: ['b'], level: 1 },
-    { id: 'select', label: 'Selection Mode', keys: ['a'], level: 1 },
-    { id: 'trim', label: 'Trim Mode', keys: ['t'], level: 1 },
-    { id: 'mark_in', label: 'Mark In', keys: ['i'], level: 1 },
-    { id: 'mark_out', label: 'Mark Out', keys: ['o'], level: 1 },
-    { id: 'play_reverse', label: 'Play Reverse', keys: ['j'], level: 1 },
-    { id: 'stop', label: 'Stop', keys: ['k'], level: 1 },
-    { id: 'play_forward', label: 'Play Forward', keys: ['l'], level: 1 },
-    { id: 'marker', label: 'Add Marker', keys: ['m'], level: 1 },
-    { id: 'snapping', label: 'Toggle Snapping', keys: ['n'], level: 1 },
+    { keys: ["B"], label: "Blade Mode" },
+    { keys: ["A"], label: "Selection Mode" },
+    { keys: ["I"], label: "Mark In" },
+    { keys: ["O"], label: "Mark Out" },
+    { keys: ["J"], label: "Play Reverse" },
+    { keys: ["K"], label: "Pause" },
+    { keys: ["L"], label: "Play Forward" },
+    { keys: ["M"], label: "Add Marker" }
 ];
 const TRAINING_QUOTES_CONTINUED = [
     "Always check your focus, because a blurry shot is usually a useless shot.",
@@ -1646,7 +1644,8 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
     const [ninjaScore, setNinjaScore] = useState(0);
     const [ninjaLives, setNinjaLives] = useState(3);
     const [ninjaCombo, setNinjaCombo] = useState(0);
-    const [ninjaTimeLeft, setNinjaTimeLeft] = useState(60);
+    const [cardTimer, setCardTimer] = useState(3000); // 3s in ms
+    const [cardStartTime, setCardStartTime] = useState(0);
     const [currentShortcut, setCurrentShortcut] = useState(null);
     const [feedbackState, setFeedbackState] = useState(null); // 'correct', 'wrong', null
     const timerRef = useRef(null);
@@ -1657,13 +1656,13 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
             const handleKeyDown = (e) => {
                 // Prevent default for game keys to avoid browser actions
                 if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
-                    // e.preventDefault(); // Optional: might annoy user if they want to scroll
+                    // e.preventDefault(); // Optional
                 }
 
                 if (!currentShortcut) return;
 
                 const key = e.key.toLowerCase();
-                const targetKey = currentShortcut.keys[0].toLowerCase(); // Assuming single key for Level 1
+                const targetKey = currentShortcut.keys[0].toLowerCase();
 
                 if (key === targetKey) {
                     // Correct!
@@ -1684,14 +1683,14 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
     useEffect(() => {
         if (mode === 'shortcut_ninja' && gameState === 'playing') {
             timerRef.current = setInterval(() => {
-                setNinjaTimeLeft(prev => {
-                    if (prev <= 1) {
-                        endNinjaGame();
-                        return 0;
+                setCardTimer(prev => {
+                    if (prev <= 0) {
+                        handleNinjaWrong(true); // Timeout
+                        return 3000; // Reset immediately to prevent multiple calls
                     }
-                    return prev - 1;
+                    return prev - 100; // 100ms tick
                 });
-            }, 1000);
+            }, 100);
             return () => clearInterval(timerRef.current);
         }
     }, [mode, gameState]);
@@ -1700,7 +1699,7 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
         setNinjaScore(0);
         setNinjaLives(3);
         setNinjaCombo(0);
-        setNinjaTimeLeft(60);
+        setCardTimer(3000);
         setGameState('playing');
         nextShortcut();
     };
@@ -1708,6 +1707,8 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
     const nextShortcut = () => {
         const random = RESOLVE_SHORTCUTS[Math.floor(Math.random() * RESOLVE_SHORTCUTS.length)];
         setCurrentShortcut(random);
+        setCardTimer(3000);
+        setCardStartTime(Date.now());
     };
 
     const handleNinjaCorrect = () => {
@@ -1715,16 +1716,23 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
         setFeedbackState('correct');
         setTimeout(() => setFeedbackState(null), 200);
 
+        // Speed Bonus (< 1s)
+        const timeTaken = Date.now() - cardStartTime;
+        const isPerfect = timeTaken < 1000;
+
         // Score Logic
-        const multiplier = ninjaCombo >= 10 ? 3 : ninjaCombo >= 5 ? 2 : 1;
-        setNinjaScore(prev => prev + (10 * multiplier));
+        const basePoints = 10;
+        const speedBonus = isPerfect ? 10 : 0;
+        const comboMultiplier = ninjaCombo >= 10 ? 2 : 1;
+
+        setNinjaScore(prev => prev + ((basePoints + speedBonus) * comboMultiplier));
         setNinjaCombo(prev => prev + 1);
 
         // Next Card
         nextShortcut();
     };
 
-    const handleNinjaWrong = () => {
+    const handleNinjaWrong = (isTimeout = false) => {
         // Visual Feedback
         setFeedbackState('wrong');
         setTimeout(() => setFeedbackState(null), 200);
@@ -1736,6 +1744,8 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
             const newLives = prev - 1;
             if (newLives <= 0) {
                 endNinjaGame();
+            } else {
+                nextShortcut(); // Move to next card even on fail
             }
             return newLives;
         });
@@ -1745,7 +1755,7 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
         clearInterval(timerRef.current);
         setGameState('finished');
         if (ninjaScore >= 1000 && user.typing_license) {
-            onReward(0, 0, 1); // 0 WPM/Acc, just 1 donut reward
+            onReward(0, 0, 1, null, mode); // 0 WPM/Acc, just 1 donut reward
         }
     };
 
@@ -1961,26 +1971,41 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
                 )}
 
                 {gameState === 'playing' && mode === 'shortcut_ninja' && (
-                    <div className="max-w-md mx-auto">
-                        <div className="flex justify-between items-center mb-8">
-                            <div className="flex gap-1">
-                                {[...Array(3)].map((_, i) => (
-                                    <Heart key={i} size={24} className={i < ninjaLives ? "text-red-500 fill-red-500" : "text-slate-200"} />
-                                ))}
-                            </div>
-                            <div className="text-2xl font-black text-slate-900">{ninjaScore}</div>
-                            <div className="font-mono font-bold text-slate-500">{ninjaTimeLeft}s</div>
-                        </div>
-
-                        <div className="py-12">
-                            <div className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">PRESS</div>
-                            <div className="text-5xl font-black text-slate-800 mb-8">{currentShortcut?.label}</div>
-
-                            {ninjaCombo >= 5 && (
-                                <div className="animate-bounce text-orange-500 font-black text-xl">
-                                    {ninjaCombo}x COMBO! 🔥
+                    <div className={`max-w-md mx-auto transition-all duration-300 ${ninjaCombo >= 10 ? 'p-1 rounded-2xl bg-gradient-to-r from-yellow-300 via-yellow-500 to-yellow-300 animate-pulse' : ''}`}>
+                        <div className={`bg-white rounded-xl p-6 ${ninjaCombo >= 10 ? 'border-4 border-yellow-400' : ''}`}>
+                            <div className="flex justify-between items-center mb-8">
+                                <div className="flex gap-1">
+                                    {[...Array(3)].map((_, i) => (
+                                        <Heart key={i} size={24} className={i < ninjaLives ? "text-red-500 fill-red-500" : "text-slate-200"} />
+                                    ))}
                                 </div>
-                            )}
+                                <div className="text-2xl font-black text-slate-900">{ninjaScore}</div>
+                            </div>
+
+                            <div className="py-8 relative">
+                                {/* Timer Bar */}
+                                <div className="absolute top-0 left-0 right-0 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-slate-800 transition-all duration-100 ease-linear"
+                                        style={{ width: `${(cardTimer / 3000) * 100}%` }}
+                                    />
+                                </div>
+
+                                <div className="mt-8 text-5xl font-black text-slate-800 mb-4">{currentShortcut?.label}</div>
+
+                                <div
+                                    className="text-2xl font-bold text-slate-400 transition-opacity duration-500"
+                                    style={{ opacity: Math.max(0, 1 - (ninjaCombo / 20)) }}
+                                >
+                                    PRESS [ <span className="text-slate-800">{currentShortcut?.keys[0]}</span> ]
+                                </div>
+
+                                {ninjaCombo >= 5 && (
+                                    <div className="mt-8 animate-bounce text-orange-500 font-black text-xl">
+                                        {ninjaCombo}x COMBO! 🔥
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 )}
