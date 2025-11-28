@@ -1857,7 +1857,7 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
                 mode === 'shortcut_ninja' ? 'bg-slate-800' :
                     hasLicense ? 'bg-gradient-to-r from-cyan-500 to-blue-500' : 'bg-slate-600'
                 }`}>
-                <div className="flex justify-between items-start">
+                <div className="flex flex-col md:flex-row justify-between items-start gap-4">
                     <div>
                         <h2 className="text-2xl font-bold flex items-center gap-2 whitespace-nowrap">
                             {mode === 'sudden_death' ? <Target className="text-red-500" /> :
