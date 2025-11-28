@@ -1887,10 +1887,13 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
                             </button>
                             <button
                                 onClick={() => setMode('shortcut_ninja')}
-                                className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${mode === 'shortcut_ninja' ? 'bg-yellow-400 text-slate-900 shadow-sm' : 'text-white/70 hover:text-white'}`}
+                                className={`hidden md:block px-3 py-1 rounded-md text-xs font-bold transition-all ${mode === 'shortcut_ninja' ? 'bg-yellow-400 text-slate-900 shadow-sm' : 'text-white/70 hover:text-white'}`}
                             >
                                 Ninja
                             </button>
+                            <span className="md:hidden px-3 py-1 text-xs font-bold text-white/30 cursor-not-allowed">
+                                Ninja (PC)
+                            </span>
                         </div>
                     )}
                 </div>
