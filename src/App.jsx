@@ -15,6 +15,7 @@ import {
     Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock, Users, Skull, Trash2, Clock, Calendar, Edit2, RotateCcw, Landmark, PiggyBank, ArrowRight, ArrowLeft, UserCheck, Keyboard, Shield
 } from 'lucide-react';
 
+
 // --- CONFIGURATION START ---
 
 // 1. Firebase Configuration
@@ -425,6 +426,7 @@ export default function YumDonutApp() {
     const [notification, setNotification] = useState(null);
     const [isSandbox, setIsSandbox] = useState(false);
     const [showPatchNotes, setShowPatchNotes] = useState(false);
+    const [featuredItemIds, setFeaturedItemIds] = useState([]);
 
     // Auth & Profile Listener
     useEffect(() => {
@@ -462,6 +464,23 @@ export default function YumDonutApp() {
             }
         });
         return () => unsubscribe();
+    }, []);
+
+    // 2. Featured Items Listener (Gold Card)
+    useEffect(() => {
+        try {
+            const unsub = onSnapshot(doc(db, 'config', 'shop'), (snapshot) => {
+                if (snapshot.exists()) {
+                    const data = snapshot.data();
+                    setFeaturedItemIds(Array.isArray(data.featuredItemIds) ? data.featuredItemIds : []);
+                }
+            }, (error) => {
+                console.error("Error fetching shop config:", error);
+            });
+            return () => unsub();
+        } catch (err) {
+            console.error("Error setting up shop listener:", err);
+        }
     }, []);
 
     // Global Listeners
@@ -580,6 +599,9 @@ export default function YumDonutApp() {
             last_training_date: null, // New field for Typing Dojo
             last_training_date_sudden_death: null,
             last_training_date_ninja: null,
+            training_earned_today: 0,
+            training_last_earned_date: new Date().toDateString(),
+            sudden_death_won: false,
             typing_license: false, // New field for Typing License
             avatar_color: avatarColor
         };
@@ -904,6 +926,18 @@ export default function YumDonutApp() {
             console.error(e);
             showNotification("Failed to activate.", "error");
         }
+    };
+
+    const handleToggleFeatured = async (itemId) => {
+        if (!isAdmin) return;
+        const currentIds = featuredItemIds || [];
+        let newIds;
+        if (currentIds.includes(itemId)) {
+            newIds = currentIds.filter(id => id !== itemId);
+        } else {
+            newIds = [...currentIds, itemId];
+        }
+        await setDoc(doc(db, 'config', 'shop'), { featuredItemIds: newIds }, { merge: true });
     };
 
     const handlePurchase = async (item) => {
@@ -1342,8 +1376,46 @@ export default function YumDonutApp() {
             return;
         }
 
-        if (wpm < 30 || accuracy < 95) {
-            showNotification("Goal not met. Keep practicing!", "error");
+        if (mode !== 'shortcut_ninja') {
+            if (wpm < 30 || accuracy < 95) {
+                showNotification("Goal not met. Keep practicing!", "error");
+                return;
+            }
+        }
+
+        // --- REWARD LOGIC & DAILY CAP ---
+        let finalReward = 1; // Default
+        let isFirstTimeSuddenDeath = false;
+
+        if (mode === 'sudden_death') {
+            if (!myProfile.sudden_death_won) {
+                finalReward = 10;
+                isFirstTimeSuddenDeath = true;
+                badgeToGrant = 'perfectionist_badge';
+            } else {
+                finalReward = 2;
+            }
+        } else if (mode === 'shortcut_ninja') {
+            if (maxNinjaCombo >= 20) {
+                finalReward = 2;
+            } else {
+                finalReward = 1;
+            }
+        } else {
+            // Scriptwriter / Standard
+            finalReward = 1;
+        }
+
+        // Check Daily Cap
+        // Reset daily tracker if new day
+        let earnedToday = myProfile.training_earned_today || 0;
+        if (myProfile.training_last_earned_date !== today) {
+            earnedToday = 0;
+        }
+
+        // Cap Check (Exempt First Time Sudden Death)
+        if (!isFirstTimeSuddenDeath && (earnedToday + finalReward > 3)) {
+            showNotification(`Daily Training Cap Reached (3/3). Come back tomorrow!`, "error");
             return;
         }
 
@@ -1361,10 +1433,16 @@ export default function YumDonutApp() {
                 const currentLifetime = userDoc.data().lifetime_received || currentBal;
 
                 const updateData = {
-                    balance: currentBal + rewardAmount,
-                    lifetime_received: currentLifetime + rewardAmount,
-                    [dateField]: today
+                    balance: currentBal + finalReward,
+                    lifetime_received: currentLifetime + finalReward,
+                    [dateField]: today,
+                    training_earned_today: earnedToday + finalReward,
+                    training_last_earned_date: today
                 };
+
+                if (isFirstTimeSuddenDeath) {
+                    updateData.sudden_death_won = true;
+                }
 
                 if (badgeToGrant) {
                     updateData[badgeToGrant] = true;
@@ -1383,27 +1461,22 @@ export default function YumDonutApp() {
                 transaction.set(feedRef, {
                     fromName: "Typing Dojo",
                     toName: myProfile.name,
-                    message: `Earned ${rewardAmount} donut(s) in ${mode === 'sudden_death' ? 'Sudden Death' : mode === 'shortcut_ninja' ? 'Ninja Mode' : 'Training'}! (${wpm} WPM, ${accuracy}%)`,
+                    message: `Earned ${finalReward} donut(s) in ${mode === 'sudden_death' ? 'Sudden Death' : mode === 'shortcut_ninja' ? 'Ninja Mode' : 'Training'}! (${mode === 'shortcut_ninja' ? `Streak: ${maxNinjaCombo}` : `${wpm} WPM`})`,
                     timestamp: serverTimestamp(),
                     emoji: mode === 'sudden_death' ? "💀" : mode === 'shortcut_ninja' ? "⚡" : "🥋",
-                    amount: rewardAmount,
+                    amount: finalReward,
                     likes: []
                 });
             });
 
             triggerConfetti();
-            showNotification(`Earned ${rewardAmount} donut(s)!`, "success");
+            showNotification(`Earned ${finalReward} donut(s)!`, "success");
             // Update local state immediately for UI responsiveness
-            setUser(prev => ({ ...prev, balance: (prev.balance || 0) + rewardAmount }));
-            let msg = `Training Complete! +${rewardAmount} Donut${rewardAmount > 1 ? 's' : ''} 🍩`;
+            setUser(prev => ({ ...prev, balance: (prev.balance || 0) + finalReward }));
 
-            if (wpm >= 90) msg += " & GOD SPEED UNLOCKED! 🔥";
-            else if (wpm >= 70) msg += " & Gold Fingers Unlocked! ✨";
-            else if (wpm >= 50) msg += " & Silver Fingers Unlocked! 🥈";
+            let msg = `Training Complete! +${finalReward} Donut${finalReward > 1 ? 's' : ''} 🍩`;
+            if (isFirstTimeSuddenDeath) msg += " & JACKPOT! 🎯";
 
-            if (badgeToGrant === 'perfectionist_badge') {
-                msg += " & Perfectionist Badge Unlocked! 🎯";
-            }
             showNotification(msg);
         } catch (e) {
             console.error(e);
@@ -1556,12 +1629,14 @@ export default function YumDonutApp() {
                 {view === 'shop' && (
                     <ShopView
                         items={SHOP_ITEMS}
-                        userBalance={myProfile.balance}
+                        userBalance={myProfile?.balance || 0}
                         onPurchase={handlePurchase}
-                        currentUserPublic={users.find(u => u.name === myProfile.name)}
+                        currentUserPublic={myProfile}
                         raffleState={raffleState}
                         onDrawRaffle={handleDrawRaffle}
                         onRestoreRaffle={handleRestoreRaffle}
+                        featuredItemIds={featuredItemIds}
+                        onToggleFeatured={handleToggleFeatured}
                     />
                 )}
 
@@ -1638,13 +1713,15 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
     const [accuracy, setAccuracy] = useState(0);
     const inputRef = useRef(null);
 
-    // Shortcut Ninja State
+    // Ninja Mode State
+    const [currentShortcut, setCurrentShortcut] = useState(null);
     const [ninjaScore, setNinjaScore] = useState(0);
     const [ninjaLives, setNinjaLives] = useState(3);
     const [ninjaCombo, setNinjaCombo] = useState(0);
+    const [maxNinjaCombo, setMaxNinjaCombo] = useState(0);
+    const [reactionTimes, setReactionTimes] = useState([]);
     const [cardTimer, setCardTimer] = useState(3000); // 3s in ms
     const [cardStartTime, setCardStartTime] = useState(0);
-    const [currentShortcut, setCurrentShortcut] = useState(null);
     const [feedbackState, setFeedbackState] = useState(null); // 'correct', 'wrong', null
     const timerRef = useRef(null);
 
@@ -1697,6 +1774,8 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
         setNinjaScore(0);
         setNinjaLives(3);
         setNinjaCombo(0);
+        setMaxNinjaCombo(0);
+        setReactionTimes([]);
         setCardTimer(3000);
         setGameState('playing');
         nextShortcut();
@@ -1718,13 +1797,20 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
         const timeTaken = Date.now() - cardStartTime;
         const isPerfect = timeTaken < 1000;
 
+        // Track Metrics
+        setReactionTimes(prev => [...prev, timeTaken]);
+        setNinjaCombo(prev => {
+            const newCombo = prev + 1;
+            setMaxNinjaCombo(currentMax => Math.max(currentMax, newCombo));
+            return newCombo;
+        });
+
         // Score Logic
         const basePoints = 10;
         const speedBonus = isPerfect ? 10 : 0;
         const comboMultiplier = ninjaCombo >= 10 ? 2 : 1;
 
         setNinjaScore(prev => prev + ((basePoints + speedBonus) * comboMultiplier));
-        setNinjaCombo(prev => prev + 1);
 
         // Next Card
         nextShortcut();
@@ -1900,8 +1986,8 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
                     mode === 'shortcut_ninja' ? 'bg-yellow-400/20 text-yellow-200 border border-yellow-400/50' :
                         hasLicense ? 'bg-white/20' : 'bg-yellow-400 text-slate-900'
                     }`}>
-                    {mode === 'sudden_death' ? "Reward: 10 Donuts + 🎯 Badge" :
-                        mode === 'shortcut_ninja' ? "Reward: 1 Donut (>1000 pts)" :
+                    {mode === 'sudden_death' ? (user?.sudden_death_won ? "Reward: 2 Donuts (Daily Practice)" : "Reward: 10 Donuts + 🎯 Badge (First Time Only)") :
+                        mode === 'shortcut_ninja' ? "Reward: 1 Donut (2 for 20+ Streak)" :
                             hasLicense ? "Daily Goal: >30 WPM & 95% Accuracy" : "PRACTICE MODE (0 Donuts)"}
                 </div>
             </div>
@@ -2047,7 +2133,37 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
                     </div>
                 )}
 
-                {gameState === 'finished' && (
+                {gameState === 'finished' && mode === 'shortcut_ninja' && (
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-slate-50 p-4 rounded-xl">
+                                <p className="text-xs text-slate-400 font-bold uppercase">Avg Reaction</p>
+                                <p className="text-3xl font-black text-blue-500">
+                                    {reactionTimes.length > 0
+                                        ? (reactionTimes.reduce((a, b) => a + b, 0) / reactionTimes.length / 1000).toFixed(2)
+                                        : "0.00"} <span className="text-sm text-slate-400 font-normal">s</span>
+                                </p>
+                            </div>
+                            <div className="bg-slate-50 p-4 rounded-xl">
+                                <p className="text-xs text-slate-400 font-bold uppercase">Max Streak</p>
+                                <p className="text-3xl font-black text-yellow-500">
+                                    {maxNinjaCombo}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col items-center gap-3 mt-6">
+                            <Button onClick={startGame} variant="outline" className="w-full max-w-xs">
+                                Train Again
+                            </Button>
+                            <button onClick={() => setGameState('idle')} className="text-slate-400 hover:text-slate-600 text-sm">
+                                Back to Menu
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {gameState === 'finished' && mode !== 'shortcut_ninja' && (
                     <div className="space-y-6">
                         <div className="grid grid-cols-2 gap-4">
                             <div className="bg-slate-50 p-4 rounded-xl">
@@ -2306,12 +2422,13 @@ function PatchNotesModal({ onClose }) {
     );
 }
 
-function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleState, onDrawRaffle, onRestoreRaffle }) {
+function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleState, onDrawRaffle, onRestoreRaffle, featuredItemIds, onToggleFeatured }) {
     const isAdmin = currentUserPublic?.name === "Mr Rayner";
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <Card className="bg-gradient-to-r from-purple-500 to-pink-500 text-white">
+            {/* Banner */}
+            <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl shadow-sm border border-slate-100 p-6">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                     <ShoppingBag /> The Donut Shop
                 </h2>
@@ -2319,7 +2436,7 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleSta
                 <div className="mt-4 text-sm font-bold bg-white/20 inline-block px-3 py-1 rounded-full">
                     Your Balance: {userBalance} {EMOJI}
                 </div>
-            </Card>
+            </div>
 
             {/* RAFFLE BANNER */}
             {raffleState && (
@@ -2343,12 +2460,12 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleSta
 
                     {isAdmin && (
                         <div className="mt-4 border-t border-yellow-200 pt-3">
-                            <Button
+                            <button
                                 onClick={onDrawRaffle}
-                                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2"
+                                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded transition-colors"
                             >
                                 🎲 Draw Winner
-                            </Button>
+                            </button>
                         </div>
                     )}
                 </div>
@@ -2356,34 +2473,70 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleSta
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {items.map(item => {
-                    const canAfford = userBalance >= item.cost;
-                    const isOwned = item.type === 'digital' && (
-                        (item.id === 'rainbow_name' && currentUserPublic?.rainbow_name) ||
-                        (item.id === 'gold_border' && currentUserPublic?.gold_border) ||
-                        (item.id === 'neon_name' && currentUserPublic?.neon_name) ||
-                        (item.id === 'verified_badge' && currentUserPublic?.verified_badge)
-                    );
+                    const canAfford = userBalance >= (item.cost || 0);
+
+                    // Safe check for ownership
+                    let isOwned = false;
+                    try {
+                        isOwned = !!(item.type === 'digital' && currentUserPublic && (
+                            (item.id === 'rainbow_name' && currentUserPublic.rainbow_name) ||
+                            (item.id === 'gold_border' && currentUserPublic.gold_border) ||
+                            (item.id === 'neon_name' && currentUserPublic.neon_name) ||
+                            (item.id === 'verified_badge' && currentUserPublic.verified_badge)
+                        ));
+                    } catch (e) {
+                        console.error("Error checking ownership:", e);
+                    }
+
+                    // Gold Card Logic
+                    const safeFeaturedIds = Array.isArray(featuredItemIds) ? featuredItemIds : [];
+                    const isFeatured = safeFeaturedIds.includes(item.id);
 
                     return (
-                        <Card key={item.id} className="flex flex-col justify-between relative overflow-hidden border-2 border-slate-100 hover:border-pink-200 transition-colors">
+                        <div key={item.id} className={`flex flex-col justify-between relative overflow-hidden border-2 transition-all duration-300 rounded-xl p-6 ${isFeatured ? 'bg-gradient-to-br from-yellow-50 to-amber-100 border-yellow-400 shadow-lg scale-[1.02]' : 'bg-white border-slate-100 hover:border-pink-200'}`}>
                             {isOwned && <div className="absolute top-2 right-2 text-green-500"><CheckCircle /></div>}
+
+                            {/* Featured Badge */}
+                            {isFeatured && (
+                                <div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[10px] font-bold px-2 py-1 rounded-bl-lg shadow-sm z-10">
+                                    FEATURED
+                                </div>
+                            )}
+
+                            {/* Admin Star Toggle */}
+                            {isAdmin && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onToggleFeatured && onToggleFeatured(item.id); }}
+                                    className="absolute top-2 left-2 z-20 hover:scale-110 transition-transform"
+                                >
+                                    {isFeatured ? (
+                                        <div className="text-yellow-500 drop-shadow-sm">⭐</div>
+                                    ) : (
+                                        <div className="text-slate-300 hover:text-yellow-400">☆</div>
+                                    )}
+                                </button>
+                            )}
+
                             <div>
-                                <div className="text-4xl mb-2">{item.icon}</div>
-                                <h3 className="font-bold text-lg text-slate-800">{item.name}</h3>
-                                <p className="text-sm text-slate-500 mb-4">{item.desc}</p>
+                                <div className="text-4xl mb-2 flex items-center gap-2">
+                                    {item.icon}
+                                    {isFeatured && <span className="text-lg animate-pulse">🔥</span>}
+                                </div>
+                                <h3 className={`font-bold text-lg ${isFeatured ? 'text-yellow-900' : 'text-slate-800'}`}>{item.name}</h3>
+                                <p className={`text-sm mb-4 ${isFeatured ? 'text-yellow-800/80' : 'text-slate-500'}`}>{item.desc}</p>
                             </div>
 
                             <div className="flex justify-between items-center mt-2">
-                                <span className="font-bold text-pink-600">{item.cost} {EMOJI}</span>
-                                <Button
+                                <span className={`font-bold ${isFeatured ? 'text-yellow-700' : 'text-pink-600'}`}>{item.cost} {EMOJI}</span>
+                                <button
                                     onClick={() => onPurchase(item)}
                                     disabled={!canAfford || isOwned}
-                                    className={!canAfford ? "opacity-50" : ""}
+                                    className={`px-4 py-2 rounded transition-colors text-white ${!canAfford ? "opacity-50 cursor-not-allowed" : "hover:bg-opacity-90"} ${isFeatured ? "bg-yellow-600" : "bg-pink-600"}`}
                                 >
                                     {isOwned ? "Owned" : "Buy"}
-                                </Button>
+                                </button>
                             </div>
-                        </Card>
+                        </div>
                     );
                 })}
             </div>
