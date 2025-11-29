@@ -12,7 +12,7 @@ import {
 import {
     Trophy, Gift, Activity, MessageSquare,
     LogOut, UserPlus, Heart, Zap, Search, CheckCircle, Target, Sparkles,
-    Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock, Users, Skull, Trash2, Clock, Calendar, Edit2, RotateCcw, Landmark, PiggyBank, ArrowRight, ArrowLeft, UserCheck, Keyboard, Shield
+    Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock, Users, Skull, Trash2, Clock, Calendar, Edit2, RotateCcw, Landmark, PiggyBank, ArrowRight, ArrowLeft, UserCheck, Keyboard, Shield, Settings
 } from 'lucide-react';
 
 
@@ -66,7 +66,26 @@ const GOAL_TARGET = 50;
 const EMOJI = "🍩";
 const APP_ID = 'yum-donut-school';
 
-// 3. Shop Inventory
+// 3. Live Studio Configuration
+const ENABLE_LIVE_STUDIO = true;
+
+const AVATAR_COLORS = [
+    '#F472B6', // Pink
+    '#A78BFA', // Purple
+    '#60A5FA', // Blue
+    '#34D399', // Emerald
+    '#FBBF24', // Amber
+    '#F87171', // Red
+    '#9CA3AF', // Gray
+    '#14B8A6', // Teal
+];
+
+const MEDIA_EMOJIS = [
+    '🎥', '🎬', '🎧', '🎤', '💻', '📸', '📹', '📼', '📺', '📻',
+    '💡', '🔌', '🔋', '📡', '🕹️', '👾', '🚀', '⭐', '🎵', '🎹'
+];
+
+// 4. Shop Inventory
 const SHOP_ITEMS = [
     { id: 'raffle_ticket', name: 'Weekly Raffle Ticket', cost: 2, icon: '🎟️', desc: 'Win the FRIDAY JACKPOT! (Prize: 2 items from the box).', type: 'physical' },
     { id: 'snack_box', name: 'Snack Box Treat', cost: 5, icon: '🍪', desc: 'One treat from the box.', type: 'physical' },
@@ -251,10 +270,188 @@ const NavBtn = ({ icon: Icon, label, active, onClick, badge }) => (
                     {badge}
                 </span>
             )}
+            <span className="text-[10px] font-medium">{label}</span>
         </div>
-        <span className="text-[10px] font-medium">{label}</span>
     </button>
 );
+
+// --- LIVE STUDIO COMPONENTS ---
+
+const PixelAvatar = ({ icon, color, isOnline, size = 'md', onClick }) => {
+    const sizeClasses = {
+        sm: 'w-8 h-8 text-sm',
+        md: 'w-12 h-12 text-xl',
+        lg: 'w-24 h-24 text-4xl'
+    };
+
+    return (
+        <div
+            onClick={onClick}
+            className={`relative ${sizeClasses[size]} flex items-center justify-center rounded-lg border-2 border-slate-900 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-transform hover:scale-105 cursor-pointer select-none`}
+            style={{ backgroundColor: color }}
+        >
+            <div className="drop-shadow-md filter">{icon}</div>
+            {isOnline && (
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 border-2 border-slate-900 rounded-full animate-pulse shadow-sm"></div>
+            )}
+        </div>
+    );
+};
+
+const LiveDock = ({ users, currentUser, onEditProfile }) => {
+    if (!ENABLE_LIVE_STUDIO) return null;
+
+    // Filter for ONLINE users only (active in last 5 mins)
+    const onlineUsers = users.filter(u => {
+        if (!u.last_seen) return false;
+        return (Date.now() - u.last_seen.toMillis()) < 5 * 60 * 1000;
+    });
+
+    // Sort: Current user first (if needed for list, but we handle current user separately), then alphabetical
+    // Actually, for the main list, we want to exclude current user and just show others
+    const otherOnlineUsers = onlineUsers
+        .filter(u => u.name !== currentUser?.name)
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+    return (
+        <div className="bg-slate-800 border-b-4 border-slate-900 p-3 pb-8 overflow-x-auto no-scrollbar">
+            <div className="flex items-center gap-4 min-w-max px-2">
+                <div className="flex items-center gap-2 mr-4 border-r border-slate-600 pr-4">
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                        Live<br />Studio
+                    </div>
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.8)]"></div>
+                </div>
+
+                {/* Current User (Always Visible for Editing) */}
+                {currentUser && (
+                    <div className="group relative mr-4">
+                        <PixelAvatar
+                            icon={currentUser.live_avatar_icon || '👤'}
+                            color={currentUser.live_avatar_color || '#9CA3AF'}
+                            isOnline={true}
+                            onClick={onEditProfile}
+                        />
+                        <div
+                            onClick={onEditProfile}
+                            className="absolute -bottom-1 -right-1 bg-white text-slate-900 rounded-full p-0.5 border border-slate-900 shadow-sm group-hover:scale-110 transition-transform cursor-pointer"
+                        >
+                            <Edit2 size={10} />
+                        </div>
+                        {/* Label for 'You' */}
+                        <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                            You
+                        </div>
+                    </div>
+                )}
+
+                {/* Separator if others are online */}
+                {otherOnlineUsers.length > 0 && (
+                    <div className="w-px h-8 bg-slate-700 mx-2"></div>
+                )}
+
+                {/* Other Online Users */}
+                {otherOnlineUsers.length > 0 ? (
+                    otherOnlineUsers.map(u => (
+                        <div key={u.name} className="group relative animate-in fade-in slide-in-from-right-4 duration-500">
+                            <PixelAvatar
+                                icon={u.live_avatar_icon || '👤'}
+                                color={u.live_avatar_color || '#9CA3AF'}
+                                isOnline={true}
+                                size="sm"
+                            />
+                            {/* Tooltip */}
+                            <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                                {u.name}
+                            </div>
+                        </div>
+                    ))
+                ) : (
+                    /* Empty State */
+                    <div className="flex items-center gap-2 text-slate-500 animate-in fade-in duration-700">
+                        <span className="text-2xl grayscale opacity-50">🐈</span>
+                        <span className="text-xs font-medium italic">The studio is quiet...</span>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+const DressingRoomModal = ({ isOpen, onClose, currentData, onSave }) => {
+    const [selectedColor, setSelectedColor] = useState(currentData?.color || AVATAR_COLORS[0]);
+    const [selectedIcon, setSelectedIcon] = useState(currentData?.icon || MEDIA_EMOJIS[0]);
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl border-4 border-slate-900 shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
+                <div className="bg-slate-100 p-4 border-b-2 border-slate-200 flex justify-between items-center">
+                    <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
+                        <Sparkles className="text-purple-500" /> Dressing Room
+                    </h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+                        <XCircle />
+                    </button>
+                </div>
+
+                <div className="p-6 space-y-6">
+                    {/* Preview */}
+                    <div className="flex justify-center">
+                        <div className="text-center">
+                            <p className="text-xs font-bold text-slate-400 uppercase mb-2">Preview</p>
+                            <PixelAvatar
+                                icon={selectedIcon}
+                                color={selectedColor}
+                                isOnline={true}
+                                size="lg"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Color Picker */}
+                    <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase mb-2">Choose Background</p>
+                        <div className="flex flex-wrap gap-2 justify-center">
+                            {AVATAR_COLORS.map(color => (
+                                <button
+                                    key={color}
+                                    onClick={() => setSelectedColor(color)}
+                                    className={`w-8 h-8 rounded-lg border-2 transition-transform hover:scale-110 ${selectedColor === color ? 'border-slate-900 scale-110 ring-2 ring-offset-2 ring-slate-200' : 'border-transparent'}`}
+                                    style={{ backgroundColor: color }}
+                                />
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Icon Picker */}
+                    <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase mb-2">Choose Icon</p>
+                        <div className="grid grid-cols-5 gap-2">
+                            {MEDIA_EMOJIS.map(emoji => (
+                                <button
+                                    key={emoji}
+                                    onClick={() => setSelectedIcon(emoji)}
+                                    className={`w-10 h-10 flex items-center justify-center text-xl rounded-lg border-2 transition-all hover:bg-slate-50 ${selectedIcon === emoji ? 'border-slate-900 bg-slate-50 shadow-sm' : 'border-slate-100'}`}
+                                >
+                                    {emoji}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={() => onSave(selectedColor, selectedIcon)}
+                        className="w-full bg-slate-900 text-white font-bold py-3 rounded-xl hover:bg-slate-800 transition-colors shadow-lg active:scale-95"
+                    >
+                        Save & Update
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 // --- Main Application ---
 
@@ -428,6 +625,11 @@ export default function YumDonutApp() {
     const [showPatchNotes, setShowPatchNotes] = useState(false);
     const [featuredItemIds, setFeaturedItemIds] = useState([]);
 
+    // Live Studio State
+    const [isDressingRoomOpen, setIsDressingRoomOpen] = useState(false);
+
+    const isAdmin = myProfile?.name === "Mr Rayner";
+
     // Auth & Profile Listener
     useEffect(() => {
         const initAuth = async () => {
@@ -465,6 +667,56 @@ export default function YumDonutApp() {
         });
         return () => unsubscribe();
     }, []);
+
+    // --- LIVE STUDIO HEARTBEAT ---
+    useEffect(() => {
+        if (!ENABLE_LIVE_STUDIO || !user || !myProfile) return;
+
+        const updateHeartbeat = async () => {
+            try {
+                const timestamp = serverTimestamp();
+                const userRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
+                const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
+
+                // Update last_seen
+                await updateDoc(userRef, { last_seen: timestamp });
+                await updateDoc(publicRef, { last_seen: timestamp });
+            } catch (e) {
+                console.error("Heartbeat failed:", e);
+            }
+        };
+
+        // Initial update
+        updateHeartbeat();
+
+        // Interval update (every 5 mins)
+        const interval = setInterval(updateHeartbeat, 5 * 60 * 1000);
+        return () => clearInterval(interval);
+    }, [user, myProfile?.name]);
+
+    const handleSaveProfile = async (color, icon) => {
+        if (!user || !myProfile) return;
+        try {
+            const userRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
+            const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
+
+            const updates = {
+                live_avatar_color: color,
+                live_avatar_icon: icon
+            };
+
+            await updateDoc(userRef, updates);
+            await updateDoc(publicRef, updates);
+
+            // Optimistic update
+            setMyProfile(prev => ({ ...prev, ...updates }));
+            setIsDressingRoomOpen(false);
+            showNotification("Profile Updated! Looking fresh. ✨");
+        } catch (e) {
+            console.error("Profile update failed:", e);
+            showNotification("Could not update profile.", "error");
+        }
+    };
 
     // 2. Featured Items Listener (Gold Card)
     useEffect(() => {
@@ -581,6 +833,10 @@ export default function YumDonutApp() {
         let avatarColor = `hsl(${Math.random() * 360}, 70%, 50%)`;
         let rainbowName = false;
 
+        // Live Studio Defaults
+        const randomColor = AVATAR_COLORS[uid.charCodeAt(0) % AVATAR_COLORS.length];
+        const randomEmoji = MEDIA_EMOJIS[uid.charCodeAt(uid.length - 1) % MEDIA_EMOJIS.length];
+
         if (publicDoc.exists()) {
             const data = publicDoc.data();
             currentBalance = data.balance || 0;
@@ -596,14 +852,18 @@ export default function YumDonutApp() {
             bank_balance: 0,
             given_today: 0,
             last_given_date: new Date().toDateString(),
-            last_training_date: null, // New field for Typing Dojo
+            last_training_date: null,
             last_training_date_sudden_death: null,
             last_training_date_ninja: null,
             training_earned_today: 0,
             training_last_earned_date: new Date().toDateString(),
             sudden_death_won: false,
-            typing_license: false, // New field for Typing License
-            avatar_color: avatarColor
+            typing_license: false,
+            avatar_color: avatarColor,
+            // Live Studio Fields
+            live_avatar_color: randomColor,
+            live_avatar_icon: randomEmoji,
+            last_seen: serverTimestamp()
         };
 
         await setDoc(doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data'), initialPrivateData);
@@ -617,7 +877,11 @@ export default function YumDonutApp() {
             rainbow_name: rainbowName,
             claimed: true,
             uid: uid,
-            typing_license: false // New field for Typing License
+            typing_license: false,
+            // Live Studio Fields
+            live_avatar_color: randomColor,
+            live_avatar_icon: randomEmoji,
+            last_seen: serverTimestamp()
         }, { merge: true });
     };
 
@@ -1520,6 +1784,14 @@ export default function YumDonutApp() {
 
     return (
         <div className={`min-h-screen font-sans text-slate-800 pb-20 md:pb-0 transition-colors duration-500 ${view === 'give' && notification?.type === 'munch' ? 'bg-red-50' : 'bg-slate-50'}`}>
+
+            {/* LIVE DOCK */}
+            <LiveDock
+                users={users}
+                currentUser={myProfile}
+                onEditProfile={() => setIsDressingRoomOpen(true)}
+            />
+
             <div className="bg-white border-b border-slate-200 sticky top-0 z-10 px-4 py-3 flex justify-between items-center shadow-sm">
                 {isSandbox && (
                     <div className="absolute top-0 left-0 w-full bg-yellow-400 text-yellow-900 text-[10px] font-bold text-center uppercase tracking-widest">
@@ -1552,7 +1824,15 @@ export default function YumDonutApp() {
 
                 <div className="flex items-center gap-3">
                     <div className="hidden md:block text-right">
-                        <p className="text-sm font-semibold">{myProfile.name}</p>
+                        <div className="flex items-center justify-end gap-2">
+                            <p className="text-sm font-semibold">{myProfile.name}</p>
+                            <button
+                                onClick={() => setIsDressingRoomOpen(true)}
+                                className="text-slate-400 hover:text-slate-600 transition-colors"
+                            >
+                                <Settings size={14} />
+                            </button>
+                        </div>
                         <p className="text-xs text-slate-500">
                             {myProfile.name === "Mr Rayner"
                                 ? <span className="text-pink-600 font-bold">∞ left (Admin)</span>
@@ -1570,6 +1850,13 @@ export default function YumDonutApp() {
                     </div>
                 </div>
             </div>
+
+            <DressingRoomModal
+                isOpen={isDressingRoomOpen}
+                onClose={() => setIsDressingRoomOpen(false)}
+                currentData={{ color: myProfile.live_avatar_color, icon: myProfile.live_avatar_icon }}
+                onSave={handleSaveProfile}
+            />
 
             {/* VIEWS */}
             <div className="max-w-md md:max-w-2xl mx-auto p-4 pb-24 md:pb-4">
@@ -2356,9 +2643,9 @@ function PatchNotesModal({ onClose }) {
                 <div className="bg-gradient-to-r from-pink-500 to-purple-600 p-6 text-white flex justify-between items-start">
                     <div>
                         <h2 className="text-2xl font-bold flex items-center gap-2">
-                            <Sparkles className="text-yellow-300" /> What's New in v2.0
+                            <Sparkles className="text-yellow-300" /> What's New
                         </h2>
-                        <p className="opacity-90 text-sm mt-1">Big updates for the Typing Dojo!</p>
+                        <p className="opacity-90 text-sm mt-1">Live Studio & Visual Upgrades!</p>
                     </div>
                     <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
                         <XCircle size={24} />
@@ -2368,48 +2655,41 @@ function PatchNotesModal({ onClose }) {
                 <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
                     <div className="space-y-2">
                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <Zap className="text-yellow-500" size={20} /> Shortcut Ninja (Reforged)
+                            <Users className="text-pink-500" size={20} /> Live Studio
                         </h3>
                         <p className="text-slate-600 text-sm">
-                            New "Reflex Training" mode! See the key, hit it instantly.
+                            The new <strong>Live Dock</strong> at the top shows you who is online right now!
                             <br />
-                            <span className="text-xs italic text-slate-500">* PC Only (Requires Keyboard)</span>
+                            <span className="text-xs italic text-slate-500">* Only active users appear in the VIP Lounge.</span>
                         </p>
                     </div>
 
                     <div className="space-y-2">
                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <Target className="text-red-500" size={20} /> Sudden Death (Harder)
+                            <Edit2 className="text-purple-500" size={20} /> Pixel Avatars
                         </h3>
                         <p className="text-slate-600 text-sm">
-                            We've increased the difficulty with longer, more complex technical paragraphs.
-                            Still 100% accuracy required. Still 10 Donuts. Good luck. 💀
+                            Visit the <strong>Dressing Room</strong> (click the pencil or your avatar) to customize your retro look with new colors and icons! 🎨
                         </p>
                     </div>
 
                     <div className="space-y-2">
                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <Landmark className="text-green-500" size={20} /> Bank Interest
+                            <Trophy className="text-yellow-500" size={20} /> Shiny Goals
                         </h3>
                         <p className="text-slate-600 text-sm">
-                            Savers rejoice! The bank now pays interest on deposits. Keep your donuts in the vault to earn passive income. 💸
+                            When we hit the target, the goal card now turns <strong>GOLD</strong> to celebrate! 🏆
                         </p>
                     </div>
 
                     <div className="space-y-2">
                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <Flame className="text-orange-500" size={20} /> WPM Tiers
+                            <Target className="text-red-500" size={20} /> Sudden Death Fixed
                         </h3>
                         <p className="text-slate-600 text-sm">
-                            Show off your speed on the leaderboard!
-                            <ul className="list-disc list-inside mt-1 ml-2 text-xs space-y-1">
-                                <li><strong>50+ WPM</strong>: Silver Border</li>
-                                <li><strong>70+ WPM</strong>: Gold Border</li>
-                                <li><strong>90+ WPM</strong>: <span className="flame-text">Flame Name Effect</span></li>
-                            </ul>
+                            Fixed the blank screen issue in Sudden Death mode. Get back in there and earn those 10 donuts!
                         </p>
                     </div>
-
                 </div>
 
                 <div className="p-4 bg-slate-50 border-t border-slate-100 text-center">
@@ -2866,10 +3146,12 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
 
 function GoalView({ goalData, userBalance, onContribute, currentUserName, onActivate, onUpdateGoal, onResetGoal, onToggleActive }) {
     const target = goalData.target !== undefined ? goalData.target : GOAL_TARGET;
-    const percent = target === 0 ? 100 : Math.min(100, ((goalData.current || 0) / target) * 100);
-    const isMet = (goalData.current || 0) >= target;
-    const isAdmin = currentUserName === "Mr Rayner";
     const isActive = goalData.isActive !== false; // Default to true if undefined
+    const isAdmin = currentUserName === "Mr Rayner";
+
+    // "Inactive" implies "Achieved" for the visual state (as requested)
+    const isMet = (goalData.current || 0) >= target || !isActive;
+    const percent = !isActive ? 100 : (target === 0 ? 100 : Math.min(100, ((goalData.current || 0) / target) * 100));
 
     // State for Admin Edit Mode
     const [isEditing, setIsEditing] = useState(false);
@@ -2897,10 +3179,10 @@ function GoalView({ goalData, userBalance, onContribute, currentUserName, onActi
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <Card className={`text-center py-8 relative overflow-hidden ${!isActive ? 'opacity-75 grayscale' : ''}`}>
-                {isMet && isActive && <div className="absolute inset-0 bg-yellow-100 opacity-20 animate-pulse"></div>}
+            <Card className={`text-center py-8 relative overflow-hidden ${!isActive && !isMet ? 'opacity-75 grayscale' : ''} ${isMet ? 'bg-gradient-to-br from-yellow-50 to-amber-100 border-2 border-yellow-400 shadow-xl shadow-yellow-200' : ''}`}>
+                {isMet && <div className="absolute inset-0 bg-yellow-400 opacity-10 animate-pulse"></div>}
                 <div className="relative z-10">
-                    <div className={`inline-flex items-center justify-center p-3 rounded-full mb-4 ${isMet ? 'bg-yellow-100 text-yellow-600' : 'bg-pink-100 text-pink-500'}`}>
+                    <div className={`inline-flex items-center justify-center p-3 rounded-full mb-4 ${isMet ? 'bg-yellow-400 text-white shadow-lg scale-110' : 'bg-pink-100 text-pink-500'}`}>
                         {isMet ? <Trophy size={32} /> : <Sparkles size={32} />}
                     </div>
 
@@ -2943,8 +3225,8 @@ function GoalView({ goalData, userBalance, onContribute, currentUserName, onActi
                     ) : (
                         <>
                             <div className="flex justify-center items-center gap-2 mb-2">
-                                <h2 className={`text-2xl font-bold ${isMet ? 'text-yellow-600' : 'text-slate-800'}`}>
-                                    {isMet ? `REWARD UNLOCKED: ${goalData.title || "Team Goal"}` : (goalData.title || "Team Goal")}
+                                <h2 className={`text-2xl font-bold ${isMet ? 'text-yellow-700' : 'text-slate-800'}`}>
+                                    {isMet ? `GOAL ACHIEVED: ${goalData.title || "Team Goal"}` : (goalData.title || "Team Goal")}
                                 </h2>
                                 {isAdmin && (
                                     <button onClick={() => setIsEditing(true)} className="text-slate-400 hover:text-pink-500">
@@ -2952,7 +3234,7 @@ function GoalView({ goalData, userBalance, onContribute, currentUserName, onActi
                                     </button>
                                 )}
                             </div>
-                            <p className="text-slate-500 mb-6 max-w-md mx-auto">
+                            <p className={`${isMet ? 'text-yellow-800 font-medium' : 'text-slate-500'} mb-6 max-w-md mx-auto`}>
                                 {isMet ? "We did it! Enjoy the victory!" : `If we reach ${target} donuts together, we unlock a reward for everyone!`}
                             </p>
                         </>
@@ -2966,14 +3248,14 @@ function GoalView({ goalData, userBalance, onContribute, currentUserName, onActi
                             <span className="text-white text-xs font-bold drop-shadow-md">{Math.floor(percent)}%</span>
                         </div>
                     </div>
-                    <p className="text-sm font-bold text-slate-700 mb-8">
+                    <p className={`text-sm font-bold ${isMet ? 'text-yellow-700' : 'text-slate-700'} mb-8`}>
                         {goalData.current} / {target} {EMOJI} raised
                     </p>
 
                     {isMet ? (
                         <div className="space-y-4">
-                            <div className="bg-yellow-100 text-yellow-800 p-4 rounded-xl font-bold text-lg animate-bounce border-2 border-yellow-300 shadow-sm">
-                                🏆 GOAL REACHED! ({goalData.current}/{target})
+                            <div className="bg-yellow-400 text-white p-4 rounded-xl font-black text-xl animate-bounce shadow-lg border-b-4 border-yellow-600 transform hover:scale-105 transition-transform cursor-default">
+                                🏆 GOAL ACHIEVED!
                             </div>
                             {isAdmin ? (
                                 <div className="flex flex-col gap-2">
