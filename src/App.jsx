@@ -651,6 +651,11 @@ export default function YumDonutApp() {
 
     const isAdmin = myProfile?.name === "Mr Rayner";
 
+    const showNotification = (msg, type = "success") => {
+        setNotification({ msg, type });
+        setTimeout(() => setNotification(null), 3000);
+    };
+
     // Auth & Profile Listener
     useEffect(() => {
         const initAuth = async () => {
@@ -680,13 +685,30 @@ export default function YumDonutApp() {
                 }, (error) => {
                     console.error("Profile snapshot error", error);
                     setLoading(false);
+                    showNotification("Connection issue. Please refresh.", "error");
                 });
                 return () => unsubProfile();
             } else {
                 setLoading(false);
             }
         });
-        return () => unsubscribe();
+
+        // Safety Valve: If loading takes too long (e.g. firewall blocking Firestore), force stop.
+        const safetyTimer = setTimeout(() => {
+            setLoading(prev => {
+                if (prev) {
+                    console.warn("Loading timed out. Forcing UI render.");
+                    showNotification("Loading timed out. Check connection.", "error");
+                    return false;
+                }
+                return prev;
+            });
+        }, 10000); // 10 seconds
+
+        return () => {
+            unsubscribe();
+            clearTimeout(safetyTimer);
+        };
     }, []);
 
     // --- LIVE STUDIO HEARTBEAT ---
@@ -1831,10 +1853,6 @@ export default function YumDonutApp() {
         }
     };
 
-    const showNotification = (msg, type = "success") => {
-        setNotification({ msg, type });
-        setTimeout(() => setNotification(null), 3000);
-    };
 
     if (loading) return (
         <div className="flex items-center justify-center min-h-screen bg-pink-50">
@@ -1843,7 +1861,7 @@ export default function YumDonutApp() {
     );
 
     if (!user || !myProfile) {
-        return <LoginScreen onLogin={handleLoginOrRegister} existingUsers={users} />;
+        return <LoginScreen onLogin={handleLoginOrRegister} existingUsers={users} roster={roster} />;
     }
 
     return (
@@ -2605,13 +2623,13 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
     );
 }
 
-function LoginScreen({ onLogin, existingUsers }) {
+function LoginScreen({ onLogin, existingUsers, roster }) {
     const [search, setSearch] = useState("");
     const [selectedName, setSelectedName] = useState(null);
     const [password, setPassword] = useState("");
     const [showPatchNotes, setShowPatchNotes] = useState(false);
 
-    const availableNames = SCHOOL_ROSTER.filter(name => {
+    const availableNames = (roster || []).filter(name => {
         return name.toLowerCase().includes(search.toLowerCase());
     });
 
