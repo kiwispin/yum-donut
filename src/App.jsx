@@ -33,7 +33,7 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 
 // 2. School Roster
-const SCHOOL_ROSTER = [
+const INITIAL_ROSTER = [
     "Mr Rayner",
     "Jacey",
     "Marina",
@@ -55,7 +55,6 @@ const SCHOOL_ROSTER = [
     "Seoyeon",
     "Lara",
     "Armani",
-    "Ashley",
     "Tobin",
     "Isaac",
     "Lia"
@@ -624,6 +623,28 @@ export default function YumDonutApp() {
     const [isSandbox, setIsSandbox] = useState(false);
     const [showPatchNotes, setShowPatchNotes] = useState(false);
     const [featuredItemIds, setFeaturedItemIds] = useState([]);
+    const [roster, setRoster] = useState(INITIAL_ROSTER);
+    const [isRosterManagerOpen, setIsRosterManagerOpen] = useState(false);
+
+    // Roster Listener & Migration
+    useEffect(() => {
+        const rosterRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'roster');
+        const unsubscribe = onSnapshot(rosterRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                if (data.names && Array.isArray(data.names)) {
+                    setRoster(data.names);
+                } else {
+                    // Document exists but names missing/invalid
+                    setDoc(rosterRef, { names: INITIAL_ROSTER }, { merge: true });
+                }
+            } else {
+                // Migration: Create roster if missing
+                setDoc(rosterRef, { names: INITIAL_ROSTER }, { merge: true });
+            }
+        });
+        return () => unsubscribe();
+    }, []);
 
     // Live Studio State
     const [isDressingRoomOpen, setIsDressingRoomOpen] = useState(false);
@@ -1092,6 +1113,49 @@ export default function YumDonutApp() {
         if (currentLikes && currentLikes.includes(myProfile.name)) return;
         const txRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'transactions', txId);
         await updateDoc(txRef, { likes: arrayUnion(myProfile.name) });
+    };
+
+    const CORE_VALUES = {
+        WHANAUNGATANGA: {
+            id: "WHANAUNGATANGA",
+            label: "Whanaungatanga",
+            color: "bg-teal-500",
+            lightColor: "bg-teal-50",
+            borderColor: "border-teal-200",
+            textColor: "text-teal-700",
+            icon: "🤝",
+            virtues: ["Connection", "Belonging", "Teamwork", "Inclusion", "Support"]
+        },
+        EKEA: {
+            id: "EKEA",
+            label: "Ekea",
+            color: "bg-emerald-600",
+            lightColor: "bg-emerald-50",
+            borderColor: "border-emerald-200",
+            textColor: "text-emerald-800",
+            icon: "🌱",
+            virtues: ["Empowerment", "Ownership", "Leadership", "Initiative", "Growth"]
+        },
+        RAAKAU: {
+            id: "RAAKAU",
+            label: "Raakau",
+            color: "bg-green-500",
+            lightColor: "bg-green-50",
+            borderColor: "border-green-200",
+            textColor: "text-green-700",
+            icon: "🌿",
+            virtues: ["Resilience", "Perseverance", "Courage", "Determination", "Strength"]
+        },
+        ORA: {
+            id: "ORA",
+            label: "Ora",
+            color: "bg-lime-400",
+            lightColor: "bg-lime-50",
+            borderColor: "border-lime-200",
+            textColor: "text-lime-800",
+            icon: "☀️",
+            virtues: ["Wellbeing", "Open-mindedness", "Balance", "Kindness", "Positivity"]
+        }
     };
 
     const handleContributeToGoal = async () => {
@@ -1826,6 +1890,15 @@ export default function YumDonutApp() {
                     <div className="hidden md:block text-right">
                         <div className="flex items-center justify-end gap-2">
                             <p className="text-sm font-semibold">{myProfile.name}</p>
+                            {myProfile.name === "Mr Rayner" && (
+                                <button
+                                    onClick={() => setIsRosterManagerOpen(true)}
+                                    className="text-slate-400 hover:text-blue-600 transition-colors"
+                                    title="Manage Roster"
+                                >
+                                    <Users size={14} />
+                                </button>
+                            )}
                             <button
                                 onClick={() => setIsDressingRoomOpen(true)}
                                 className="text-slate-400 hover:text-slate-600 transition-colors"
@@ -1858,6 +1931,13 @@ export default function YumDonutApp() {
                 onSave={handleSaveProfile}
             />
 
+            {isRosterManagerOpen && (
+                <RosterManagerModal
+                    onClose={() => setIsRosterManagerOpen(false)}
+                    roster={roster}
+                />
+            )}
+
             {/* VIEWS */}
             <div className="max-w-md md:max-w-2xl mx-auto p-4 pb-24 md:pb-4">
                 {showPatchNotes && <PatchNotesModal onClose={() => setShowPatchNotes(false)} />}
@@ -1889,12 +1969,13 @@ export default function YumDonutApp() {
 
                 {view === 'give' && (
                     <GiveView
-                        roster={SCHOOL_ROSTER}
+                        roster={roster}
                         existingUsers={users}
                         currentUserName={myProfile.name}
                         onGive={handleGiveDonut}
                         onMunch={handleMunchDonut}
                         remaining={DAILY_LIMIT - (myProfile.last_given_date === new Date().toDateString() ? myProfile.given_today : 0)}
+                        coreValues={CORE_VALUES}
                     />
                 )}
 
@@ -1961,11 +2042,11 @@ export default function YumDonutApp() {
                 )}
 
                 {view === 'feed' && (
-                    <FeedView transactions={transactions} onReact={handleReaction} />
+                    <FeedView transactions={transactions} onReact={handleReaction} coreValues={CORE_VALUES} />
                 )}
 
                 {view === 'leaderboard' && (
-                    <LeaderboardView users={users} roster={SCHOOL_ROSTER} />
+                    <LeaderboardView users={users} roster={roster} />
                 )}
 
             </div>
@@ -2655,6 +2736,15 @@ function PatchNotesModal({ onClose }) {
                 <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
                     <div className="space-y-2">
                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                            <Heart className="text-teal-500" size={20} /> Values & Virtues
+                        </h3>
+                        <p className="text-slate-600 text-sm">
+                            Giving donuts just got deeper! You can now tag your gift with one of our 4 Core Values: <strong>Whanaungatanga</strong>, <strong>Ekea</strong>, <strong>Raakau</strong>, or <strong>Ora</strong>. 🌿
+                        </p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
                             <Users className="text-pink-500" size={20} /> Live Studio
                         </h3>
                         <p className="text-slate-600 text-sm">
@@ -2696,6 +2786,114 @@ function PatchNotesModal({ onClose }) {
                     <Button onClick={onClose} className="w-full">
                         Got it!
                     </Button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function RosterManagerModal({ onClose, roster }) {
+    const [newName, setNewName] = useState("");
+    const [error, setError] = useState("");
+
+    const handleAddUser = async () => {
+        if (!newName.trim()) return;
+        if (roster.includes(newName.trim())) {
+            setError("User already exists!");
+            return;
+        }
+
+        try {
+            const rosterRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'roster');
+            await setDoc(rosterRef, {
+                names: arrayUnion(newName.trim())
+            }, { merge: true });
+            setNewName("");
+            setError("");
+        } catch (e) {
+            console.error(e);
+            setError("Failed to add user.");
+        }
+    };
+
+    const handleRemoveUser = async (nameToRemove) => {
+        if (!confirm(`Are you sure you want to remove ${nameToRemove}?`)) return;
+
+        try {
+            const rosterRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'roster');
+            await setDoc(rosterRef, {
+                names: arrayRemove(nameToRemove)
+            }, { merge: true });
+        } catch (e) {
+            console.error(e);
+            setError("Failed to remove user.");
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full m-4 overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[80vh]">
+                <div className="bg-slate-800 p-4 text-white flex justify-between items-center">
+                    <h2 className="text-lg font-bold flex items-center gap-2">
+                        <Users size={20} /> Manage Roster
+                    </h2>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={async () => {
+                                if (confirm("Reset roster to default list? This will remove custom additions.")) {
+                                    try {
+                                        const rosterRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'roster');
+                                        await setDoc(rosterRef, { names: INITIAL_ROSTER }, { merge: true });
+                                    } catch (e) {
+                                        console.error(e);
+                                    }
+                                }
+                            }}
+                            className="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded text-slate-300 transition-colors"
+                        >
+                            Reset
+                        </button>
+                        <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
+                            <XCircle size={24} />
+                        </button>
+                    </div>
+                </div>
+
+                <div className="p-4 border-b border-slate-100 bg-slate-50">
+                    <div className="flex gap-2">
+                        <input
+                            className="flex-1 p-2 border border-slate-300 rounded-lg text-sm"
+                            placeholder="Enter new student name..."
+                            value={newName}
+                            onChange={e => setNewName(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handleAddUser()}
+                        />
+                        <button
+                            onClick={handleAddUser}
+                            disabled={!newName.trim()}
+                            className="bg-green-500 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-green-600 disabled:opacity-50"
+                        >
+                            Add
+                        </button>
+                    </div>
+                    {error && <p className="text-red-500 text-xs mt-2">{error}</p>}
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-2">
+                    {[...roster].sort().map(name => (
+                        <div key={name} className="flex justify-between items-center p-3 hover:bg-slate-50 rounded-lg group">
+                            <span className="font-medium text-slate-700">{name}</span>
+                            <button
+                                onClick={() => handleRemoveUser(name)}
+                                className="text-slate-300 hover:text-red-500 transition-colors"
+                            >
+                                <Trash2 size={18} />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+                <div className="p-3 bg-slate-50 text-center text-xs text-slate-400 border-t border-slate-100">
+                    {roster.length} students in roster
                 </div>
             </div>
         </div>
@@ -3328,12 +3526,15 @@ function GoalView({ goalData, userBalance, onContribute, currentUserName, onActi
     );
 }
 
-function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, remaining }) {
+function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, remaining, coreValues }) {
     const [selectedUser, setSelectedUser] = useState("");
     const [message, setMessage] = useState("");
     const [filter, setFilter] = useState("");
     const [amount, setAmount] = useState(1);
     const [mode, setMode] = useState("give"); // 'give' or 'munch'
+    const [step, setStep] = useState(1); // 1: User, 2: Value, 3: Virtue/Message
+    const [selectedValue, setSelectedValue] = useState(null);
+    const [selectedVirtue, setSelectedVirtue] = useState("");
 
     const isAdmin = currentUserName === "Mr Rayner";
     const isMunch = mode === "munch";
@@ -3344,17 +3545,33 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
 
     const handleSubmit = () => {
         if (!selectedUser || !message) return;
+        if (!isMunch && !selectedValue) return; // Value required for giving
 
         if (isMunch) {
             onMunch(selectedUser, message);
         } else {
-            onGive(selectedUser, message, amount);
+            onGive(selectedUser, message, amount, selectedValue, selectedVirtue);
         }
 
+        // Reset
         setMessage("");
         setSelectedUser("");
         setFilter("");
         setAmount(1);
+        setStep(1);
+        setSelectedValue(null);
+        setSelectedVirtue("");
+    };
+
+    const handleUserSelect = (name) => {
+        setSelectedUser(name);
+        setFilter("");
+        if (isMunch) {
+            // Munch doesn't need values
+            setStep(3);
+        } else {
+            setStep(2);
+        }
     };
 
     return (
@@ -3380,13 +3597,13 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
                     {isAdmin && (
                         <div className="flex bg-slate-100 rounded-lg p-1">
                             <button
-                                onClick={() => setMode("give")}
+                                onClick={() => { setMode("give"); setStep(1); }}
                                 className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${!isMunch ? 'bg-white text-pink-500 shadow-sm' : 'text-slate-400'}`}
                             >
                                 😇 Give
                             </button>
                             <button
-                                onClick={() => setMode("munch")}
+                                onClick={() => { setMode("munch"); setStep(1); }}
                                 className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${isMunch ? 'bg-white text-red-500 shadow-sm' : 'text-slate-400'}`}
                             >
                                 😈 Munch
@@ -3395,15 +3612,19 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
                     )}
                 </div>
 
-                {remaining === 0 && !isAdmin ? (
+                {remaining === 0 && !isAdmin && !isMunch ? (
                     <div className="bg-slate-100 p-6 rounded-xl text-center text-slate-500">
                         <p className="text-lg font-medium">You're all out of donuts!</p>
                         <p className="text-sm">Come back tomorrow for a fresh batch.</p>
                     </div>
                 ) : (
                     <>
-                        <div className="space-y-2">
-                            <label className="text-sm font-semibold text-slate-600">Select Teammate</label>
+                        {/* STEP 1: SELECT USER */}
+                        <div className={`space-y-2 ${step !== 1 && 'opacity-50 pointer-events-none'}`}>
+                            <label className="text-sm font-semibold text-slate-600 flex justify-between">
+                                <span>Step 1: Select Teammate</span>
+                                {step > 1 && <button onClick={() => setStep(1)} className="text-pink-500 text-xs underline pointer-events-auto">Change</button>}
+                            </label>
                             {!selectedUser ? (
                                 <div className="relative">
                                     <input
@@ -3426,7 +3647,7 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
                                                 return (
                                                     <button
                                                         key={name}
-                                                        onClick={() => { setSelectedUser(name); setFilter(""); }}
+                                                        onClick={() => handleUserSelect(name)}
                                                         className="w-full text-left p-3 hover:bg-pink-50 flex items-center gap-3 transition-colors"
                                                     >
                                                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${hasGoldBorder ? 'gold-border' : ''}`} style={{ background: bgColor }}>
@@ -3454,59 +3675,112 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
                                             {selectedUser}
                                         </span>
                                     </div>
-                                    <button onClick={() => setSelectedUser("")} className="text-slate-400 hover:text-red-500">
-                                        <LogOut size={18} />
-                                    </button>
+                                    {step === 1 && (
+                                        <button onClick={() => setSelectedUser("")} className="text-slate-400 hover:text-red-500">
+                                            <LogOut size={18} />
+                                        </button>
+                                    )}
                                 </div>
                             )}
                         </div>
 
-                        <div className="space-y-2">
-                            <label className="text-sm font-semibold text-slate-600">Reason</label>
-                            <textarea
-                                className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none resize-none"
-                                rows={3}
-                                placeholder={isMunch ? "Why did the Muncher strike? (e.g. Left batteries flat)" : "Thanks for helping me with the filming!"}
-                                value={message}
-                                onChange={e => setMessage(e.target.value)}
-                            />
-                        </div>
-
-                        {/* Admin Bulk Controls (Only show in Give Mode) */}
-                        {isAdmin && !isMunch && (
-                            <div className="space-y-2">
-                                <label className="text-sm font-semibold text-slate-600 flex items-center gap-2">
-                                    <Zap size={16} className="text-yellow-500" /> Admin Multiplier
+                        {/* STEP 2: SELECT VALUE (Give Mode Only) */}
+                        {!isMunch && step >= 2 && (
+                            <div className={`space-y-2 animate-in fade-in slide-in-from-top-2 duration-300 ${step !== 2 && 'opacity-50 pointer-events-none'}`}>
+                                <label className="text-sm font-semibold text-slate-600 flex justify-between">
+                                    <span>Step 2: Select Value</span>
+                                    {step > 2 && <button onClick={() => setStep(2)} className="text-pink-500 text-xs underline pointer-events-auto">Change</button>}
                                 </label>
-                                <div className="flex gap-2">
-                                    {[1, 2, 5, 10].map(n => (
+                                <div className="grid grid-cols-2 gap-2">
+                                    {Object.values(coreValues).map(val => (
                                         <button
-                                            key={n}
-                                            onClick={() => setAmount(n)}
-                                            className={`flex-1 py-2 rounded-lg font-bold text-sm transition-all ${amount === n
-                                                ? "bg-yellow-400 text-yellow-900 shadow-md scale-105"
-                                                : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                                            key={val.id}
+                                            onClick={() => { setSelectedValue(val.id); setSelectedVirtue(""); setStep(3); }}
+                                            className={`p-3 rounded-xl border-2 text-left transition-all ${selectedValue === val.id
+                                                ? `${val.color} text-white border-transparent shadow-md scale-[1.02]`
+                                                : `bg-white ${val.borderColor} ${val.textColor} hover:bg-slate-50`
                                                 }`}
                                         >
-                                            {n}x
+                                            <div className="text-xl mb-1">{val.icon}</div>
+                                            <div className="font-bold text-sm">{val.label}</div>
                                         </button>
                                     ))}
                                 </div>
                             </div>
                         )}
 
-                        <Button
-                            onClick={handleSubmit}
-                            disabled={!selectedUser || !message}
-                            className="w-full py-3 text-lg"
-                            variant={isMunch ? "danger" : "primary"}
-                        >
-                            {isMunch ? `Feed The Muncher (1 ${EMOJI})` :
-                                `Give ${amount > 1 ? `${amount} ${EMOJI}` : EMOJI}`}
-                            {!isMunch && <span className="text-sm opacity-80 ml-1">
-                                {isAdmin ? "(∞ left)" : `(${remaining} left)`}
-                            </span>}
-                        </Button>
+                        {/* STEP 3: VIRTUE & MESSAGE */}
+                        {step >= 3 && (
+                            <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                {/* Virtue Selection (Optional) */}
+                                {!isMunch && selectedValue && (
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-semibold text-slate-600">Step 3: Specific Virtue (Optional)</label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {coreValues[selectedValue].virtues.map(virtue => (
+                                                <button
+                                                    key={virtue}
+                                                    onClick={() => setSelectedVirtue(virtue === selectedVirtue ? "" : virtue)}
+                                                    className={`px-3 py-1 rounded-full text-xs font-bold border transition-colors ${selectedVirtue === virtue
+                                                        ? `${coreValues[selectedValue].color} text-white border-transparent`
+                                                        : `bg-white text-slate-600 border-slate-200 hover:border-slate-300`
+                                                        }`}
+                                                >
+                                                    {virtue}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="space-y-2">
+                                    <label className="text-sm font-semibold text-slate-600">Message</label>
+                                    <textarea
+                                        className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none resize-none"
+                                        rows={3}
+                                        placeholder={isMunch ? "Why did the Muncher strike?" : `Thanks for showing ${selectedVirtue || coreValues[selectedValue]?.label || "Values"} by...`}
+                                        value={message}
+                                        onChange={e => setMessage(e.target.value)}
+                                    />
+                                </div>
+
+                                {/* Admin Bulk Controls (Only show in Give Mode) */}
+                                {isAdmin && !isMunch && (
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-semibold text-slate-600 flex items-center gap-2">
+                                            <Zap size={16} className="text-yellow-500" /> Admin Multiplier
+                                        </label>
+                                        <div className="flex gap-2">
+                                            {[1, 2, 5, 10].map(n => (
+                                                <button
+                                                    key={n}
+                                                    onClick={() => setAmount(n)}
+                                                    className={`flex-1 py-2 rounded-lg font-bold text-sm transition-all ${amount === n
+                                                        ? "bg-yellow-400 text-yellow-900 shadow-md scale-105"
+                                                        : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                                                        }`}
+                                                >
+                                                    {n}x
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <Button
+                                    onClick={handleSubmit}
+                                    disabled={!selectedUser || !message || (!isMunch && !selectedValue)}
+                                    className="w-full py-3 text-lg"
+                                    variant={isMunch ? "danger" : "primary"}
+                                >
+                                    {isMunch ? `Feed The Muncher (1 ${EMOJI})` :
+                                        `Give ${amount > 1 ? `${amount} ${EMOJI}` : EMOJI}`}
+                                    {!isMunch && <span className="text-sm opacity-80 ml-1">
+                                        {isAdmin ? "(∞ left)" : `(${remaining} left)`}
+                                    </span>}
+                                </Button>
+                            </div>
+                        )}
                     </>
                 )}
             </Card>
@@ -3514,7 +3788,7 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
     );
 }
 
-function FeedView({ transactions, onReact }) {
+function FeedView({ transactions, onReact, coreValues }) {
     return (
         <div className="space-y-4 animate-in fade-in duration-500">
             <h2 className="text-xl font-bold text-slate-800 px-1">Recent Activity</h2>
@@ -3527,57 +3801,76 @@ function FeedView({ transactions, onReact }) {
                 transactions.map(tx => {
                     const count = tx.amount || 1;
                     const isMunch = tx.fromName === "The Donut Muncher";
+                    const valueData = tx.value && coreValues ? coreValues[tx.value] : null;
 
                     return (
-                        <Card key={tx.id} className={`flex gap-4 relative ${isMunch ? 'bg-red-50 border-red-100' : ''}`}>
-                            <div className={`flex-shrink-0 mt-1 p-2 rounded-full h-10 w-10 flex items-center justify-center text-lg shadow-sm ${isMunch ? 'bg-red-100 text-red-500' : 'bg-pink-100 text-pink-500'}`}>
-                                {tx.emoji || EMOJI}
-                            </div>
-                            <div className="flex-grow pb-6">
-                                <div className="flex flex-wrap items-baseline gap-x-1 mb-1">
-                                    <span className="font-bold text-slate-900">{tx.fromName}</span>
-                                    {tx.toName === "Frosted Friday" || tx.toName === "EVERYONE" || tx.toName === "The Shop" || tx.fromName === "Job Board" || tx.fromName === "Goal" || tx.toName === "Team Goal" ? (
-                                        <span className="text-slate-500 text-sm ml-1">
-                                            {tx.message.includes("activated") ? "announced" :
-                                                tx.message.includes("Purchased") ? "went shopping" :
-                                                    tx.emoji === "📢" ? "announced" : "contributed to"}
-                                        </span>
-                                    ) : isMunch ? (
+                        <Card key={tx.id} className={`relative overflow-hidden ${isMunch ? 'bg-red-50 border-red-100' : ''}`}>
+                            {/* VALUE BADGE HEADER */}
+                            {valueData && (
+                                <div className={`${valueData.lightColor} border-b ${valueData.borderColor} p-2 px-4 flex items-center gap-2 -mx-6 -mt-6 mb-4`}>
+                                    <span className="text-lg">{valueData.icon}</span>
+                                    <span className={`text-xs font-black uppercase tracking-wider ${valueData.textColor}`}>
+                                        {valueData.label}
+                                    </span>
+                                    {tx.virtue && (
                                         <>
-                                            <span className="text-red-500 text-sm mx-1 font-bold">ATE a donut from</span>
-                                            <span className="font-bold text-slate-900">{tx.toName}</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <span className="text-slate-500 text-sm mx-1">
-                                                gave {count > 1 ? <span className="font-bold text-pink-600">{count} donuts</span> : "a donut"} to
+                                            <span className={`${valueData.textColor} opacity-40`}>•</span>
+                                            <span className={`text-xs font-bold ${valueData.textColor}`}>
+                                                {tx.virtue}
                                             </span>
-                                            <span className="font-bold text-slate-900">{tx.toName}</span>
                                         </>
                                     )}
                                 </div>
-                                <p className={`p-2 rounded-lg border italic text-sm ${isMunch ? 'text-red-700 bg-red-100 border-red-200' : 'text-slate-700 bg-slate-50 border-slate-100'}`}>
-                                    "{tx.message}"
-                                </p>
-                                <p className="text-xs text-slate-400 mt-2 text-right">
-                                    {tx.timestamp ? new Date(tx.timestamp.toDate()).toLocaleString() : 'Just now'}
-                                </p>
+                            )}
 
-                                <button
-                                    onClick={() => onReact(tx.id, tx.likes)}
-                                    className="absolute bottom-3 left-16 text-xs bg-white hover:bg-orange-50 border border-slate-200 px-2 py-1 rounded-full flex items-center gap-1 transition-colors"
-                                >
-                                    <Flame size={12} className={tx.likes?.length ? "text-orange-500 fill-orange-500" : "text-slate-400"} />
-                                    <span className={tx.likes?.length ? "text-orange-600 font-bold" : "text-slate-500"}>
-                                        {tx.likes?.length || 0}
-                                    </span>
-                                </button>
+                            <div className="flex gap-4">
+                                <div className={`flex-shrink-0 mt-1 p-2 rounded-full h-10 w-10 flex items-center justify-center text-lg shadow-sm ${isMunch ? 'bg-red-100 text-red-500' : 'bg-pink-100 text-pink-500'}`}>
+                                    {tx.emoji || EMOJI}
+                                </div>
+                                <div className="flex-grow pb-6">
+                                    <div className="flex flex-wrap items-baseline gap-x-1 mb-1">
+                                        <span className="font-bold text-slate-900">{tx.fromName}</span>
+                                        {tx.toName === "Frosted Friday" || tx.toName === "EVERYONE" || tx.toName === "The Shop" || tx.fromName === "Job Board" || tx.fromName === "Goal" || tx.toName === "Team Goal" ? (
+                                            <span className="text-slate-500 text-sm ml-1">
+                                                {tx.message.includes("activated") ? "announced" :
+                                                    tx.message.includes("Purchased") ? "went shopping" :
+                                                        tx.emoji === "📢" ? "announced" : "contributed to"}
+                                            </span>
+                                        ) : isMunch ? (
+                                            <>
+                                                <span className="text-red-500 text-sm mx-1 font-bold">ATE a donut from</span>
+                                                <span className="font-bold text-slate-900">{tx.toName}</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="text-slate-400 text-sm mx-1">recognized</span>
+                                                <span className="font-bold text-slate-900">{tx.toName}</span>
+                                            </>
+                                        )}
+                                    </div>
+                                    <p className={`p-2 rounded-lg border italic text-sm ${isMunch ? 'text-red-700 bg-red-100 border-red-200' : 'text-slate-700 bg-slate-50 border-slate-100'}`}>
+                                        "{tx.message}"
+                                    </p>
+                                    <p className="text-xs text-slate-400 mt-2 text-right">
+                                        {tx.timestamp ? new Date(tx.timestamp.toDate()).toLocaleString() : 'Just now'}
+                                    </p>
+
+                                    <button
+                                        onClick={() => onReact(tx.id, tx.likes)}
+                                        className="absolute bottom-3 left-16 text-xs bg-white hover:bg-orange-50 border border-slate-200 px-2 py-1 rounded-full flex items-center gap-1 transition-colors"
+                                    >
+                                        <Flame size={12} className={tx.likes?.length ? "text-orange-500 fill-orange-500" : "text-slate-400"} />
+                                        <span className={tx.likes?.length ? "text-orange-600 font-bold" : "text-slate-500"}>
+                                            {tx.likes?.length || 0}
+                                        </span>
+                                    </button>
+                                </div>
                             </div>
                         </Card>
                     )
                 })
             )}
-        </div>
+        </div >
     );
 }
 
