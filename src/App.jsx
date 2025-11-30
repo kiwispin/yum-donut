@@ -1701,7 +1701,7 @@ export default function YumDonutApp() {
 
     // --- TYPING DOJO REWARD ---
     // --- TYPING DOJO REWARD ---
-    const handleTrainingReward = async (wpm, accuracy, rewardAmount = 1, badgeToGrant = null, mode = 'scriptwriter') => {
+    const handleTrainingReward = async (wpm, accuracy, rewardAmount = 1, badgeToGrant = null, mode = 'scriptwriter', ninjaCombo = 0) => {
         if (!myProfile) return;
 
         if (isSandbox) {
@@ -1746,7 +1746,7 @@ export default function YumDonutApp() {
                 finalReward = 2;
             }
         } else if (mode === 'shortcut_ninja') {
-            if (maxNinjaCombo >= 20) {
+            if (ninjaCombo >= 20) {
                 finalReward = 2;
             } else {
                 finalReward = 1;
@@ -2106,7 +2106,8 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
     const [ninjaCombo, setNinjaCombo] = useState(0);
     const [maxNinjaCombo, setMaxNinjaCombo] = useState(0);
     const [reactionTimes, setReactionTimes] = useState([]);
-    const [cardTimer, setCardTimer] = useState(3000); // 3s in ms
+    const [cardTimer, setCardTimer] = useState(3000); // Current time in ms
+    const [maxCardTimer, setMaxCardTimer] = useState(3000); // Max time for current card (for progress bar)
     const [cardStartTime, setCardStartTime] = useState(0);
     const [feedbackState, setFeedbackState] = useState(null); // 'correct', 'wrong', null
     const timerRef = useRef(null);
@@ -2147,7 +2148,7 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
                 setCardTimer(prev => {
                     if (prev <= 0) {
                         handleNinjaWrong(true); // Timeout
-                        return 3000; // Reset immediately to prevent multiple calls
+                        return 3000; // Reset to safe default (will be overwritten by nextShortcut)
                     }
                     return prev - 100; // 100ms tick
                 });
@@ -2163,14 +2164,21 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
         setMaxNinjaCombo(0);
         setReactionTimes([]);
         setCardTimer(3000);
+        setMaxCardTimer(3000);
         setGameState('playing');
-        nextShortcut();
+        nextShortcut(0);
     };
 
-    const nextShortcut = () => {
+    const nextShortcut = (comboOverride = null) => {
+        const effectiveCombo = comboOverride !== null ? comboOverride : ninjaCombo;
         const random = RESOLVE_SHORTCUTS[Math.floor(Math.random() * RESOLVE_SHORTCUTS.length)];
+
+        // Dynamic Difficulty: 3000ms base, -100ms per combo, min 1000ms
+        const newDuration = Math.max(1000, 3000 - (effectiveCombo * 100));
+
         setCurrentShortcut(random);
-        setCardTimer(3000);
+        setCardTimer(newDuration);
+        setMaxCardTimer(newDuration);
         setCardStartTime(Date.now());
     };
 
@@ -2198,8 +2206,8 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
 
         setNinjaScore(prev => prev + ((basePoints + speedBonus) * comboMultiplier));
 
-        // Next Card
-        nextShortcut();
+        // Next Card (Pass new combo for difficulty scaling)
+        nextShortcut(ninjaCombo + 1);
     };
 
     const handleNinjaWrong = (isTimeout = false) => {
@@ -2215,7 +2223,7 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
             if (newLives <= 0) {
                 endNinjaGame();
             } else {
-                nextShortcut(); // Move to next card even on fail
+                nextShortcut(0); // Reset difficulty on fail
             }
             return newLives;
         });
@@ -2225,7 +2233,7 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
         clearInterval(timerRef.current);
         setGameState('finished');
         if (ninjaScore >= 1000 && user.typing_license) {
-            onReward(0, 0, 1, null, mode); // 0 WPM/Acc, just 1 donut reward
+            onReward(0, 0, 1, null, mode, maxNinjaCombo); // Pass maxNinjaCombo for reward calculation
         }
     };
 
@@ -2460,7 +2468,7 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
                                 <div className="absolute top-0 left-0 right-0 h-2 bg-slate-100 rounded-full overflow-hidden">
                                     <div
                                         className="h-full bg-slate-800 transition-all duration-100 ease-linear"
-                                        style={{ width: `${(cardTimer / 3000) * 100}%` }}
+                                        style={{ width: `${(cardTimer / maxCardTimer) * 100}%` }}
                                     />
                                 </div>
 
