@@ -1699,6 +1699,19 @@ export default function YumDonutApp() {
         }
     };
 
+    const handleDeleteTransaction = async (transactionId) => {
+        if (!isAdmin) return;
+        if (!confirm("Are you sure you want to delete this message? This will NOT reverse the transaction.")) return;
+
+        try {
+            await deleteDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'transactions', transactionId));
+            showNotification("Message deleted from feed.");
+        } catch (e) {
+            console.error(e);
+            showNotification("Failed to delete message.", "error");
+        }
+    };
+
     // --- TYPING DOJO REWARD ---
     // --- TYPING DOJO REWARD ---
     const handleTrainingReward = async (wpm, accuracy, rewardAmount = 1, badgeToGrant = null, mode = 'scriptwriter', ninjaCombo = 0) => {
@@ -2060,7 +2073,13 @@ export default function YumDonutApp() {
                 )}
 
                 {view === 'feed' && (
-                    <FeedView transactions={transactions} onReact={handleReaction} coreValues={CORE_VALUES} />
+                    <FeedView
+                        transactions={transactions}
+                        onReact={handleReaction}
+                        coreValues={CORE_VALUES}
+                        onDelete={handleDeleteTransaction}
+                        currentUser={myProfile}
+                    />
                 )}
 
                 {view === 'leaderboard' && (
@@ -3814,7 +3833,9 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
     );
 }
 
-function FeedView({ transactions, onReact, coreValues }) {
+function FeedView({ transactions, onReact, coreValues, onDelete, currentUser }) {
+    const isAdmin = currentUser?.name === "Mr Rayner";
+
     return (
         <div className="space-y-4 animate-in fade-in duration-500">
             <h2 className="text-xl font-bold text-slate-800 px-1">Recent Activity</h2>
@@ -3830,7 +3851,16 @@ function FeedView({ transactions, onReact, coreValues }) {
                     const valueData = tx.value && coreValues ? coreValues[tx.value] : null;
 
                     return (
-                        <Card key={tx.id} className={`relative overflow-hidden ${isMunch ? 'bg-red-50 border-red-100' : ''}`}>
+                        <Card key={tx.id} className={`relative overflow-hidden group ${isMunch ? 'bg-red-50 border-red-100' : ''}`}>
+                            {isAdmin && (
+                                <button
+                                    onClick={() => onDelete(tx.id)}
+                                    className="absolute top-2 right-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all z-10 p-1"
+                                    title="Delete Message"
+                                >
+                                    <Trash2 size={16} />
+                                </button>
+                            )}
                             {/* VALUE BADGE HEADER */}
                             {valueData && (
                                 <div className={`${valueData.lightColor} border-b ${valueData.borderColor} p-2 px-4 flex items-center gap-2 -mx-6 -mt-6 mb-4`}>
