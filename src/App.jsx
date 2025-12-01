@@ -87,18 +87,48 @@ const MEDIA_EMOJIS = [
 // 5. Pixel Avatar Palette
 const PIXEL_PALETTE = [
     { name: 'Black', hex: '#000000' },
-    { name: 'White', hex: '#FFFFFF' },
+    { name: 'Pink', hex: '#FF9FF3' },
+    { name: 'Purple', hex: '#D6A2E8' },
+    { name: 'Cyan', hex: '#48DBFB' },
+    { name: 'Teal', hex: '#1DD1A1' },
+    { name: 'Lime', hex: '#BADC58' },
+    { name: 'Yellow', hex: '#FDCB6E' },
+    { name: 'Orange', hex: '#FFA502' },
     { name: 'Red', hex: '#FF6B6B' },
-    { name: 'Blue', hex: '#4ECDC4' },
-    { name: 'Yellow', hex: '#FFE66D' },
-    { name: 'Green', hex: '#95E1D3' },
-    { name: 'Orange', hex: '#FFA07A' },
-    { name: 'Purple', hex: '#C77DFF' },
-    { name: 'Skin', hex: '#FFDBAC' },
-    { name: 'Brown', hex: '#8B4513' },
-    { name: 'Gray', hex: '#95A5A6' },
-    { name: 'Pink', hex: '#FF69B4' },
+    { name: 'Brown', hex: '#834C32' },
+    { name: 'Grey', hex: '#576574' }
 ];
+
+const SYSTEM_AVATARS = {
+    "Typing Dojo": {
+        pixels: [
+            null, "#576574", "#576574", "#576574", "#576574", "#576574", "#576574", null,
+            null, "#576574", "#1DD1A1", "#1DD1A1", "#1DD1A1", "#1DD1A1", "#576574", null,
+            null, "#576574", "#1DD1A1", "#1DD1A1", "#1DD1A1", "#1DD1A1", "#576574", null,
+            null, "#576574", "#576574", "#576574", "#576574", "#576574", "#576574", null,
+            null, null, null, "#576574", "#576574", null, null, null,
+            null, "#576574", "#576574", "#576574", "#576574", "#576574", "#576574", null,
+            null, "#576574", "#000000", "#576574", "#576574", "#000000", "#576574", null,
+            null, null, null, null, null, null, null, null
+        ],
+        gridSize: 8,
+        color: "#2c3e50"
+    },
+    "The Donut Muncher": {
+        pixels: [
+            null, null, "#FF6B6B", "#FF6B6B", "#FF6B6B", "#FF6B6B", null, null,
+            null, "#FF6B6B", "#FF6B6B", "#FF6B6B", "#FF6B6B", "#FF6B6B", "#FF6B6B", null,
+            "#FF6B6B", "#000000", "#FF6B6B", "#FF6B6B", "#FF6B6B", "#000000", "#FF6B6B", "#FF6B6B",
+            "#FF6B6B", "#FF6B6B", "#FF6B6B", "#FF6B6B", "#FF6B6B", "#FF6B6B", "#FF6B6B", "#FF6B6B",
+            null, "#FF6B6B", "#000000", "#FF6B6B", "#000000", "#FF6B6B", null, null,
+            null, null, "#FF6B6B", null, "#FF6B6B", null, null, null,
+            null, "#FF6B6B", null, null, null, "#FF6B6B", null, null,
+            null, null, null, null, null, null, null, null
+        ],
+        gridSize: 8,
+        color: "#000000"
+    }
+};
 
 // 4. Shop Inventory
 const SHOP_ITEMS = [
@@ -3016,48 +3046,37 @@ function PatchNotesModal({ onClose }) {
                 <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
                     <div className="space-y-2">
                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <Heart className="text-teal-500" size={20} /> Values & Virtues
+                            <Edit2 className="text-pink-500" size={20} /> Pixel Art Studio
                         </h3>
                         <p className="text-slate-600 text-sm">
-                            Giving donuts just got deeper! You can now tag your gift with one of our 4 Core Values: <strong>Whanaungatanga</strong>, <strong>Ekea</strong>, <strong>Raakau</strong>, or <strong>Ora</strong>. 🌿
+                            Unleash your creativity! Click the <strong>Pencil Icon</strong> (next to settings) to draw your own custom 8x8 or 16x16 pixel avatar. It shows up everywhere! 🎨
                         </p>
                     </div>
 
                     <div className="space-y-2">
                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <Users className="text-pink-500" size={20} /> Live Studio
+                            <Zap className="text-yellow-500" size={20} /> Ninja Mode Tuned
                         </h3>
                         <p className="text-slate-600 text-sm">
-                            The new <strong>Live Dock</strong> at the top shows you who is online right now!
-                            <br />
-                            <span className="text-xs italic text-slate-500">* Only active users appear in the VIP Lounge.</span>
+                            Think you're fast? Ninja mode now gets <strong>faster</strong> as your combo grows. Plus, at Combo 20, the hints disappear! Good luck. 🥋
                         </p>
                     </div>
 
                     <div className="space-y-2">
                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <Edit2 className="text-purple-500" size={20} /> Pixel Avatars
+                            <MessageSquare className="text-blue-500" size={20} /> Feed Upgrade
                         </h3>
                         <p className="text-slate-600 text-sm">
-                            Visit the <strong>Dressing Room</strong> (click the pencil or your avatar) to customize your retro look with new colors and icons! 🎨
+                            The feed now displays everyone's custom pixel avatars. See who's who at a glance! 👀
                         </p>
                     </div>
 
                     <div className="space-y-2">
                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <Trophy className="text-yellow-500" size={20} /> Shiny Goals
+                            <Users className="text-teal-500" size={20} /> Live Dock
                         </h3>
                         <p className="text-slate-600 text-sm">
-                            When we hit the target, the goal card now turns <strong>GOLD</strong> to celebrate! 🏆
-                        </p>
-                    </div>
-
-                    <div className="space-y-2">
-                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <Target className="text-red-500" size={20} /> Sudden Death Fixed
-                        </h3>
-                        <p className="text-slate-600 text-sm">
-                            Fixed the blank screen issue in Sudden Death mode. Get back in there and earn those 10 donuts!
+                            See who is online in real-time with the new Live Dock at the top of the screen. 🟢
                         </p>
                     </div>
                 </div>
@@ -3067,8 +3086,8 @@ function PatchNotesModal({ onClose }) {
                         Got it!
                     </Button>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }
 
@@ -4087,6 +4106,7 @@ function FeedView({ transactions, onReact, coreValues, onDelete, currentUser, us
 
                     // Find sender user data for avatar
                     const senderUser = users?.find(u => u.name === tx.fromName);
+                    const systemAvatar = SYSTEM_AVATARS[tx.fromName];
 
                     return (
                         <Card key={tx.id} className={`relative overflow-hidden group ${isMunch ? 'bg-red-50 border-red-100' : ''}`}>
@@ -4119,19 +4139,13 @@ function FeedView({ transactions, onReact, coreValues, onDelete, currentUser, us
 
                             <div className="flex gap-4">
                                 <div className="flex-shrink-0 mt-1">
-                                    {isMunch ? (
-                                        <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-lg shadow-sm text-red-500">
-                                            {tx.emoji || EMOJI}
-                                        </div>
-                                    ) : (
-                                        <PixelArtAvatar
-                                            pixels={senderUser?.avatar_pixels}
-                                            gridSize={senderUser?.avatar_grid_size}
-                                            size={40}
-                                            fallbackInitials={tx.fromName?.charAt(0).toUpperCase()}
-                                            fallbackColor={senderUser?.avatar_color}
-                                        />
-                                    )}
+                                    <PixelArtAvatar
+                                        pixels={systemAvatar ? systemAvatar.pixels : senderUser?.avatar_pixels}
+                                        gridSize={systemAvatar ? systemAvatar.gridSize : senderUser?.avatar_grid_size}
+                                        size={40}
+                                        fallbackInitials={tx.fromName?.charAt(0).toUpperCase()}
+                                        fallbackColor={systemAvatar ? systemAvatar.color : senderUser?.avatar_color}
+                                    />
                                 </div>
                                 <div className="flex-grow pb-6">
                                     <div className="flex flex-wrap items-baseline gap-x-1 mb-1">
