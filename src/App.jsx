@@ -84,6 +84,22 @@ const MEDIA_EMOJIS = [
     '💡', '🔌', '🔋', '📡', '🕹️', '👾', '🚀', '⭐', '🎵', '🎹'
 ];
 
+// 5. Pixel Avatar Palette
+const PIXEL_PALETTE = [
+    { name: 'Black', hex: '#000000' },
+    { name: 'White', hex: '#FFFFFF' },
+    { name: 'Red', hex: '#FF6B6B' },
+    { name: 'Blue', hex: '#4ECDC4' },
+    { name: 'Yellow', hex: '#FFE66D' },
+    { name: 'Green', hex: '#95E1D3' },
+    { name: 'Orange', hex: '#FFA07A' },
+    { name: 'Purple', hex: '#C77DFF' },
+    { name: 'Skin', hex: '#FFDBAC' },
+    { name: 'Brown', hex: '#8B4513' },
+    { name: 'Gray', hex: '#95A5A6' },
+    { name: 'Pink', hex: '#FF69B4' },
+];
+
 // 4. Shop Inventory
 const SHOP_ITEMS = [
     { id: 'raffle_ticket', name: 'Weekly Raffle Ticket', cost: 2, icon: '🎟️', desc: 'Win the FRIDAY JACKPOT! (Prize: 2 items from the box).', type: 'physical' },
@@ -276,28 +292,8 @@ const NavBtn = ({ icon: Icon, label, active, onClick, badge }) => (
 
 // --- LIVE STUDIO COMPONENTS ---
 
-const PixelAvatar = ({ icon, color, isOnline, size = 'md', onClick }) => {
-    const sizeClasses = {
-        sm: 'w-8 h-8 text-sm',
-        md: 'w-12 h-12 text-xl',
-        lg: 'w-24 h-24 text-4xl'
-    };
 
-    return (
-        <div
-            onClick={onClick}
-            className={`relative ${sizeClasses[size]} flex items-center justify-center rounded-lg border-2 border-slate-900 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-transform hover:scale-105 cursor-pointer select-none`}
-            style={{ backgroundColor: color }}
-        >
-            <div className="drop-shadow-md filter">{icon}</div>
-            {isOnline && (
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 border-2 border-slate-900 rounded-full animate-pulse shadow-sm"></div>
-            )}
-        </div>
-    );
-};
-
-const LiveDock = ({ users, currentUser, onEditProfile }) => {
+const LiveDock = ({ users, currentUser, onEditProfile, onEditPixels }) => {
     if (!ENABLE_LIVE_STUDIO) return null;
 
     // Filter for ONLINE users only (active in last 5 mins)
@@ -325,14 +321,15 @@ const LiveDock = ({ users, currentUser, onEditProfile }) => {
                 {/* Current User (Always Visible for Editing) */}
                 {currentUser && (
                     <div className="group relative mr-4">
-                        <PixelAvatar
-                            icon={currentUser.live_avatar_icon || '👤'}
-                            color={currentUser.live_avatar_color || '#9CA3AF'}
-                            isOnline={true}
-                            onClick={onEditProfile}
+                        <PixelArtAvatar
+                            pixels={currentUser.avatar_pixels}
+                            gridSize={currentUser.avatar_grid_size}
+                            size={48}
+                            fallbackInitials={currentUser.name.charAt(0).toUpperCase()}
+                            fallbackColor={currentUser.avatar_color}
                         />
                         <div
-                            onClick={onEditProfile}
+                            onClick={onEditPixels}
                             className="absolute -bottom-1 -right-1 bg-white text-slate-900 rounded-full p-0.5 border border-slate-900 shadow-sm group-hover:scale-110 transition-transform cursor-pointer"
                         >
                             <Edit2 size={10} />
@@ -353,11 +350,12 @@ const LiveDock = ({ users, currentUser, onEditProfile }) => {
                 {otherOnlineUsers.length > 0 ? (
                     otherOnlineUsers.map(u => (
                         <div key={u.name} className="group relative animate-in fade-in slide-in-from-right-4 duration-500">
-                            <PixelAvatar
-                                icon={u.live_avatar_icon || '👤'}
-                                color={u.live_avatar_color || '#9CA3AF'}
-                                isOnline={true}
-                                size="sm"
+                            <PixelArtAvatar
+                                pixels={u.avatar_pixels}
+                                gridSize={u.avatar_grid_size}
+                                size={32}
+                                fallbackInitials={u.name.charAt(0).toUpperCase()}
+                                fallbackColor={u.avatar_color}
                             />
                             {/* Tooltip */}
                             <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
@@ -649,6 +647,9 @@ export default function YumDonutApp() {
     // Live Studio State
     const [isDressingRoomOpen, setIsDressingRoomOpen] = useState(false);
 
+    // Pixel Avatar State
+    const [isPixelStudioOpen, setIsPixelStudioOpen] = useState(false);
+
     const isAdmin = myProfile?.name === "Mr Rayner";
 
     const showNotification = (msg, type = "success") => {
@@ -903,6 +904,9 @@ export default function YumDonutApp() {
             sudden_death_won: false,
             typing_license: false,
             avatar_color: avatarColor,
+            // Pixel Avatar Fields
+            avatar_pixels: [],
+            avatar_grid_size: 8,
             // Live Studio Fields
             live_avatar_color: randomColor,
             live_avatar_icon: randomEmoji,
@@ -1866,6 +1870,32 @@ export default function YumDonutApp() {
         }
     };
 
+    const handleSavePixelAvatar = async (pixels, gridSize) => {
+        if (!myProfile || !user) return;
+
+        console.log("Saving avatar...", { pixelsLength: pixels.length, gridSize });
+
+        try {
+            const userRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
+            const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
+
+            const updateData = {
+                avatar_pixels: pixels,
+                avatar_grid_size: gridSize
+            };
+
+            // Use setDoc with merge for robustness
+            await setDoc(userRef, updateData, { merge: true });
+            await setDoc(publicRef, updateData, { merge: true });
+
+            console.log("Avatar saved to both private and public docs.");
+            showNotification("Avatar saved!");
+        } catch (e) {
+            console.error("Save failed:", e);
+            showNotification("Failed to save avatar.", "error");
+        }
+    };
+
 
     if (loading) return (
         <div className="flex items-center justify-center min-h-screen bg-pink-50">
@@ -1885,6 +1915,7 @@ export default function YumDonutApp() {
                 users={users}
                 currentUser={myProfile}
                 onEditProfile={() => setIsDressingRoomOpen(true)}
+                onEditPixels={() => setIsPixelStudioOpen(true)}
             />
 
             <div className="bg-white border-b border-slate-200 sticky top-0 z-10 px-4 py-3 flex justify-between items-center shadow-sm">
@@ -1931,6 +1962,13 @@ export default function YumDonutApp() {
                                 </button>
                             )}
                             <button
+                                onClick={() => setIsPixelStudioOpen(true)}
+                                className="text-slate-400 hover:text-pink-600 transition-colors"
+                                title="Edit Pixel Avatar"
+                            >
+                                <Edit2 size={14} />
+                            </button>
+                            <button
                                 onClick={() => setIsDressingRoomOpen(true)}
                                 className="text-slate-400 hover:text-slate-600 transition-colors"
                             >
@@ -1945,12 +1983,17 @@ export default function YumDonutApp() {
                         </p>
                     </div>
                     <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-inner cursor-pointer hover:opacity-80 transition-opacity"
-                        style={{ backgroundColor: myProfile.avatar_color }}
+                        className="cursor-pointer hover:opacity-80 transition-opacity"
                         title="Click to Logout"
                         onClick={handleLogout}
                     >
-                        {myProfile.name.charAt(0).toUpperCase()}
+                        <PixelArtAvatar
+                            pixels={myProfile.avatar_pixels}
+                            gridSize={myProfile.avatar_grid_size}
+                            size={40}
+                            fallbackInitials={myProfile.name.charAt(0).toUpperCase()}
+                            fallbackColor={myProfile.avatar_color}
+                        />
                     </div>
                 </div>
             </div>
@@ -1966,6 +2009,15 @@ export default function YumDonutApp() {
                 <RosterManagerModal
                     onClose={() => setIsRosterManagerOpen(false)}
                     roster={roster}
+                />
+            )}
+
+            {isPixelStudioOpen && (
+                <PixelStudioModal
+                    onClose={() => setIsPixelStudioOpen(false)}
+                    currentPixels={myProfile.avatar_pixels}
+                    currentGridSize={myProfile.avatar_grid_size}
+                    onSave={handleSavePixelAvatar}
                 />
             )}
 
@@ -2079,6 +2131,7 @@ export default function YumDonutApp() {
                         coreValues={CORE_VALUES}
                         onDelete={handleDeleteTransaction}
                         currentUser={myProfile}
+                        users={users}
                     />
                 )}
 
@@ -2646,6 +2699,188 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
                     </div>
                 </Card>
             )}
+        </div>
+    );
+}
+
+// --- PIXEL AVATAR COMPONENTS ---
+
+function PixelArtAvatar({ pixels, gridSize, size = 40, fallbackInitials, fallbackColor }) {
+    // If no pixels, show initials fallback
+    if (!pixels || pixels.length === 0) {
+        return (
+            <div
+                className="rounded-full flex items-center justify-center font-bold text-white shadow-sm"
+                style={{ width: size, height: size, backgroundColor: fallbackColor || '#94a3b8', fontSize: size * 0.4 }}
+            >
+                {fallbackInitials}
+            </div>
+        );
+    }
+
+    const pixelSize = size / gridSize;
+
+    return (
+        <div
+            className="shadow-sm"
+            style={{
+                display: 'grid',
+                gridTemplateColumns: `repeat(${gridSize}, ${pixelSize}px)`,
+                width: size,
+                height: size,
+                borderRadius: '4px',
+                overflow: 'hidden'
+            }}
+        >
+            {pixels.map((color, index) => (
+                <div
+                    key={index}
+                    style={{ backgroundColor: color || '#FFFFFF' }}
+                />
+            ))}
+        </div>
+    );
+}
+
+function PixelStudioModal({ onClose, currentPixels, currentGridSize, onSave }) {
+    const [gridSize, setGridSize] = useState(currentGridSize || 8);
+    const [pixels, setPixels] = useState([]);
+    const [selectedColor, setSelectedColor] = useState('#000000');
+    const [isDrawing, setIsDrawing] = useState(false);
+
+    useEffect(() => {
+        // Initialize or resize grid
+        const totalPixels = gridSize * gridSize;
+        if (currentPixels && currentPixels.length === totalPixels) {
+            setPixels(currentPixels);
+        } else {
+            // Create new grid or resize
+            const newPixels = Array(totalPixels).fill('#FFFFFF');
+            setPixels(newPixels);
+        }
+    }, [gridSize]);
+
+    const handlePixelClick = (index) => {
+        const newPixels = [...pixels];
+        newPixels[index] = selectedColor;
+        setPixels(newPixels);
+    };
+
+    const handleMouseDown = (index) => {
+        setIsDrawing(true);
+        handlePixelClick(index);
+    };
+
+    const handleMouseEnter = (index) => {
+        if (isDrawing) {
+            handlePixelClick(index);
+        }
+    };
+
+    const handleMouseUp = () => {
+        setIsDrawing(false);
+    };
+
+    const handleClear = () => {
+        setPixels(Array(gridSize * gridSize).fill('#FFFFFF'));
+    };
+
+    const handleSave = () => {
+        onSave(pixels, gridSize);
+        onClose();
+    };
+
+    const gridDisplaySize = gridSize === 8 ? 320 : 320; // Keep same display size
+    const pixelSize = gridDisplaySize / gridSize;
+
+    return (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in duration-200" onClick={(e) => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-2xl font-bold text-slate-800">🎨 Pixel Studio</h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+                        <XCircle size={24} />
+                    </button>
+                </div>
+
+                {/* Grid Size Toggle */}
+                <div className="flex justify-center gap-2 mb-4">
+                    <button
+                        onClick={() => setGridSize(8)}
+                        className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${gridSize === 8 ? 'bg-pink-500 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                    >
+                        8x8 (Easy)
+                    </button>
+                    <button
+                        onClick={() => setGridSize(16)}
+                        className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${gridSize === 16 ? 'bg-pink-500 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                    >
+                        16x16 (Detailed)
+                    </button>
+                </div>
+
+                {/* Canvas */}
+                <div className="flex justify-center mb-4">
+                    <div
+                        className="border-2 border-slate-300 rounded-lg overflow-hidden shadow-md"
+                        style={{
+                            display: 'grid',
+                            gridTemplateColumns: `repeat(${gridSize}, ${pixelSize}px)`,
+                            width: gridDisplaySize,
+                            height: gridDisplaySize,
+                            userSelect: 'none'
+                        }}
+                        onMouseUp={handleMouseUp}
+                        onMouseLeave={handleMouseUp}
+                    >
+                        {pixels.map((color, index) => (
+                            <div
+                                key={index}
+                                style={{
+                                    backgroundColor: color,
+                                    cursor: 'crosshair',
+                                    border: '1px solid rgba(0,0,0,0.05)'
+                                }}
+                                onMouseDown={() => handleMouseDown(index)}
+                                onMouseEnter={() => handleMouseEnter(index)}
+                                onTouchStart={() => handlePixelClick(index)}
+                            />
+                        ))}
+                    </div>
+                </div>
+
+                {/* Color Palette */}
+                <div className="flex flex-wrap gap-2 justify-center mb-4">
+                    {PIXEL_PALETTE.map((color) => (
+                        <button
+                            key={color.hex}
+                            onClick={() => setSelectedColor(color.hex)}
+                            className={`w-10 h-10 rounded-full border-2 transition-all ${selectedColor === color.hex ? 'border-slate-800 scale-110 shadow-lg' : 'border-slate-200 hover:scale-105'
+                                }`}
+                            style={{ backgroundColor: color.hex }}
+                            title={color.name}
+                        />
+                    ))}
+                </div>
+
+                {/* Controls */}
+                <div className="flex gap-2">
+                    <button
+                        onClick={handleClear}
+                        className="flex-1 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg font-bold hover:bg-slate-200 transition-colors"
+                    >
+                        Clear
+                    </button>
+                    <button
+                        onClick={handleSave}
+                        className="flex-1 px-4 py-2 bg-pink-500 text-white rounded-lg font-bold hover:bg-pink-600 transition-colors shadow-md"
+                    >
+                        Save Avatar
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }
@@ -3833,7 +4068,7 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
     );
 }
 
-function FeedView({ transactions, onReact, coreValues, onDelete, currentUser }) {
+function FeedView({ transactions, onReact, coreValues, onDelete, currentUser, users }) {
     const isAdmin = currentUser?.name === "Mr Rayner";
 
     return (
@@ -3849,6 +4084,9 @@ function FeedView({ transactions, onReact, coreValues, onDelete, currentUser }) 
                     const count = tx.amount || 1;
                     const isMunch = tx.fromName === "The Donut Muncher";
                     const valueData = tx.value && coreValues ? coreValues[tx.value] : null;
+
+                    // Find sender user data for avatar
+                    const senderUser = users?.find(u => u.name === tx.fromName);
 
                     return (
                         <Card key={tx.id} className={`relative overflow-hidden group ${isMunch ? 'bg-red-50 border-red-100' : ''}`}>
@@ -3880,8 +4118,20 @@ function FeedView({ transactions, onReact, coreValues, onDelete, currentUser }) 
                             )}
 
                             <div className="flex gap-4">
-                                <div className={`flex-shrink-0 mt-1 p-2 rounded-full h-10 w-10 flex items-center justify-center text-lg shadow-sm ${isMunch ? 'bg-red-100 text-red-500' : 'bg-pink-100 text-pink-500'}`}>
-                                    {tx.emoji || EMOJI}
+                                <div className="flex-shrink-0 mt-1">
+                                    {isMunch ? (
+                                        <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-lg shadow-sm text-red-500">
+                                            {tx.emoji || EMOJI}
+                                        </div>
+                                    ) : (
+                                        <PixelArtAvatar
+                                            pixels={senderUser?.avatar_pixels}
+                                            gridSize={senderUser?.avatar_grid_size}
+                                            size={40}
+                                            fallbackInitials={tx.fromName?.charAt(0).toUpperCase()}
+                                            fallbackColor={senderUser?.avatar_color}
+                                        />
+                                    )}
                                 </div>
                                 <div className="flex-grow pb-6">
                                     <div className="flex flex-wrap items-baseline gap-x-1 mb-1">
@@ -3937,6 +4187,8 @@ function LeaderboardView({ users, roster }) {
             name: name,
             balance: userData ? userData.balance : 0,
             avatar_color: userData ? userData.avatar_color : '#cbd5e1',
+            avatar_pixels: userData ? userData.avatar_pixels : [],
+            avatar_grid_size: userData ? userData.avatar_grid_size : 8,
             rainbow_name: userData ? userData.rainbow_name : false,
             gold_border: userData ? userData.gold_border : false,
             silver_border: userData ? userData.silver_border : false,
@@ -3967,8 +4219,14 @@ function LeaderboardView({ users, roster }) {
                                 {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}
                             </div>
                             <div className="mx-4">
-                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm ${u.gold_border ? 'gold-border' : u.silver_border ? 'silver-border' : ''}`} style={{ background: u.avatar_color }}>
-                                    {u.name[0]}
+                                <div className={`${u.gold_border ? 'gold-border' : u.silver_border ? 'silver-border' : ''}`}>
+                                    <PixelArtAvatar
+                                        pixels={u.avatar_pixels}
+                                        gridSize={u.avatar_grid_size}
+                                        size={40}
+                                        fallbackInitials={u.name[0]}
+                                        fallbackColor={u.avatar_color}
+                                    />
                                 </div>
                             </div>
                             <div className="flex-grow min-w-0">
