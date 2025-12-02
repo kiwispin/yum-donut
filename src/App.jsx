@@ -3055,6 +3055,8 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
                     </div>
                 </Card>
             )}
+            {/* MODALS */}
+            {isStatsOpen && <TypingStatsModal onClose={() => setIsStatsOpen(false)} />}
         </div>
     );
 }
