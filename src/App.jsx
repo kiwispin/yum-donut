@@ -192,7 +192,7 @@ const MOVIE_QUOTES = [
     { text: "You had me at 'hello'.", source: "Jerry Maguire (1996)", reward: 1 },
     { text: "It ain't about how hard you hit. It's about how hard you can get hit and keep moving forward.", source: "Rocky Balboa (2006)", reward: 5 },
     { text: "We will not go quietly into the night! We will not vanish without a fight! We're going to live on!", source: "Independence Day (1996)", reward: 5 },
-    { text: "All we have to decide is what to do with the time that is given us.", source: "The Lord of the Rings: The Fellowship of the Ring (2001)", reward: 5 },
+    { text: "All we have to decide is what to do with the time that is given us.", source: "The Lord of the Rings: The Fellowship of the Ring (2001)", reward: 1 },
 ];
 
 const TRAINING_QUOTES = [
