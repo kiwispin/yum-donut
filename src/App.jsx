@@ -821,8 +821,11 @@ function ClawMachine({ user, onWin, lastPlayed }) {
 }
 
 function ArcadeView({ user, onWinBonus }) {
+    const [isTypingDefenceOpen, setIsTypingDefenceOpen] = useState(false);
+
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {isTypingDefenceOpen && <TypingDefenceModal onClose={() => setIsTypingDefenceOpen(false)} />}
             <div className="text-center mb-6">
                 <h2 className="text-3xl font-black text-slate-800 flex items-center justify-center gap-3">
                     <span className="text-4xl">🕹️</span> THE ARCADE
@@ -848,11 +851,24 @@ function ArcadeView({ user, onWinBonus }) {
                     </div>
                 </Card>
 
-                {/* Coming Soon Cards */}
-                <Card className="col-span-1 border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center p-8 opacity-60">
-                    <div className="text-4xl mb-4 grayscale">👾</div>
-                    <h3 className="text-lg font-bold text-slate-400">Typing Defence</h3>
-                    <p className="text-xs text-slate-400 uppercase mt-1">Coming Soon</p>
+                {/* Game Card: Typing Defence */}
+                <Card className="col-span-1 border-4 border-green-500 bg-black overflow-hidden relative group shadow-[0_0_15px_rgba(34,197,94,0.3)]">
+                    <div className="absolute top-0 right-0 bg-green-500 text-black text-xs font-bold px-2 py-1 rounded-bl-lg z-10 animate-pulse">
+                        NEW
+                    </div>
+                    <div className="p-6 flex flex-col items-center text-center h-full justify-between">
+                        <div>
+                            <h3 className="text-xl font-black text-green-400 mb-1 text-center font-mono tracking-tighter">TYPING DEFENCE</h3>
+                            <p className="text-xs text-green-600 font-bold uppercase tracking-wider mb-4 text-center">Protect the Base!</p>
+                            <div className="text-4xl mb-4 animate-bounce">👾</div>
+                        </div>
+                        <Button
+                            onClick={() => setIsTypingDefenceOpen(true)}
+                            className="w-full bg-green-600 hover:bg-green-500 text-black font-bold font-mono border-b-4 border-green-800 active:border-b-0 active:translate-y-1"
+                        >
+                            INSERT COIN
+                        </Button>
+                    </div>
                 </Card>
 
                 <Card className="col-span-1 border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center p-8 opacity-60">
@@ -4715,6 +4731,199 @@ function TypingStatsModal({ onClose }) {
                         </table>
                     )}
                 </div>
+            </div>
+        </div>
+    );
+}
+
+function TypingDefenceModal({ onClose }) {
+    const [gameState, setGameState] = useState('start'); // start, playing, gameover
+    const [score, setScore] = useState(0);
+    const [lives, setLives] = useState(3);
+    const [enemies, setEnemies] = useState([]);
+    const [inputValue, setInputValue] = useState("");
+    const [level, setLevel] = useState(1);
+    const inputRef = useRef(null);
+    const requestRef = useRef();
+    const lastSpawnTime = useRef(0);
+
+    // Game Constants
+    const SPAWN_RATE = Math.max(1000, 3000 - (level * 200)); // Spawns faster as level increases
+    const FALL_SPEED = 0.5 + (level * 0.1);
+
+    // Word List
+    const WORDS = [
+        "SPACE", "LASER", "ALIEN", "SHIP", "STAR", "MOON", "MARS", "VOID", "WARP", "BEAM",
+        "COMET", "ASTRO", "SOLAR", "LUNAR", "ORBIT", "GRAVITY", "ROCKET", "GALAXY", "NEBULA", "COSMOS",
+        "PLANET", "METEOR", "CRATER", "PULSAR", "QUASAR", "ZODIAC", "ZENITH", "VECTOR", "VORTEX", "PHOTON"
+    ];
+
+    useEffect(() => {
+        if (gameState === 'playing') {
+            inputRef.current?.focus();
+            requestRef.current = requestAnimationFrame(gameLoop);
+        }
+        return () => cancelAnimationFrame(requestRef.current);
+    }, [gameState, enemies, level]);
+
+    const spawnEnemy = () => {
+        const word = WORDS[Math.floor(Math.random() * WORDS.length)];
+        const id = Date.now() + Math.random();
+        // Random X position (percentage 10-90 to keep inside)
+        const x = 10 + Math.random() * 80;
+        setEnemies(prev => [...prev, { id, word, x, y: -10 }]); // Start above screen
+    };
+
+    const gameLoop = (time) => {
+        if (gameState !== 'playing') return;
+
+        // Spawn Logic
+        if (time - lastSpawnTime.current > SPAWN_RATE) {
+            spawnEnemy();
+            lastSpawnTime.current = time;
+        }
+
+        // Move Enemies & Check Collisions
+        setEnemies(prev => {
+            const nextEnemies = [];
+            let lifeLost = false;
+
+            prev.forEach(enemy => {
+                const newY = enemy.y + FALL_SPEED;
+                if (newY > 90) { // Hit bottom (base)
+                    lifeLost = true;
+                } else {
+                    nextEnemies.push({ ...enemy, y: newY });
+                }
+            });
+
+            if (lifeLost) {
+                setLives(l => {
+                    const newLives = l - 1;
+                    if (newLives <= 0) setGameState('gameover');
+                    return newLives;
+                });
+            }
+
+            return nextEnemies;
+        });
+
+        if (lives > 0) {
+            requestRef.current = requestAnimationFrame(gameLoop);
+        }
+    };
+
+    const handleInput = (e) => {
+        const val = e.target.value.toUpperCase();
+        setInputValue(val);
+
+        // Check for match
+        const matchIndex = enemies.findIndex(enemy => enemy.word === val);
+        if (matchIndex !== -1) {
+            // Destroy Enemy
+            const enemy = enemies[matchIndex];
+            setEnemies(prev => prev.filter(e => e.id !== enemy.id));
+            setScore(s => s + (enemy.word.length * 10));
+            setInputValue(""); // Clear input
+
+            // Level Up every 500 points
+            if ((score + (enemy.word.length * 10)) % 500 === 0) {
+                setLevel(l => l + 1);
+            }
+        }
+    };
+
+    const startGame = () => {
+        setScore(0);
+        setLives(3);
+        setEnemies([]);
+        setInputValue("");
+        setLevel(1);
+        setGameState('playing');
+        lastSpawnTime.current = performance.now();
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 font-mono" onClick={onClose}>
+            <div className="relative w-full max-w-2xl h-[600px] bg-slate-900 border-4 border-green-500 rounded-lg shadow-[0_0_50px_rgba(34,197,94,0.2)] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+
+                {/* Header UI */}
+                <div className="absolute top-0 left-0 right-0 p-4 flex justify-between text-green-400 z-10 pointer-events-none bg-gradient-to-b from-black/80 to-transparent">
+                    <div className="text-xl font-bold">SCORE: {score}</div>
+                    <div className="text-xl font-bold">LIVES: {"❤️".repeat(lives)}</div>
+                </div>
+
+                {/* Game Area */}
+                <div className="relative flex-1 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')]">
+                    {/* Grid Effect */}
+                    <div className="absolute inset-0 bg-[linear-gradient(rgba(0,255,0,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(0,255,0,0.03)_1px,transparent_1px)] bg-[size:20px_20px]"></div>
+
+                    {/* Enemies */}
+                    {enemies.map(enemy => (
+                        <div
+                            key={enemy.id}
+                            className="absolute transform -translate-x-1/2 text-center transition-transform"
+                            style={{ left: `${enemy.x}%`, top: `${enemy.y}%` }}
+                        >
+                            <div className="text-4xl animate-pulse">👾</div>
+                            <div className="text-green-400 font-bold text-sm bg-black/50 px-1 rounded border border-green-500/30">
+                                {enemy.word}
+                            </div>
+                        </div>
+                    ))}
+
+                    {/* Base */}
+                    <div className="absolute bottom-0 left-0 right-0 h-16 bg-slate-800 border-t-4 border-green-600 flex items-center justify-center">
+                        <div className="w-16 h-16 bg-green-600 rounded-t-full -mt-8 flex items-center justify-center relative">
+                            <div className="w-2 h-20 bg-green-400/20 absolute bottom-full"></div>
+                            <div className="text-2xl">🔫</div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Input Area */}
+                <div className="p-4 bg-slate-800 border-t-2 border-slate-700 flex justify-center relative">
+                    <input
+                        ref={inputRef}
+                        type="text"
+                        value={inputValue}
+                        onChange={handleInput}
+                        className="w-full max-w-md bg-black border-2 border-green-500 text-green-400 font-bold text-center text-xl py-2 rounded focus:outline-none focus:shadow-[0_0_15px_rgba(34,197,94,0.5)] uppercase placeholder-green-900"
+                        placeholder={gameState === 'playing' ? "TYPE TO SHOOT" : ""}
+                        autoFocus
+                        onBlur={() => inputRef.current?.focus()} // Keep focus
+                    />
+                </div>
+
+                {/* Overlays */}
+                {gameState === 'start' && (
+                    <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-center p-8 z-20">
+                        <h1 className="text-6xl font-black text-green-500 mb-2 tracking-tighter drop-shadow-[0_0_10px_rgba(34,197,94,0.8)]">TYPING DEFENCE</h1>
+                        <p className="text-green-300 mb-8 text-xl">DEFEND THE BASE FROM ALIEN WORDS</p>
+                        <Button onClick={startGame} className="text-2xl px-8 py-4 bg-green-600 hover:bg-green-500 text-black font-bold border-b-8 border-green-800 active:border-b-0 active:translate-y-2 transition-all">
+                            START MISSION
+                        </Button>
+                    </div>
+                )}
+
+                {gameState === 'gameover' && (
+                    <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center text-center p-8 z-20">
+                        <h1 className="text-6xl font-black text-red-500 mb-4 tracking-tighter">GAME OVER</h1>
+                        <div className="text-4xl text-white mb-8">FINAL SCORE: {score}</div>
+                        <div className="flex gap-4">
+                            <Button onClick={startGame} className="text-xl px-6 py-3 bg-green-600 hover:bg-green-500 text-black font-bold">
+                                RETRY
+                            </Button>
+                            <Button onClick={onClose} variant="outline" className="text-xl px-6 py-3 border-2 border-slate-500 text-slate-400 hover:bg-slate-800">
+                                EXIT
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white z-30">
+                    <XCircle size={32} />
+                </button>
             </div>
         </div>
     );
