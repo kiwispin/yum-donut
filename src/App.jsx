@@ -127,6 +127,20 @@ const SYSTEM_AVATARS = {
         ],
         gridSize: 8,
         color: "#000000"
+    },
+    "The Arcade": {
+        pixels: [
+            null, null, "#d946ef", "#d946ef", "#d946ef", "#d946ef", null, null,
+            null, "#d946ef", "#e879f9", "#e879f9", "#e879f9", "#e879f9", "#d946ef", null,
+            "#d946ef", "#e879f9", "#e879f9", "#e879f9", "#e879f9", "#e879f9", "#d946ef", "#d946ef",
+            "#d946ef", "#e879f9", "#e879f9", "#e879f9", "#e879f9", "#e879f9", "#d946ef", "#d946ef",
+            null, "#d946ef", "#d946ef", "#d946ef", "#d946ef", "#d946ef", "#d946ef", null,
+            null, null, "#d946ef", null, null, "#d946ef", null, null,
+            null, "#d946ef", "#d946ef", "#d946ef", "#d946ef", "#d946ef", "#d946ef", null,
+            null, null, null, null, null, null, null, null
+        ],
+        gridSize: 8,
+        color: "#86198f"
     }
 };
 
