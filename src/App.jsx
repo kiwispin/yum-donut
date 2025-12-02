@@ -852,18 +852,18 @@ function ArcadeView({ user, onWinBonus }) {
                 </Card>
 
                 {/* Game Card: Typing Defence */}
-                <Card className="col-span-1 border-4 border-green-500 !bg-slate-900 overflow-hidden relative group shadow-[0_0_20px_rgba(34,197,94,0.4)]">
+                <Card className="col-span-1 border-4 border-green-500 !bg-slate-900 overflow-hidden relative group shadow-[0_0_20px_rgba(34,197,94,0.4)] flex flex-col min-h-[450px]">
                     {/* Retro Grid Background */}
                     <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #22c55e 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
 
                     {/* CRT Overlay */}
-                    <div className="crt-overlay absolute inset-0 pointer-events-none z-20"></div>
+                    <div className="crt-overlay absolute inset-0 pointer-events-none z-0"></div>
 
                     <div className="absolute top-0 right-0 bg-green-500 text-black text-xs font-bold px-2 py-1 rounded-bl-lg z-10 animate-pulse">
                         NEW
                     </div>
 
-                    <div className="p-6 flex flex-col items-center justify-center text-center h-full relative z-10 gap-6">
+                    <div className="p-6 flex-1 flex flex-col items-center justify-center text-center relative z-10 gap-6">
                         <div>
                             <h3 className="text-2xl font-black text-green-400 mb-1 text-center font-mono tracking-tighter drop-shadow-lg">TYPING DEFENCE</h3>
                             <p className="text-xs text-green-600 font-bold uppercase tracking-wider">Protect the Base!</p>
