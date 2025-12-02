@@ -852,7 +852,7 @@ function ArcadeView({ user, onWinBonus }) {
                 </Card>
 
                 {/* Game Card: Typing Defence */}
-                <Card className="col-span-1 border-4 border-green-500 bg-slate-900 overflow-hidden relative group shadow-[0_0_20px_rgba(34,197,94,0.4)]">
+                <Card className="col-span-1 border-4 border-green-500 !bg-slate-900 overflow-hidden relative group shadow-[0_0_20px_rgba(34,197,94,0.4)]">
                     {/* Retro Grid Background */}
                     <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #22c55e 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
 
