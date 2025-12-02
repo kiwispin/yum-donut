@@ -856,6 +856,9 @@ function ArcadeView({ user, onWinBonus }) {
                     {/* Retro Grid Background */}
                     <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #22c55e 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
 
+                    {/* CRT Overlay */}
+                    <div className="crt-overlay absolute inset-0 pointer-events-none z-20"></div>
+
                     <div className="absolute top-0 right-0 bg-green-500 text-black text-xs font-bold px-2 py-1 rounded-bl-lg z-10 animate-pulse">
                         NEW
                     </div>
