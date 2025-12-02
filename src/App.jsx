@@ -871,7 +871,7 @@ function ArcadeView({ user, onWinBonus }) {
                     </div>
                 </Card>
 
-                <Card className="col-span-1 border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center p-8 opacity-60">
+                <Card className="col-span-1 border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center p-8 opacity-60 text-center">
                     <div className="text-4xl mb-4 grayscale">🎡</div>
                     <h3 className="text-lg font-bold text-slate-400">Spin The Wheel</h3>
                     <p className="text-xs text-slate-400 uppercase mt-1">Coming Soon</p>
@@ -4929,7 +4929,8 @@ function TypingDefenceModal({ onClose, onReward }) {
                 {gameState === 'start' && (
                     <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-center p-8 z-20">
                         <h1 className="text-6xl font-black text-green-500 mb-2 tracking-tighter drop-shadow-[0_0_10px_rgba(34,197,94,0.8)]">TYPING DEFENCE</h1>
-                        <p className="text-green-300 mb-8 text-xl">DEFEND THE BASE FROM ALIEN WORDS</p>
+                        <p className="text-green-300 mb-4 text-xl">DEFEND THE BASE FROM ALIEN WORDS</p>
+                        <p className="text-yellow-400 font-bold mb-8 text-lg animate-pulse">EARN 1 🍩 PER 1000 POINTS</p>
                         <Button onClick={startGame} className="text-2xl px-8 py-4 bg-green-600 hover:bg-green-500 text-black font-bold border-b-8 border-green-800 active:border-b-0 active:translate-y-2 transition-all">
                             START MISSION
                         </Button>
