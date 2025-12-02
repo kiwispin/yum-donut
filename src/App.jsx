@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
 import {
-    getFirestore, collection, addDoc, query, orderBy, limit,
+    getFirestore, collection, addDoc, query, orderBy, limit, getDocs,
     onSnapshot, doc, updateDoc, setDoc, getDoc, serverTimestamp,
     runTransaction, arrayUnion, arrayRemove, deleteDoc, Timestamp
 } from 'firebase/firestore';
@@ -2157,6 +2157,19 @@ export default function YumDonutApp() {
                     amount: finalReward,
                     likes: []
                 });
+
+                // --- LOG TYPING ATTEMPT (ADMIN STATS) ---
+                const logRef = doc(collection(db, 'artifacts', APP_ID, 'typing_logs'));
+                transaction.set(logRef, {
+                    userId: user.uid,
+                    userName: myProfile.name,
+                    wpm: wpm,
+                    accuracy: accuracy,
+                    mode: mode,
+                    reward: finalReward,
+                    timestamp: serverTimestamp(),
+                    ninjaCombo: ninjaCombo || 0
+                });
             });
 
             triggerConfetti();
@@ -2335,6 +2348,8 @@ export default function YumDonutApp() {
                 />
             )}
 
+
+
             {isPixelStudioOpen && (
                 <PixelStudioModal
                     onClose={() => setIsPixelStudioOpen(false)}
@@ -2501,6 +2516,8 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
     const [wpm, setWpm] = useState(0);
     const [accuracy, setAccuracy] = useState(0);
     const inputRef = useRef(null);
+    const [isStatsOpen, setIsStatsOpen] = useState(false);
+
 
     // Ninja Mode State
     const [currentShortcut, setCurrentShortcut] = useState(null);
@@ -2746,6 +2763,14 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
                             {mode === 'sudden_death' ? "Sudden Death" :
                                 mode === 'shortcut_ninja' ? "Shortcut Ninja" : "Typing Dojo"}
                         </h2>
+                        {isAdmin && (
+                            <button
+                                onClick={() => setIsStatsOpen(true)}
+                                className="bg-white/20 hover:bg-white/30 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 transition-colors mt-1"
+                            >
+                                <Activity size={12} /> Class Stats
+                            </button>
+                        )}
                         <p className="opacity-90 mt-1">
                             {mode === 'sudden_death' ? "100% Accuracy Required. One mistake = Game Over." :
                                 mode === 'shortcut_ninja' ? "Hit shortcuts fast! Build your combo." :
@@ -4569,6 +4594,101 @@ function LeaderboardView({ users, roster }) {
                         </div>
                     )
                 })}
+            </div>
+        </div>
+    );
+}
+
+function TypingStatsModal({ onClose }) {
+    const [logs, setLogs] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchLogs = async () => {
+            try {
+                const q = query(
+                    collection(db, 'artifacts', APP_ID, 'typing_logs'),
+                    orderBy('timestamp', 'desc'),
+                    limit(50)
+                );
+                const snapshot = await getDocs(q);
+                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setLogs(data);
+            } catch (e) {
+                console.error("Error fetching logs:", e);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchLogs();
+    }, []);
+
+    return (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+            <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full p-6 animate-in zoom-in duration-200 flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                        <Activity className="text-blue-500" /> Class Typing Stats
+                    </h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+                        <XCircle size={24} />
+                    </button>
+                </div>
+
+                <div className="overflow-y-auto flex-1">
+                    {loading ? (
+                        <div className="flex justify-center p-8">
+                            <div className="animate-spin text-2xl">🍩</div>
+                        </div>
+                    ) : logs.length === 0 ? (
+                        <div className="text-center text-slate-500 p-8">No practice attempts recorded yet.</div>
+                    ) : (
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="border-b border-slate-200 text-slate-500 text-sm">
+                                    <th className="p-3 font-semibold">Time</th>
+                                    <th className="p-3 font-semibold">Student</th>
+                                    <th className="p-3 font-semibold">Mode</th>
+                                    <th className="p-3 font-semibold">WPM</th>
+                                    <th className="p-3 font-semibold">Accuracy</th>
+                                    <th className="p-3 font-semibold">Reward</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {logs.map(log => (
+                                    <tr key={log.id} className="border-b border-slate-100 hover:bg-slate-50 text-sm">
+                                        <td className="p-3 text-slate-400">
+                                            {log.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </td>
+                                        <td className="p-3 font-medium text-slate-800">{log.userName}</td>
+                                        <td className="p-3">
+                                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${log.mode === 'sudden_death' ? 'bg-red-100 text-red-600' :
+                                                log.mode === 'shortcut_ninja' ? 'bg-yellow-100 text-yellow-700' :
+                                                    'bg-blue-100 text-blue-600'
+                                                }`}>
+                                                {log.mode === 'sudden_death' ? 'Sudden Death' :
+                                                    log.mode === 'shortcut_ninja' ? 'Ninja' : 'Standard'}
+                                            </span>
+                                        </td>
+                                        <td className="p-3 font-mono font-bold">{log.wpm}</td>
+                                        <td className={`p-3 font-mono font-bold ${log.accuracy === 100 ? 'text-green-600' : ''}`}>
+                                            {log.accuracy}%
+                                        </td>
+                                        <td className="p-3">
+                                            {log.reward > 0 ? (
+                                                <span className="flex items-center gap-1 text-green-600 font-bold">
+                                                    +{log.reward} 🍩
+                                                </span>
+                                            ) : (
+                                                <span className="text-slate-300">-</span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
             </div>
         </div>
     );
