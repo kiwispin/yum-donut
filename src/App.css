@@ -175,10 +175,11 @@
   background-size: 100% 4px, 3px 100%;
   animation: scanline 10s linear infinite;
   pointer-events: none;
-  z-index: 20;
-  mix-blend-mode: hard-light;
+  z-index: 5;
+  /* Behind content (z-10) but in front of background */
+  mix-blend-mode: overlay;
   /* Helps it blend without hiding content */
-  opacity: 0.6;
+  opacity: 0.5;
   /* Adjust overall strength */
 }
 
