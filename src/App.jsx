@@ -4743,6 +4743,12 @@ function TypingDefenceModal({ onClose }) {
     const [enemies, setEnemies] = useState([]);
     const [inputValue, setInputValue] = useState("");
     const [level, setLevel] = useState(1);
+
+    // Refs for Game Loop (to avoid stale closures)
+    const gameStateRef = useRef('start');
+    const livesRef = useRef(3);
+    const scoreRef = useRef(0);
+
     const inputRef = useRef(null);
     const requestRef = useRef();
     const lastSpawnTime = useRef(0);
@@ -4761,24 +4767,27 @@ function TypingDefenceModal({ onClose }) {
 
     useEffect(() => {
         if (gameState === 'playing') {
+            gameStateRef.current = 'playing';
+            livesRef.current = 3;
+            scoreRef.current = 0;
             inputRef.current?.focus();
             requestRef.current = requestAnimationFrame(gameLoop);
         } else {
+            gameStateRef.current = gameState;
             cancelAnimationFrame(requestRef.current);
         }
         return () => cancelAnimationFrame(requestRef.current);
-    }, [gameState, enemies, level]);
+    }, [gameState]);
 
     const spawnEnemy = () => {
         const word = WORDS[Math.floor(Math.random() * WORDS.length)];
         const id = Date.now() + Math.random();
-        // Random X position (percentage 10-90 to keep inside)
         const x = 10 + Math.random() * 80;
-        setEnemies(prev => [...prev, { id, word, x, y: -10 }]); // Start above screen
+        setEnemies(prev => [...prev, { id, word, x, y: -10 }]);
     };
 
     const gameLoop = (time) => {
-        if (gameState !== 'playing') return;
+        if (gameStateRef.current !== 'playing') return;
 
         // Spawn Logic
         if (time - lastSpawnTime.current > SPAWN_RATE) {
@@ -4801,17 +4810,19 @@ function TypingDefenceModal({ onClose }) {
             });
 
             if (lifeLost) {
-                setLives(l => {
-                    const newLives = l - 1;
-                    if (newLives <= 0) setGameState('gameover');
-                    return newLives;
-                });
+                livesRef.current -= 1;
+                setLives(livesRef.current); // Sync state
+
+                if (livesRef.current <= 0) {
+                    gameStateRef.current = 'gameover';
+                    setGameState('gameover'); // Sync state
+                }
             }
 
             return nextEnemies;
         });
 
-        if (lives > 0) {
+        if (gameStateRef.current === 'playing') {
             requestRef.current = requestAnimationFrame(gameLoop);
         }
     };
@@ -4820,28 +4831,30 @@ function TypingDefenceModal({ onClose }) {
         const val = e.target.value.toUpperCase();
         setInputValue(val);
 
-        // Check for match
         const matchIndex = enemies.findIndex(enemy => enemy.word === val);
         if (matchIndex !== -1) {
-            // Destroy Enemy
             const enemy = enemies[matchIndex];
             setEnemies(prev => prev.filter(e => e.id !== enemy.id));
-            setScore(s => s + (enemy.word.length * 10));
-            setInputValue(""); // Clear input
 
-            // Level Up every 500 points
-            if ((score + (enemy.word.length * 10)) % 500 === 0) {
+            scoreRef.current += (enemy.word.length * 10);
+            setScore(scoreRef.current); // Sync state
+            setInputValue("");
+
+            if (scoreRef.current % 500 === 0) {
                 setLevel(l => l + 1);
             }
         }
     };
 
     const startGame = () => {
+        scoreRef.current = 0;
         setScore(0);
+        livesRef.current = 3;
         setLives(3);
         setEnemies([]);
         setInputValue("");
         setLevel(1);
+        gameStateRef.current = 'playing';
         setGameState('playing');
         lastSpawnTime.current = performance.now();
     };
@@ -4853,7 +4866,7 @@ function TypingDefenceModal({ onClose }) {
                 {/* Header UI */}
                 <div className="absolute top-0 left-0 right-0 p-4 flex justify-between text-green-400 z-10 pointer-events-none bg-gradient-to-b from-black/80 to-transparent">
                     <div className="text-xl font-bold">SCORE: {score}</div>
-                    <div className="text-xl font-bold">LIVES: {"❤️".repeat(lives)}</div>
+                    <div className="text-xl font-bold">LIVES: {"❤️".repeat(Math.max(0, lives))}</div>
                 </div>
 
                 {/* Game Area */}
@@ -4918,7 +4931,7 @@ function TypingDefenceModal({ onClose }) {
                                 RETRY
                             </Button>
                             <Button onClick={onClose} variant="outline" className="text-xl px-6 py-3 border-2 border-slate-500 text-slate-400 hover:bg-slate-800">
-                                EXIT
+                                BACK TO ARCADE
                             </Button>
                         </div>
                     </div>
