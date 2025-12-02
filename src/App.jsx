@@ -825,7 +825,7 @@ function ArcadeView({ user, onWinBonus }) {
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {isTypingDefenceOpen && <TypingDefenceModal onClose={() => setIsTypingDefenceOpen(false)} />}
+            {isTypingDefenceOpen && <TypingDefenceModal onClose={() => setIsTypingDefenceOpen(false)} onReward={onWinBonus} />}
             <div className="text-center mb-6">
                 <h2 className="text-3xl font-black text-slate-800 flex items-center justify-center gap-3">
                     <span className="text-4xl">🕹️</span> THE ARCADE
@@ -4736,13 +4736,14 @@ function TypingStatsModal({ onClose }) {
     );
 }
 
-function TypingDefenceModal({ onClose }) {
+function TypingDefenceModal({ onClose, onReward }) {
     const [gameState, setGameState] = useState('start'); // start, playing, gameover
     const [score, setScore] = useState(0);
     const [lives, setLives] = useState(3);
     const [enemies, setEnemies] = useState([]);
     const [inputValue, setInputValue] = useState("");
     const [level, setLevel] = useState(1);
+    const [earnedReward, setEarnedReward] = useState(0);
 
     // Refs for Game Loop (to avoid stale closures)
     const gameStateRef = useRef('start');
@@ -4816,6 +4817,19 @@ function TypingDefenceModal({ onClose }) {
                 if (livesRef.current <= 0) {
                     gameStateRef.current = 'gameover';
                     setGameState('gameover'); // Sync state
+
+                    // Calculate Reward
+                    const rewardAmount = Math.floor(scoreRef.current / 1000);
+                    setEarnedReward(rewardAmount);
+
+                    if (rewardAmount > 0) {
+                        onReward({
+                            type: 'donut',
+                            amount: rewardAmount,
+                            label: 'Typing Defence Reward',
+                            icon: '👾'
+                        });
+                    }
                 }
             }
 
@@ -4925,7 +4939,12 @@ function TypingDefenceModal({ onClose }) {
                 {gameState === 'gameover' && (
                     <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center text-center p-8 z-20">
                         <h1 className="text-6xl font-black text-red-500 mb-4 tracking-tighter">GAME OVER</h1>
-                        <div className="text-4xl text-white mb-8">FINAL SCORE: {score}</div>
+                        <div className="text-4xl text-white mb-4">FINAL SCORE: {score}</div>
+                        {earnedReward > 0 && (
+                            <div className="text-2xl text-green-400 font-bold mb-8 animate-bounce">
+                                YOU WON {earnedReward} DONUT{earnedReward > 1 ? 'S' : ''}! 🍩
+                            </div>
+                        )}
                         <div className="flex gap-4">
                             <Button onClick={startGame} className="text-xl px-6 py-3 bg-green-600 hover:bg-green-500 text-black font-bold">
                                 RETRY
