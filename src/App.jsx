@@ -4892,7 +4892,7 @@ function TypingDefenceModal({ onClose }) {
                     <div className="absolute bottom-0 left-0 right-0 h-16 bg-slate-800 border-t-4 border-green-600 flex items-center justify-center">
                         <div className="w-16 h-16 bg-green-600 rounded-t-full -mt-8 flex items-center justify-center relative shadow-[0_0_20px_rgba(34,197,94,0.5)]">
                             <div className="w-2 h-20 bg-green-400/20 absolute bottom-full"></div>
-                            <div className="text-2xl">🛡️</div>
+
                         </div>
                     </div>
                 </div>
