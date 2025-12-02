@@ -1523,8 +1523,8 @@ export default function YumDonutApp() {
         }
     };
 
-    const handleContributeToGoal = async () => {
-        if (!myProfile || myProfile.balance < 1) {
+    const handleContributeToGoal = async (amount = 1) => {
+        if (!myProfile || myProfile.balance < amount) {
             showNotification("Not enough donuts!", "error");
             return;
         }
@@ -1535,12 +1535,12 @@ export default function YumDonutApp() {
                 const userDoc = await transaction.get(publicUserRef);
                 const goalDoc = await transaction.get(goalRef);
                 if (!userDoc.exists()) throw "User missing";
-                const newBalance = (userDoc.data().balance || 0) - 1;
+                const newBalance = (userDoc.data().balance || 0) - amount;
                 if (newBalance < 0) throw "Not enough donuts!";
 
-                const goalCurrent = (goalDoc.data()?.current || 0) + 1;
+                const goalCurrent = (goalDoc.data()?.current || 0) + amount;
                 const contributors = goalDoc.data()?.contributors || {};
-                const myContribution = (contributors[myProfile.name] || 0) + 1;
+                const myContribution = (contributors[myProfile.name] || 0) + amount;
 
                 transaction.update(publicUserRef, { balance: newBalance });
                 transaction.update(goalRef, {
@@ -1548,11 +1548,11 @@ export default function YumDonutApp() {
                     [`contributors.${myProfile.name}`]: myContribution
                 });
                 const txRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
-                transaction.set(txRef, { fromName: myProfile.name, toName: goalDoc.data()?.title || "Team Goal", message: "Contributed to the goal!", timestamp: serverTimestamp(), emoji: "🚀", likes: [] });
+                transaction.set(txRef, { fromName: myProfile.name, toName: goalDoc.data()?.title || "Team Goal", message: `Contributed ${amount} donut${amount > 1 ? 's' : ''} to the goal!`, timestamp: serverTimestamp(), emoji: "🚀", likes: [] });
             });
             const privateUserRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
-            await updateDoc(privateUserRef, { balance: myProfile.balance - 1 });
-            showNotification("Contributed 1 donut!");
+            await updateDoc(privateUserRef, { balance: myProfile.balance - amount });
+            showNotification(`Contributed ${amount} donut${amount > 1 ? 's' : ''}!`);
             triggerConfetti();
         } catch (e) {
             console.error(e);
