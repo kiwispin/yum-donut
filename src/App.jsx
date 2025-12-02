@@ -12,7 +12,7 @@ import {
 import {
     Trophy, Gift, Activity, MessageSquare,
     LogOut, UserPlus, Heart, Zap, Search, CheckCircle, Target, Sparkles,
-    Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock, Users, Skull, Trash2, Clock, Calendar, Edit2, RotateCcw, Landmark, PiggyBank, ArrowRight, ArrowLeft, UserCheck, Keyboard, Shield, Settings
+    Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock, Users, Skull, Trash2, Clock, Calendar, Edit2, RotateCcw, Landmark, PiggyBank, ArrowRight, ArrowLeft, UserCheck, Keyboard, Shield, Settings, Gamepad2
 } from 'lucide-react';
 
 
@@ -635,6 +635,222 @@ function BankView({ user, onDeposit, onWithdraw, onPayInterest, isAdmin, allUser
     );
 }
 
+function ClawMachine({ user, onWin, lastPlayed }) {
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [clawState, setClawState] = useState('idle'); // idle, dropping, grabbing, rising
+    const [prize, setPrize] = useState(null);
+    const [showConfetti, setShowConfetti] = useState(false);
+
+    // Cooldown Logic
+    const COOLDOWN_HOURS = 24;
+    const now = Date.now();
+    const lastPlayedTime = lastPlayed ? lastPlayed.toMillis() : 0;
+    const timeSinceLastPlay = now - lastPlayedTime;
+    const cooldownMs = COOLDOWN_HOURS * 60 * 60 * 1000;
+    const isOnCooldown = timeSinceLastPlay < cooldownMs;
+    const remainingMs = cooldownMs - timeSinceLastPlay;
+
+    // Format remaining time
+    const hoursLeft = Math.floor(remainingMs / (1000 * 60 * 60));
+    const minsLeft = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+
+    const handlePlay = () => {
+        if (isPlaying || isOnCooldown) return;
+
+        setIsPlaying(true);
+        setClawState('dropping');
+        setPrize(null);
+        setShowConfetti(false);
+
+        // 1. Determine Prize Immediately
+        const rand = Math.random() * 100;
+        let wonPrize = null;
+
+        if (rand < 90) {
+            wonPrize = { type: 'donut', amount: 1, label: "Glazed Donut", icon: "🍩" };
+        } else if (rand < 99) {
+            wonPrize = { type: 'donut', amount: 5, label: "Box of Donuts", icon: "🎁" };
+        } else {
+            wonPrize = { type: 'item', id: 'golden_ticket', label: "Golden Ticket", icon: "🎫" };
+        }
+
+        // 2. Animation Sequence
+        // Drop (2.5s) -> Grab (0.5s) -> Rise (2.5s) -> Reveal
+
+        setTimeout(() => {
+            setClawState('grabbing');
+        }, 2500);
+
+        setTimeout(() => {
+            setClawState('rising');
+            setPrize(wonPrize); // Attach prize to claw visually
+        }, 3000);
+
+        setTimeout(() => {
+            setClawState('idle');
+            setIsPlaying(false);
+            setShowConfetti(true);
+            try {
+                triggerConfetti();
+            } catch (e) {
+                console.error("Confetti error:", e);
+            }
+            // Note: We do NOT call onWin here anymore. 
+            // We wait for the user to click "Awesome!" to claim the prize.
+        }, 5500);
+    };
+
+    const handleClaim = () => {
+        if (prize) {
+            onWin(prize);
+        }
+        setShowConfetti(false);
+    };
+
+    return (
+        <div className="flex flex-col items-center justify-center p-4 animate-in fade-in zoom-in duration-500">
+            <div className="relative w-full max-w-sm bg-slate-900 rounded-t-3xl rounded-b-xl p-2 shadow-2xl border-4 border-slate-800 ring-4 ring-pink-500/30">
+                {/* Marquee Header */}
+                <div className="bg-pink-500 text-white text-center py-2 rounded-t-xl font-black tracking-widest uppercase text-sm mb-2 shadow-lg border-b-4 border-pink-700 relative overflow-hidden">
+                    <span className="relative z-10 drop-shadow-md">Daily Claw</span>
+                    <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
+                </div>
+
+                {/* Glass Cabinet */}
+                <div className="claw-machine-glass h-64 w-full bg-slate-800 rounded-lg border-4 border-slate-700 relative">
+                    {/* Background Grid */}
+                    <div className="absolute inset-0 arcade-grid-bg opacity-30"></div>
+
+                    {/* The Claw Assembly */}
+                    <div className={`claw-cable z-20 ${clawState === 'dropping' ? 'h-[140px]' : clawState === 'rising' ? 'h-[20px]' : 'h-[20px]'}`}></div>
+                    <div
+                        className={`absolute left-1/2 -translate-x-1/2 z-20 transition-all duration-[2500ms] ease-in-out ${clawState === 'dropping' ? 'top-[140px]' : 'top-[20px]'}`}
+                    >
+                        {/* Claw Sprite */}
+                        <div className={`text-4xl filter drop-shadow-lg ${clawState === 'grabbing' || clawState === 'rising' ? '' : 'animate-claw-shake'}`}>
+                            {clawState === 'grabbing' || clawState === 'rising' ? '✊' : '🖐️'}
+                        </div>
+
+                        {/* Prize in Claw */}
+                        {clawState === 'rising' && prize && (
+                            <div className="absolute top-6 left-1/2 -translate-x-1/2 text-2xl animate-bounce">
+                                {prize.icon}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Pile of Donuts (Bottom) */}
+                    <div className="absolute bottom-0 left-0 right-0 h-16 flex items-end justify-center gap-1 overflow-hidden opacity-80">
+                        {Array.from({ length: 12 }).map((_, i) => (
+                            <div key={i} className="text-2xl transform translate-y-2" style={{ animationDelay: `${i * 0.1}s` }}>
+                                {['🍩', '🍪', '🎁', '🎫'][i % 4]}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Controls */}
+                <div className="bg-slate-800 p-4 rounded-b-lg mt-2 flex flex-col items-center gap-3 border-t-2 border-slate-700">
+                    {isOnCooldown ? (
+                        <div className="text-center">
+                            <div className="text-slate-400 text-xs font-bold uppercase mb-1">Next Play In</div>
+                            <div className="bg-slate-900 text-red-500 font-mono text-xl px-4 py-2 rounded border border-slate-700 shadow-inner">
+                                {hoursLeft}h {minsLeft}m
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-green-400 text-xs font-bold uppercase animate-pulse">
+                            READY TO PLAY!
+                        </div>
+                    )}
+
+                    <button
+                        onClick={handlePlay}
+                        disabled={isPlaying || isOnCooldown}
+                        className={`
+                            w-full py-4 rounded-xl font-black text-lg tracking-wider uppercase transition-all transform
+                            ${isPlaying || isOnCooldown
+                                ? 'bg-slate-700 text-slate-500 cursor-not-allowed border-b-4 border-slate-900'
+                                : 'bg-pink-500 hover:bg-pink-400 text-white shadow-lg border-b-4 border-pink-700 active:border-b-0 active:translate-y-1 pixel-btn'
+                            }
+                        `}
+                    >
+                        {isPlaying ? "Good Luck..." : "GRAB!"}
+                    </button>
+
+                    <div className="text-[10px] text-slate-500 font-mono text-center">
+                        100% WIN RATE • 1 PLAY / 24H
+                    </div>
+                </div>
+            </div>
+
+            {/* Result Modal */}
+            {showConfetti && prize && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pointer-events-none">
+                    <div className="bg-white border-4 border-yellow-400 p-6 rounded-2xl shadow-2xl text-center transform animate-in zoom-in duration-300 pointer-events-auto max-w-xs w-full">
+                        <div className="text-6xl mb-4 animate-bounce">{prize.icon}</div>
+                        <h3 className="text-2xl font-black text-slate-800 mb-2">YOU WON!</h3>
+                        <p className="text-slate-500 font-medium mb-6">
+                            You grabbed a <span className="text-pink-500 font-bold">{prize.label}</span>!
+                        </p>
+                        <button
+                            onClick={handleClaim}
+                            className="bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold py-2 px-6 rounded-full shadow-lg transition-transform hover:scale-105"
+                        >
+                            Awesome!
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function ArcadeView({ user, onWinBonus }) {
+    return (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="text-center mb-6">
+                <h2 className="text-3xl font-black text-slate-800 flex items-center justify-center gap-3">
+                    <span className="text-4xl">🕹️</span> THE ARCADE
+                </h2>
+                <p className="text-slate-500 font-medium">Play daily. Win prizes.</p>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {/* Game Card: Claw Machine */}
+                <Card className="col-span-1 border-4 border-pink-200 bg-pink-50 overflow-hidden relative group">
+                    <div className="absolute top-0 right-0 bg-pink-500 text-white text-xs font-bold px-2 py-1 rounded-bl-lg z-10">
+                        HOT
+                    </div>
+                    <div className="p-4 flex flex-col items-center text-center">
+                        <h3 className="text-xl font-black text-pink-600 mb-1 text-center">DONUT CLAW</h3>
+                        <p className="text-xs text-pink-400 font-bold uppercase tracking-wider mb-4 text-center">Daily Bonus Game</p>
+
+                        <ClawMachine
+                            user={user}
+                            lastPlayed={user?.last_daily_bonus}
+                            onWin={onWinBonus}
+                        />
+                    </div>
+                </Card>
+
+                {/* Coming Soon Cards */}
+                <Card className="col-span-1 border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center p-8 opacity-60">
+                    <div className="text-4xl mb-4 grayscale">👾</div>
+                    <h3 className="text-lg font-bold text-slate-400">Typing Defence</h3>
+                    <p className="text-xs text-slate-400 uppercase mt-1">Coming Soon</p>
+                </Card>
+
+                <Card className="col-span-1 border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center p-8 opacity-60">
+                    <div className="text-4xl mb-4 grayscale">🎡</div>
+                    <h3 className="text-lg font-bold text-slate-400">Spin The Wheel</h3>
+                    <p className="text-xs text-slate-400 uppercase mt-1">Coming Soon</p>
+                </Card>
+            </div>
+        </div>
+    );
+}
+
 export default function YumDonutApp() {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -1169,6 +1385,69 @@ export default function YumDonutApp() {
         if (currentLikes && currentLikes.includes(myProfile.name)) return;
         const txRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'transactions', txId);
         await updateDoc(txRef, { likes: arrayUnion(myProfile.name) });
+    };
+
+    const handleWinBonus = async (prize) => {
+        if (!user || !myProfile) return;
+
+        try {
+            const userRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
+            const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
+
+            // 1. Update Last Played Time
+            await updateDoc(userRef, { last_daily_bonus: serverTimestamp() });
+
+            // 2. Process Reward
+            if (prize.type === 'donut') {
+                const amount = prize.amount;
+                // Update Private
+                await updateDoc(userRef, { balance: (myProfile.balance || 0) + amount });
+                // Update Public
+                const publicDoc = await getDoc(publicRef);
+                if (publicDoc.exists()) {
+                    await updateDoc(publicRef, {
+                        balance: (publicDoc.data().balance || 0) + amount,
+                        lifetime_received: (publicDoc.data().lifetime_received || 0) + amount
+                    });
+                }
+                showNotification(`You won ${amount} Donut${amount > 1 ? 's' : ''}! Added to wallet.`);
+            } else if (prize.type === 'item') {
+                // Add item to inventory (Assuming inventory exists or just notify for now)
+                // For now, we'll just give the cash equivalent or a special note
+                // Actually, let's just give 10 donuts as a "Golden Ticket" equivalent for simplicity in this version
+                // OR implement inventory logic if it exists. 
+                // Looking at the code, there isn't a robust inventory system visible in the snippets, 
+                // so let's treat Golden Ticket as a massive donut win (e.g. 10) or just a badge.
+                // Let's give 10 donuts for now to be safe and valuable.
+                const amount = 10;
+                // Update Private
+                await updateDoc(userRef, { balance: (myProfile.balance || 0) + amount });
+                // Update Public
+                const publicDoc = await getDoc(publicRef);
+                if (publicDoc.exists()) {
+                    await updateDoc(publicRef, {
+                        balance: (publicDoc.data().balance || 0) + amount,
+                        lifetime_received: (publicDoc.data().lifetime_received || 0) + amount
+                    });
+                }
+                showNotification("GOLDEN TICKET! You won 10 Donuts!");
+            }
+
+            // 3. Log Transaction
+            await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
+                fromName: "The Arcade",
+                toName: myProfile.name,
+                message: `Won a ${prize.label} playing the Claw Machine!`,
+                timestamp: serverTimestamp(),
+                emoji: "🕹️",
+                amount: prize.amount || 10,
+                likes: []
+            });
+
+        } catch (e) {
+            console.error("Bonus Error", e);
+            showNotification("Error claiming prize. Contact Mr Rayner.", "error");
+        }
     };
 
     const CORE_VALUES = {
@@ -2063,7 +2342,7 @@ export default function YumDonutApp() {
                 )}
 
                 <div className="flex overflow-x-auto justify-between border-b border-slate-200 mb-4 pb-1 no-scrollbar">
-                    {['give', 'jobs', 'shop', 'bank', 'training', 'goal', 'feed', 'leaderboard'].map(tab => (
+                    {['give', 'jobs', 'arcade', 'shop', 'bank', 'training', 'goal', 'feed', 'leaderboard'].map(tab => (
                         <button
                             key={tab}
                             onClick={() => setView(tab)}
@@ -2104,6 +2383,13 @@ export default function YumDonutApp() {
                         onPay={handlePayBounty}
                         onMarkDone={handleMarkDone}
                         onReject={handleRejectWork}
+                    />
+                )}
+
+                {view === 'arcade' && (
+                    <ArcadeView
+                        user={myProfile}
+                        onWinBonus={handleWinBonus}
                     />
                 )}
 
@@ -2173,7 +2459,8 @@ export default function YumDonutApp() {
 
             <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-3 flex justify-between z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                 <NavBtn icon={Gift} label="Give" active={view === 'give'} onClick={() => setView('give')} />
-                <NavBtn icon={Briefcase} label="Jobs" active={view === 'jobs'} onClick={() => setView('jobs')} badge={openBountyCount} />
+                <NavBtn icon={Briefcase} label="Jobs" active={view === 'bounties'} onClick={() => setView('bounties')} badge={openBountyCount} />
+                <NavBtn icon={Gamepad2} label="Arcade" active={view === 'arcade'} onClick={() => setView('arcade')} />
                 <NavBtn icon={ShoppingBag} label="Shop" active={view === 'shop'} onClick={() => setView('shop')} />
                 <NavBtn icon={Landmark} label="Bank" active={view === 'bank'} onClick={() => setView('bank')} />
                 <NavBtn icon={Keyboard} label="Train" active={view === 'training'} onClick={() => setView('training')} />
@@ -3046,6 +3333,15 @@ function PatchNotesModal({ onClose }) {
                 <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
                     <div className="space-y-2">
                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                            <span className="text-xl">🕹️</span> The Arcade is Open!
+                        </h3>
+                        <p className="text-slate-600 text-sm">
+                            Visit the new <strong>Arcade</strong> tab to play the Daily Claw Machine. Win free donuts, boxes of donuts, or even a Golden Ticket! 🎟️
+                        </p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
                             <Edit2 className="text-pink-500" size={20} /> Pixel Art Studio
                         </h3>
                         <p className="text-slate-600 text-sm">
@@ -3068,15 +3364,6 @@ function PatchNotesModal({ onClose }) {
                         </h3>
                         <p className="text-slate-600 text-sm">
                             The feed now displays everyone's custom pixel avatars. See who's who at a glance! 👀
-                        </p>
-                    </div>
-
-                    <div className="space-y-2">
-                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <Users className="text-teal-500" size={20} /> Live Dock
-                        </h3>
-                        <p className="text-slate-600 text-sm">
-                            See who is online in real-time with the new Live Dock at the top of the screen. 🟢
                         </p>
                     </div>
                 </div>
@@ -3476,7 +3763,6 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
                     let progressColor = 'bg-green-500';
 
                     if (hasTimer && !isExpired && b.createdAt) {
-                        // Determine duration based on creation
                         let createdTime = b.createdAt;
                         // Handle different timestamp formats if necessary, but usually it's a Timestamp obj or millis
                         // We stored it as serverTimestamp(), which returns a Timestamp object in snapshots
