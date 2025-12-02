@@ -2093,7 +2093,7 @@ export default function YumDonutApp() {
             }
         } else {
             // Scriptwriter / Standard
-            finalReward = 1;
+            finalReward = rewardAmount;
         }
 
         // Check Daily Cap
