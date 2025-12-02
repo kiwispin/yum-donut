@@ -2158,18 +2158,7 @@ export default function YumDonutApp() {
                     likes: []
                 });
 
-                // --- LOG TYPING ATTEMPT (ADMIN STATS) ---
-                const logRef = doc(collection(db, 'artifacts', APP_ID, 'typing_logs'));
-                transaction.set(logRef, {
-                    userId: user.uid,
-                    userName: myProfile.name,
-                    wpm: wpm,
-                    accuracy: accuracy,
-                    mode: mode,
-                    reward: finalReward,
-                    timestamp: serverTimestamp(),
-                    ninjaCombo: ninjaCombo || 0
-                });
+
             });
 
             triggerConfetti();
@@ -2229,6 +2218,25 @@ export default function YumDonutApp() {
         } catch (e) {
             console.error("Save failed:", e);
             showNotification("Failed to save avatar.", "error");
+        }
+    };
+
+    const handleLogTypingAttempt = async (wpm, accuracy, mode, reward, ninjaCombo, success) => {
+        if (!myProfile) return;
+        try {
+            await addDoc(collection(db, 'artifacts', APP_ID, 'typing_logs'), {
+                userId: user.uid,
+                userName: myProfile.name,
+                wpm: wpm,
+                accuracy: accuracy,
+                mode: mode,
+                reward: reward,
+                ninjaCombo: ninjaCombo || 0,
+                success: success,
+                timestamp: serverTimestamp()
+            });
+        } catch (e) {
+            console.error("Failed to log typing attempt:", e);
         }
     };
 
@@ -2453,6 +2461,7 @@ export default function YumDonutApp() {
                         onReward={handleTrainingReward}
                         allUsers={users}
                         onUpdateLicense={handleUpdateLicense}
+                        onLogAttempt={handleLogTypingAttempt}
                     />
                 )}
 
@@ -2501,7 +2510,7 @@ export default function YumDonutApp() {
 
 // --- Sub-Components (Defined BEFORE Main App to avoid ReferenceErrors) ---
 
-function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
+function TrainingView({ user, onReward, allUsers, onUpdateLicense, onLogAttempt }) {
     const [gameState, setGameState] = useState('idle'); // idle, playing, finished, failed
     const [mode, setMode] = useState('scriptwriter'); // 'scriptwriter' | 'sudden_death' | 'shortcut_ninja'
 
@@ -2654,6 +2663,9 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
         setGameState('finished');
         if (ninjaScore >= 1000 && user.typing_license) {
             onReward(0, 0, 1, null, mode, maxNinjaCombo); // Pass maxNinjaCombo for reward calculation
+            onLogAttempt(0, 0, mode, 1, maxNinjaCombo, true);
+        } else {
+            onLogAttempt(0, 0, mode, 0, maxNinjaCombo, false);
         }
     };
 
@@ -2695,6 +2707,8 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
         if (mode === 'sudden_death') {
             if (!currentQuote.startsWith(value)) {
                 setGameState('failed');
+                // Log immediate failure
+                onLogAttempt(0, 0, mode, 0, 0, false);
                 return;
             }
         }
@@ -2730,12 +2744,22 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense }) {
             if (mode === 'sudden_death') {
                 if (calculatedAccuracy === 100 && calculatedWpm > 30) {
                     onReward(calculatedWpm, 100, 10, 'perfectionist_badge', mode);
+                    onLogAttempt(calculatedWpm, 100, mode, 10, 0, true);
                 } else {
                     // Sudden Death failure - no reward
+                    onLogAttempt(calculatedWpm, calculatedAccuracy, mode, 0, 0, false);
                 }
             } else if (calculatedWpm > 30 && calculatedAccuracy >= 95) {
-                onReward(calculatedWpm, calculatedAccuracy, targetQuoteObject?.reward || 1, null, mode);
+                const reward = targetQuoteObject?.reward || 1;
+                onReward(calculatedWpm, calculatedAccuracy, reward, null, mode);
+                onLogAttempt(calculatedWpm, calculatedAccuracy, mode, reward, 0, true);
+            } else {
+                // Standard failure
+                onLogAttempt(calculatedWpm, calculatedAccuracy, mode, 0, 0, false);
             }
+        } else {
+            // Unlicensed attempt
+            onLogAttempt(calculatedWpm, calculatedAccuracy, mode, 0, 0, false);
         }
     };
 
