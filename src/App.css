@@ -162,25 +162,25 @@
 
 .crt-overlay {
   background:
-    /* Moving Scanline: Larger (4px) for visibility */
-    linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+    /* Moving Scanline: High contrast for visibility over text */
+    linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.6) 50%),
     /* RGB Phosphor Mask */
     repeating-linear-gradient(90deg,
-      rgba(255, 0, 0, 0.15) 0px,
-      rgba(255, 0, 0, 0.15) 1px,
-      rgba(0, 255, 0, 0.15) 1px,
-      rgba(0, 255, 0, 0.15) 2px,
-      rgba(0, 0, 255, 0.15) 2px,
-      rgba(0, 0, 255, 0.15) 3px);
+      rgba(255, 0, 0, 0.06) 0px,
+      rgba(255, 0, 0, 0.06) 1px,
+      rgba(0, 255, 0, 0.02) 1px,
+      rgba(0, 255, 0, 0.02) 2px,
+      rgba(0, 0, 255, 0.06) 2px,
+      rgba(0, 0, 255, 0.06) 3px);
   background-size: 100% 4px, 3px 100%;
   animation: scanline 10s linear infinite;
   pointer-events: none;
-  z-index: 5;
-  /* Behind content (z-10) but in front of background */
-  mix-blend-mode: overlay;
-  /* Helps it blend without hiding content */
-  opacity: 0.5;
-  /* Adjust overall strength */
+  z-index: 20;
+  /* On top of content */
+  mix-blend-mode: normal;
+  /* Ensure visibility */
+  opacity: 1;
+  /* Control intensity via gradient alpha */
 }
 
 .crt-overlay::before {
