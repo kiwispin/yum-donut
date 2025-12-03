@@ -3000,6 +3000,9 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense, onLogAttempt 
                         {hasTrainedToday && hasLicense ? (
                             <div className="bg-green-100 text-green-700 p-3 rounded-lg font-bold">
                                 You've already earned your daily donut! Come back tomorrow.
+                                <div className="text-xs font-normal mt-1 opacity-75">
+                                    Last trained: {mode === 'scriptwriter' ? user.last_training_date : mode === 'sudden_death' ? user.last_training_date_sudden_death : user.last_training_date_ninja}
+                                </div>
                             </div>
                         ) : (
                             <Button onClick={startGame} className="w-full max-w-xs py-3 text-lg mx-auto">
