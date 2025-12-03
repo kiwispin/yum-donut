@@ -886,8 +886,8 @@ function ArcadeView({ user, allUsers, onWinBonus }) {
         <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 p-4 sm:p-6">
             {/* Header */}
             <div className="flex items-center gap-4 mb-8">
-                <div className="p-3 bg-gradient-to-br from-pink-500 to-purple-600 rounded-2xl shadow-lg transform -rotate-3">
-                    <Gamepad2 size={32} className="text-white" />
+                <div className="p-3 bg-gradient-to-br from-pink-500 to-purple-600 rounded-2xl shadow-lg transform -rotate-3 flex items-center justify-center w-14 h-14">
+                    <span className="text-3xl">🕹️</span>
                 </div>
                 <div>
                     <h1 className="text-3xl font-black text-slate-800 tracking-tight">ARCADE</h1>
