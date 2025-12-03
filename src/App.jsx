@@ -820,72 +820,135 @@ function ClawMachine({ user, onWin, lastPlayed }) {
     );
 }
 
-function ArcadeView({ user, allUsers, onWinBonus }) {
-    const [isTypingDefenceOpen, setIsTypingDefenceOpen] = useState(false);
+// --- REUSABLE COMPONENTS ---
 
+function GameRow({ title, subtitle, icon, color, onPlay, badge }) {
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {isTypingDefenceOpen && <TypingDefenceModal onClose={() => setIsTypingDefenceOpen(false)} onReward={onWinBonus} />}
-            <div className="text-center mb-6">
-                <h2 className="text-3xl font-black text-slate-800 flex items-center justify-center gap-3">
-                    <span className="text-4xl">🕹️</span> THE ARCADE
-                </h2>
-                <p className="text-slate-500 font-medium">Play daily. Win prizes.</p>
+        <div className="bg-white rounded-2xl p-4 flex items-center gap-4 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+            {/* Thumbnail */}
+            <div className={`w-16 h-16 rounded-xl ${color} flex items-center justify-center text-3xl shadow-inner shrink-0`}>
+                {icon}
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {/* Game Card: Claw Machine */}
-                <Card className="col-span-1 border-4 border-pink-200 bg-pink-50 overflow-hidden relative group">
-                    <div className="absolute top-0 right-0 bg-pink-500 text-white text-xs font-bold px-2 py-1 rounded-bl-lg z-10">
-                        HOT
-                    </div>
-                    <div className="p-4 flex flex-col items-center text-center">
-                        <h3 className="text-xl font-black text-pink-600 mb-1 text-center">DONUT CLAW</h3>
-                        <p className="text-xs text-pink-400 font-bold uppercase tracking-wider mb-4 text-center">Daily Bonus Game</p>
+            {/* Content */}
+            <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                    <h3 className="text-lg font-bold text-slate-900 truncate">{title}</h3>
+                    {badge && (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badge === 'HOT' ? 'bg-pink-100 text-pink-600' : 'bg-blue-100 text-blue-600'}`}>
+                            {badge}
+                        </span>
+                    )}
+                </div>
+                <p className="text-sm text-slate-500 font-medium truncate">{subtitle}</p>
+            </div>
 
-                        <ClawMachine
-                            user={user}
-                            lastPlayed={user?.last_daily_bonus}
-                            onWin={onWinBonus}
-                        />
-                    </div>
-                </Card>
+            {/* Action */}
+            <Button
+                onClick={onPlay}
+                className="rounded-full px-6 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm transition-colors shadow-md"
+            >
+                PLAY
+            </Button>
+        </div>
+    );
+}
 
-                {/* Game Card: Typing Defence */}
-                <div className="col-span-1 rounded-xl border-4 border-green-500 bg-slate-900 overflow-hidden relative group shadow-[0_0_20px_rgba(34,197,94,0.4)] flex flex-col h-full">
-                    {/* Retro Grid Background */}
-                    <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #22c55e 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
-
-                    {/* CRT Overlay */}
-                    <div className="crt-overlay absolute inset-0 pointer-events-none z-0"></div>
-
-                    <div className="absolute top-0 right-0 bg-green-500 text-black text-xs font-bold px-2 py-1 rounded-bl-lg z-10 animate-pulse">
-                        NEW
-                    </div>
-
-                    <div className="flex-1 flex flex-col items-center justify-center text-center relative z-10 gap-6 p-6 w-full">
-                        <div>
-                            <h3 className="text-2xl font-black text-green-400 mb-1 text-center font-mono tracking-tighter drop-shadow-lg">TYPING DEFENCE</h3>
-                            <p className="text-xs text-green-600 font-bold uppercase tracking-wider">Protect the Base!</p>
-                        </div>
-
-                        <div className="text-7xl animate-bounce drop-shadow-[0_0_15px_rgba(34,197,94,0.8)]">👾</div>
-
-                        <Button
-                            onClick={() => setIsTypingDefenceOpen(true)}
-                            className="w-full bg-green-600 hover:bg-green-500 text-black font-bold font-mono border-b-4 border-green-800 active:border-b-0 active:translate-y-1 text-lg py-3"
-                        >
-                            INSERT COIN
-                        </Button>
-                    </div>
+function ClawMachineModal({ user, lastPlayed, onWin, onClose }) {
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="relative w-full max-w-md bg-slate-900 rounded-2xl border-4 border-slate-700 shadow-2xl p-6 flex flex-col items-center">
+                <div className="text-center mb-6">
+                    <h2 className="text-3xl font-black text-pink-500 tracking-tighter mb-1">DONUT CLAW</h2>
+                    <p className="text-pink-400 text-xs font-bold uppercase tracking-widest">Daily Bonus Game</p>
                 </div>
 
-                <Card className="col-span-1 border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center p-8 opacity-60 text-center">
-                    <div className="text-4xl mb-4 grayscale">🎡</div>
-                    <h3 className="text-lg font-bold text-slate-400">Spin The Wheel</h3>
-                    <p className="text-xs text-slate-400 uppercase mt-1">Coming Soon</p>
-                </Card>
+                <ClawMachine
+                    user={user}
+                    lastPlayed={lastPlayed}
+                    onWin={onWin}
+                />
+
+                <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors">
+                    <XCircle size={32} />
+                </button>
             </div>
+        </div>
+    );
+}
+
+function ArcadeView({ user, allUsers, onWinBonus }) {
+    const [showTypingDefence, setShowTypingDefence] = useState(false);
+    const [showDailyRushes, setShowDailyRushes] = useState(false);
+    const [showClawMachine, setShowClawMachine] = useState(false);
+
+    return (
+        <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 p-4 sm:p-6">
+            {/* Header */}
+            <div className="flex items-center gap-4 mb-8">
+                <div className="p-3 bg-gradient-to-br from-pink-500 to-purple-600 rounded-2xl shadow-lg transform -rotate-3">
+                    <Gamepad2 size={32} className="text-white" />
+                </div>
+                <div>
+                    <h1 className="text-3xl font-black text-slate-800 tracking-tight">ARCADE</h1>
+                    <p className="text-slate-500 font-medium">Daily games & prizes</p>
+                </div>
+            </div>
+
+            {/* Game List */}
+            <div className="flex flex-col gap-4">
+                <GameRow
+                    title="Donut Claw"
+                    subtitle="Grab a daily bonus prize!"
+                    icon="🏗️"
+                    color="bg-pink-100"
+                    badge="HOT"
+                    onPlay={() => setShowClawMachine(true)}
+                />
+
+                <GameRow
+                    title="Typing Defence"
+                    subtitle="Protect the base from words."
+                    icon="👾"
+                    color="bg-green-100"
+                    badge="NEW"
+                    onPlay={() => setShowTypingDefence(true)}
+                />
+
+                <GameRow
+                    title="The Daily Rushes"
+                    subtitle="Guess the 5-letter media word."
+                    icon="🎬"
+                    color="bg-blue-100"
+                    badge="DAILY"
+                    onPlay={() => setShowDailyRushes(true)}
+                />
+            </div>
+
+            {/* Modals */}
+            {showClawMachine && (
+                <ClawMachineModal
+                    user={user}
+                    lastPlayed={user?.last_daily_bonus}
+                    onWin={(prize) => onWinBonus(prize, 'last_daily_bonus')}
+                    onClose={() => setShowClawMachine(false)}
+                />
+            )}
+
+            {showTypingDefence && (
+                <TypingDefenceModal
+                    onClose={() => setShowTypingDefence(false)}
+                    onReward={(prize) => onWinBonus(prize, 'last_typing_defence_win')}
+                />
+            )}
+
+            {showDailyRushes && (
+                <DailyRushesModal
+                    user={user}
+                    onClose={() => setShowDailyRushes(false)}
+                    onWin={(prize) => onWinBonus(prize, 'last_wordle_win')}
+                />
+            )}
         </div>
     );
 }
@@ -1426,15 +1489,17 @@ export default function YumDonutApp() {
         await updateDoc(txRef, { likes: arrayUnion(myProfile.name) });
     };
 
-    const handleWinBonus = async (prize) => {
+    const handleWinBonus = async (prize, cooldownField = 'last_daily_bonus') => {
         if (!user || !myProfile) return;
 
         try {
             const userRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
             const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
 
-            // 1. Update Last Played Time
-            await updateDoc(userRef, { last_daily_bonus: serverTimestamp() });
+            // 1. Update Last Played Time (if field provided)
+            if (cooldownField) {
+                await updateDoc(userRef, { [cooldownField]: serverTimestamp() });
+            }
 
             // 2. Process Reward
             if (prize.type === 'donut') {
@@ -2397,8 +2462,6 @@ export default function YumDonutApp() {
                     roster={roster}
                 />
             )}
-
-
 
             {isPixelStudioOpen && (
                 <PixelStudioModal
@@ -5002,8 +5065,212 @@ function TypingDefenceModal({ onClose, onReward }) {
                         </div>
                     </div>
                 )}
-
                 <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white z-30">
+                    <XCircle size={32} />
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// --- DAILY RUSHES (WORDLE) COMPONENT ---
+function DailyRushesModal({ user, onWin, onClose }) {
+    const [guesses, setGuesses] = useState([]);
+    const [currentGuess, setCurrentGuess] = useState("");
+    const [gameStatus, setGameStatus] = useState('playing'); // playing, won, lost
+    const [message, setMessage] = useState("");
+    const [shakeRow, setShakeRow] = useState(false);
+
+    const MEDIA_WORDS = [
+        "AUDIO", "BROLL", "COLOR", "DEPTH", "EDIT", "FADER", "FOCUS", "FRAME", "GRAIN", "IMAGE",
+        "LIGHT", "MEDIA", "MOUNT", "NOISE", "PIXEL", "PANEL", "RADIO", "SCALE", "SCENE", "SCOPE",
+        "SHARP", "SHOOT", "SLIDE", "SOUND", "SPLIT", "STAFF", "STAGE", "STAND", "STOCK", "SWISH",
+        "TRACK", "VIDEO", "VOICE", "WHITE", "ZOOM"
+    ];
+
+    // Get Daily Word
+    const getDailyWord = () => {
+        const epoch = new Date("2025-01-01").getTime();
+        const now = new Date().getTime();
+        const daysSinceEpoch = Math.floor((now - epoch) / (1000 * 60 * 60 * 24));
+        return MEDIA_WORDS[daysSinceEpoch % MEDIA_WORDS.length];
+    };
+
+    const TARGET_WORD = getDailyWord();
+
+    // Load State
+    useEffect(() => {
+        const savedState = localStorage.getItem(`daily_rushes_${user.uid}_${new Date().toISOString().slice(0, 10)}`);
+        if (savedState) {
+            const parsed = JSON.parse(savedState);
+            setGuesses(parsed.guesses);
+            setGameStatus(parsed.gameStatus);
+        }
+    }, [user.uid]);
+
+    // Save State
+    useEffect(() => {
+        if (guesses.length > 0 || gameStatus !== 'playing') {
+            localStorage.setItem(`daily_rushes_${user.uid}_${new Date().toISOString().slice(0, 10)}`, JSON.stringify({
+                guesses,
+                gameStatus
+            }));
+        }
+    }, [guesses, gameStatus, user.uid]);
+
+    const handleKey = (key) => {
+        if (gameStatus !== 'playing') return;
+
+        if (key === 'ENTER') {
+            if (currentGuess.length !== 5) {
+                setMessage("Too short!");
+                setShakeRow(true);
+                setTimeout(() => setShakeRow(false), 500);
+                setTimeout(() => setMessage(""), 2000);
+                return;
+            }
+            if (!MEDIA_WORDS.includes(currentGuess)) {
+                setMessage("Not in word list!");
+                setShakeRow(true);
+                setTimeout(() => setShakeRow(false), 500);
+                setTimeout(() => setMessage(""), 2000);
+                return;
+            }
+
+            const newGuesses = [...guesses, currentGuess];
+            setGuesses(newGuesses);
+            setCurrentGuess("");
+
+            if (currentGuess === TARGET_WORD) {
+                setGameStatus('won');
+                onWin({ type: 'donut', amount: 1, label: 'Daily Rushes Win', icon: '🎬' });
+            } else if (newGuesses.length >= 6) {
+                setGameStatus('lost');
+            }
+        } else if (key === 'BACKSPACE') {
+            setCurrentGuess(prev => prev.slice(0, -1));
+        } else if (currentGuess.length < 5 && /^[A-Z]$/.test(key)) {
+            setCurrentGuess(prev => prev + key);
+        }
+    };
+
+    // Keyboard Listener
+    useEffect(() => {
+        const listener = (e) => {
+            if (e.key === 'Enter') handleKey('ENTER');
+            else if (e.key === 'Backspace') handleKey('BACKSPACE');
+            else if (/^[a-zA-Z]$/.test(e.key)) handleKey(e.key.toUpperCase());
+        };
+        window.addEventListener('keydown', listener);
+        return () => window.removeEventListener('keydown', listener);
+    }, [currentGuess, gameStatus]);
+
+    // Render Helpers
+    const getKeyColor = (key) => {
+        let color = 'bg-slate-700';
+        for (let guess of guesses) {
+            for (let i = 0; i < 5; i++) {
+                if (guess[i] === key) {
+                    if (TARGET_WORD[i] === key) return 'bg-green-600 border-green-800'; // Correct spot
+                    if (TARGET_WORD.includes(key) && color !== 'bg-green-600 border-green-800') color = 'bg-yellow-500 border-yellow-700'; // Wrong spot
+                    if (!TARGET_WORD.includes(key) && color === 'bg-slate-700') color = 'bg-slate-900 opacity-50'; // Absent
+                }
+            }
+        }
+        return color;
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="relative w-full max-w-md bg-slate-900 rounded-2xl border-4 border-slate-700 shadow-2xl p-6 flex flex-col items-center">
+
+                {/* Header */}
+                <div className="text-center mb-6">
+                    <h2 className="text-3xl font-black text-white tracking-tighter mb-1">THE DAILY RUSHES</h2>
+                    <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Guess the Media Word</p>
+                </div>
+
+                {/* Message Toast */}
+                {message && (
+                    <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-4 py-2 rounded shadow-xl z-50 font-bold animate-bounce border border-slate-700">
+                        {message}
+                    </div>
+                )}
+
+                {/* Grid */}
+                <div className="grid grid-rows-6 gap-1 mb-6">
+                    {Array.from({ length: 6 }).map((_, rowIndex) => {
+                        const guess = guesses[rowIndex] || (rowIndex === guesses.length ? currentGuess : "");
+                        const isCurrent = rowIndex === guesses.length;
+                        const isCompleted = rowIndex < guesses.length;
+
+                        return (
+                            <div key={rowIndex} className={`grid grid-cols-5 gap-1 ${isCurrent && shakeRow ? 'animate-shake' : ''}`}>
+                                {Array.from({ length: 5 }).map((_, colIndex) => {
+                                    const letter = guess[colIndex] || "";
+                                    let statusClass = "bg-slate-900 border-slate-700"; // Default
+
+                                    if (isCompleted) {
+                                        if (letter === TARGET_WORD[colIndex]) statusClass = "bg-green-600 border-green-800";
+                                        else if (TARGET_WORD.includes(letter)) statusClass = "bg-yellow-500 border-yellow-700";
+                                        else statusClass = "bg-slate-800 border-slate-900 opacity-50";
+                                    } else if (letter) {
+                                        statusClass = "bg-slate-800 border-slate-500"; // Active typing
+                                    }
+
+                                    return (
+                                        <div key={colIndex} className={`w-12 h-12 border-2 flex items-center justify-center text-2xl font-black text-white ${statusClass} transition-colors duration-500`}>
+                                            {letter}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Result Overlay */}
+                {gameStatus !== 'playing' && (
+                    <div className="mb-6 text-center animate-in zoom-in bg-slate-800 p-4 rounded-xl border-2 border-slate-700 w-full">
+                        <div className="text-2xl font-black mb-2">
+                            {gameStatus === 'won' ? <span className="text-green-500">THAT'S A WRAP! 🎬</span> : <span className="text-red-500">CUT! ✂️</span>}
+                        </div>
+                        <div className="text-slate-400 text-sm mb-1">
+                            The word was <span className="text-white font-bold tracking-widest">{TARGET_WORD}</span>
+                        </div>
+                        <div className="text-xs text-slate-500">Come back tomorrow!</div>
+                    </div>
+                )}
+
+                {/* Keyboard */}
+                <div className="w-full flex flex-col gap-1">
+                    {["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"].map((row, i) => (
+                        <div key={i} className="flex justify-center gap-1">
+                            {row.split("").map(char => (
+                                <button
+                                    key={char}
+                                    onClick={() => handleKey(char)}
+                                    className={`h-12 flex-1 flex items-center justify-center rounded font-bold text-white text-sm border-b-4 active:border-b-0 active:translate-y-1 transition-all ${getKeyColor(char)}`}
+                                >
+                                    {char}
+                                </button>
+                            ))}
+                            {i === 2 && (
+                                <button onClick={() => handleKey('BACKSPACE')} className="h-12 px-3 flex items-center justify-center rounded font-bold text-white bg-slate-700 border-b-4 border-slate-900 active:border-b-0 active:translate-y-1">
+                                    ⌫
+                                </button>
+                            )}
+                            {i === 2 && (
+                                <button onClick={() => handleKey('ENTER')} className="h-12 px-3 flex items-center justify-center rounded font-bold text-white bg-green-600 border-b-4 border-green-800 active:border-b-0 active:translate-y-1 ml-1">
+                                    ↵
+                                </button>
+                            )}
+                        </div>
+                    ))}
+                </div>
+
+                {/* Close Button */}
+                <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors">
                     <XCircle size={32} />
                 </button>
             </div>
