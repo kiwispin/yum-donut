@@ -782,7 +782,7 @@ function ClawMachine({ user, onWin, lastPlayed }) {
                         onClick={handlePlay}
                         disabled={isPlaying || isOnCooldown}
                         className={`
-                            w-full py-4 rounded-xl font-black text-base uppercase transition-all transform
+                            w-full py-4 rounded-xl font-black text-lg tracking-wider uppercase transition-all transform
                             ${isPlaying || isOnCooldown
                                 ? 'bg-slate-700 text-slate-500 cursor-not-allowed border-b-4 border-slate-900'
                                 : 'bg-pink-500 hover:bg-pink-400 text-white shadow-lg border-b-4 border-pink-700 active:border-b-0 active:translate-y-1 pixel-btn'
