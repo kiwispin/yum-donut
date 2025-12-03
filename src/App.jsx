@@ -1796,6 +1796,23 @@ export default function YumDonutApp() {
         let expiresAt = null;
         if (expiresAtString) {
             expiresAt = new Date(expiresAtString).getTime();
+            if (expiresAt < Date.now()) {
+                showNotification("Due date cannot be in the past.", "error");
+                return;
+            }
+        }
+
+        // Validate Schedule Time
+        if (scheduledFor) {
+            const scheduleTime = new Date(scheduledFor).getTime();
+            if (scheduleTime < Date.now()) {
+                showNotification("Cannot schedule a job in the past.", "error");
+                return;
+            }
+            if (expiresAt && expiresAt < scheduleTime) {
+                showNotification("Due date cannot be before the scheduled start time.", "error");
+                return;
+            }
         }
 
         await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'bounties'), {
