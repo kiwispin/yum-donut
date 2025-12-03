@@ -4758,14 +4758,20 @@ function TypingDefenceModal({ onClose, onReward }) {
     const gameStateRef = useRef('start');
     const livesRef = useRef(3);
     const scoreRef = useRef(0);
+    const levelRef = useRef(1); // Track level in ref
 
     const inputRef = useRef(null);
     const requestRef = useRef();
     const lastSpawnTime = useRef(0);
 
-    // Game Constants
-    const SPAWN_RATE = Math.max(1000, 3000 - (level * 200)); // Spawns faster as level increases
-    const FALL_SPEED = 0.5 + (level * 0.1);
+    // Dynamic Difficulty Calculation
+    const getDifficulty = () => {
+        const lvl = levelRef.current;
+        return {
+            spawnRate: Math.max(800, 3000 - (lvl * 200)), // Cap at 800ms
+            fallSpeed: 0.5 + (lvl * 0.15) // Slightly faster ramp
+        };
+    };
 
     // Word List (Media & Virtues)
     const WORDS = [
@@ -4780,6 +4786,7 @@ function TypingDefenceModal({ onClose, onReward }) {
             gameStateRef.current = 'playing';
             livesRef.current = 3;
             scoreRef.current = 0;
+            levelRef.current = 1; // Reset level ref
             inputRef.current?.focus();
             requestRef.current = requestAnimationFrame(gameLoop);
         } else {
@@ -4799,8 +4806,10 @@ function TypingDefenceModal({ onClose, onReward }) {
     const gameLoop = (time) => {
         if (gameStateRef.current !== 'playing') return;
 
+        const { spawnRate, fallSpeed } = getDifficulty();
+
         // Spawn Logic
-        if (time - lastSpawnTime.current > SPAWN_RATE) {
+        if (time - lastSpawnTime.current > spawnRate) {
             spawnEnemy();
             lastSpawnTime.current = time;
         }
@@ -4811,7 +4820,7 @@ function TypingDefenceModal({ onClose, onReward }) {
             let lifeLost = false;
 
             prev.forEach(enemy => {
-                const newY = enemy.y + FALL_SPEED;
+                const newY = enemy.y + fallSpeed;
                 if (newY > 90) { // Hit bottom (base)
                     lifeLost = true;
                 } else {
@@ -4863,8 +4872,11 @@ function TypingDefenceModal({ onClose, onReward }) {
             setScore(scoreRef.current); // Sync state
             setInputValue("");
 
-            if (scoreRef.current % 500 === 0) {
-                setLevel(l => l + 1);
+            // Robust Level Up Logic
+            const newLevel = Math.floor(scoreRef.current / 500) + 1;
+            if (newLevel > levelRef.current) {
+                levelRef.current = newLevel;
+                setLevel(newLevel); // Sync state
             }
         }
     };
