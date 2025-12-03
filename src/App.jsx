@@ -880,20 +880,10 @@ function ArcadeView({ user, allUsers, onWinBonus }) {
                     </div>
                 </div>
 
-                <Card className="col-span-1 border-4 border-yellow-200 bg-yellow-50 overflow-hidden relative group">
-                    <div className="absolute top-0 right-0 bg-yellow-500 text-white text-xs font-bold px-2 py-1 rounded-bl-lg z-10">
-                        DAILY
-                    </div>
-                    <div className="p-4 flex flex-col items-center text-center">
-                        <h3 className="text-xl font-black text-yellow-600 mb-1 text-center">GIFT WHEEL</h3>
-                        <p className="text-xs text-yellow-500 font-bold uppercase tracking-wider mb-4 text-center">Spin to Gift a Classmate!</p>
-
-                        <SpinWheel
-                            user={user}
-                            allUsers={allUsers}
-                            onWin={(winner) => onWinBonus({ type: 'gift', amount: 1, recipient: winner })}
-                        />
-                    </div>
+                <Card className="col-span-1 border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center p-8 opacity-60 text-center">
+                    <div className="text-4xl mb-4 grayscale">🎡</div>
+                    <h3 className="text-lg font-bold text-slate-400">Spin The Wheel</h3>
+                    <p className="text-xs text-slate-400 uppercase mt-1">Coming Soon</p>
                 </Card>
             </div>
         </div>
@@ -2478,7 +2468,7 @@ export default function YumDonutApp() {
                 {view === 'arcade' && (
                     <ArcadeView
                         user={user}
-                        allUsers={allUsers}
+                        allUsers={users}
                         onWinBonus={handleTrainingReward}
                     />
                 )}
