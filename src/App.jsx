@@ -4785,9 +4785,10 @@ function TypingDefenceModal({ onClose, onReward }) {
     // Dynamic Difficulty Calculation
     const getDifficulty = () => {
         const lvl = levelRef.current;
+        // Slower ramp up for kids
         return {
-            spawnRate: Math.max(800, 3000 - (lvl * 200)), // Cap at 800ms
-            fallSpeed: 0.5 + (lvl * 0.15) // Slightly faster ramp
+            spawnRate: Math.max(1000, 2500 - (lvl * 100)), // Cap at 1s, start at 2.4s
+            fallSpeed: Math.min(1.5, 0.2 + (lvl * 0.05)) // Start very slow (0.25), cap at 1.5
         };
     };
 
@@ -4849,6 +4850,7 @@ function TypingDefenceModal({ onClose, onReward }) {
             if (lifeLost) {
                 livesRef.current -= 1;
                 setLives(livesRef.current); // Sync state
+                setInputValue(""); // Clear input on life loss
 
                 if (livesRef.current <= 0) {
                     gameStateRef.current = 'gameover';
@@ -4957,6 +4959,11 @@ function TypingDefenceModal({ onClose, onReward }) {
                         type="text"
                         value={inputValue}
                         onChange={handleInput}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                setInputValue(""); // Clear on Enter if not matched (match clears automatically)
+                            }
+                        }}
                         className="w-full max-w-md bg-black border-2 border-green-500 text-green-400 font-bold text-center text-xl py-2 rounded focus:outline-none focus:shadow-[0_0_15px_rgba(34,197,94,0.5)] uppercase placeholder-green-900"
                         placeholder={gameState === 'playing' ? "TYPE TO SHOOT" : ""}
                         autoFocus
@@ -4999,131 +5006,6 @@ function TypingDefenceModal({ onClose, onReward }) {
                 <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white z-30">
                     <XCircle size={32} />
                 </button>
-            </div>
-        </div>
-    );
-}
-
-// --- SPIN WHEEL COMPONENT ---
-function SpinWheel({ user, allUsers, onWin }) {
-    const [isSpinning, setIsSpinning] = useState(false);
-    const [rotation, setRotation] = useState(0);
-    const [winner, setWinner] = useState(null);
-    const [showCelebration, setShowCelebration] = useState(false);
-
-    // Filter potential winners (everyone except me)
-    const classmates = allUsers.filter(u => u.id !== user.uid);
-
-    // Colors for segments
-    const SEGMENT_COLORS = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef', '#f43f5e'];
-
-    const handleSpin = () => {
-        if (isSpinning || classmates.length === 0) return;
-
-        setIsSpinning(true);
-        setWinner(null);
-        setShowCelebration(false);
-
-        // 1. Pick a random winner index
-        const winnerIndex = Math.floor(Math.random() * classmates.length);
-        const winningStudent = classmates[winnerIndex];
-
-        // 2. Calculate rotation to land on that segment
-        // Each segment is (360 / count) degrees
-        // To land on index i, we need to rotate so that segment is at the top (270deg or -90deg)
-        // But CSS rotation is clockwise.
-        // Let's say 0deg is at 3 o'clock.
-        // Segment 0 starts at 0deg.
-        // We want the pointer (at 12 o'clock / 270deg) to point to the winner.
-
-        const segmentAngle = 360 / classmates.length;
-
-        // Random extra spins (5 to 10)
-        const extraSpins = 360 * (5 + Math.floor(Math.random() * 5));
-
-        // Calculate target angle
-        // We want the CENTER of the winning segment to align with -90deg (top)
-        // Segment i spans from (i * angle) to ((i+1) * angle)
-        // Center of segment i is (i + 0.5) * angle
-        // We want rotation + center = 270 (mod 360)
-        // rotation = 270 - center
-
-        const segmentCenter = (winnerIndex + 0.5) * segmentAngle;
-        const targetRotation = extraSpins + (270 - segmentCenter);
-
-        setRotation(targetRotation);
-
-        // 3. Wait for animation to finish (5s)
-        setTimeout(() => {
-            setIsSpinning(false);
-            setWinner(winningStudent);
-            setShowCelebration(true);
-
-            // Trigger the win logic (Gift 1 Donut)
-            onWin(winningStudent);
-        }, 5000);
-    };
-
-    // Conic Gradient for Wheel Background
-    const gradient = `conic-gradient(${classmates.map((_, i) => {
-        const color = SEGMENT_COLORS[i % SEGMENT_COLORS.length];
-        const start = (i * 100) / classmates.length;
-        const end = ((i + 1) * 100) / classmates.length;
-        return `${color} ${start}% ${end}%`;
-    }).join(', ')
-        })`;
-
-    if (classmates.length === 0) {
-        return <div className="text-center text-slate-400">No classmates to gift! 😢</div>;
-    }
-
-    return (
-        <div className="flex flex-col items-center justify-center p-4">
-            <div className="wheel-container mb-6" style={{ transform: `rotate(${rotation}deg)` }}>
-                <div className="wheel" style={{ background: gradient }}>
-                    {classmates.map((student, i) => (
-                        <div
-                            key={student.id}
-                            className="wheel-segment"
-                            style={{ transform: `rotate(${i * (360 / classmates.length)}deg) skewY(-${90 - (360 / classmates.length)}deg)` }}
-                        >
-                            <span style={{ transform: `skewY(${90 - (360 / classmates.length)}deg) rotate(${360 / classmates.length / 2}deg)` }}>
-                                {student.name.split(' ')[0]}
-                            </span>
-                        </div>
-                    ))}
-                </div>
-                <div className="wheel-center">🎁</div>
-            </div>
-
-            <div className="wheel-pointer"></div>
-
-            {winner ? (
-                <div className="text-center animate-in zoom-in duration-300">
-                    <div className="text-sm text-slate-500 font-bold uppercase mb-1">You gifted 1 🍩 to</div>
-                    <div className="text-3xl font-black text-pink-500 mb-4">{winner.name}</div>
-                    <Button onClick={() => setWinner(null)} className="bg-green-500 hover:bg-green-600 text-white">
-                        Awesome!
-                    </Button>
-                </div>
-            ) : (
-                <Button
-                    onClick={handleSpin}
-                    disabled={isSpinning}
-                    className={`
-                        w-full max-w-xs py-4 rounded-xl font-black text-xl tracking-wider uppercase transition-all transform
-                        ${isSpinning
-                            ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                            : 'bg-gradient-to-r from-pink-500 to-yellow-500 hover:from-pink-400 hover:to-yellow-400 text-white shadow-xl hover:scale-105 active:scale-95'
-                        }
-                    `}
-                >
-                    {isSpinning ? "Spinning..." : "SPIN TO GIFT!"}
-                </Button>
-            )}
-
-            <div className="mt-4 text-xs text-slate-400 font-medium">
-                Daily Free Spin • Spread the Love ❤️
             </div>
         </div>
     );
