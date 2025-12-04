@@ -768,27 +768,29 @@ function ClawMachine({ user, onWin, lastPlayed }) {
                     100% WIN RATE • 1 PLAY / DAY
                 </div>
             </div>
-        </div>
-    );
-} {/* Result Modal */ }
-{
-    showConfetti && prize && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pointer-events-none">
-            <div className="bg-white border-4 border-yellow-400 p-6 rounded-2xl shadow-2xl text-center transform animate-in zoom-in duration-300 pointer-events-auto max-w-xs w-full">
-                <div className="text-6xl mb-4 animate-bounce">{prize.icon}</div>
-                <h3 className="text-2xl font-black text-slate-800 mb-2">YOU WON!</h3>
-                <p className="text-slate-500 font-medium mb-6">
-                    You grabbed a <span className="text-pink-500 font-bold">{prize.label}</span>!
-                </p>
-                <button
-                    onClick={handleClaim}
-                    className="bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold py-2 px-6 rounded-full shadow-lg transition-transform hover:scale-105"
-                >
-                    Awesome!
-                </button>
-            </div>
-        </div>
 
+            {/* Result Modal */}
+            {showConfetti && prize && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pointer-events-none">
+                    <div className="bg-white border-4 border-yellow-400 p-6 rounded-2xl shadow-2xl text-center transform animate-in zoom-in duration-300 pointer-events-auto max-w-xs w-full">
+                        <div className="text-6xl mb-4 animate-bounce">{prize.icon}</div>
+                        <h3 className="text-2xl font-black text-slate-800 mb-2">YOU WON!</h3>
+                        <p className="text-slate-500 font-medium mb-6">
+                            You grabbed a <span className="text-pink-500 font-bold">{prize.label}</span>!
+                        </p>
+                        <button
+                            onClick={() => {
+                                // Prize is already claimed via onWin in the timeout, just close modal
+                                setShowConfetti(false);
+                            }}
+                            className="bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold py-2 px-6 rounded-full shadow-lg transition-transform hover:scale-105"
+                        >
+                            Awesome!
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
     );
 }
 
