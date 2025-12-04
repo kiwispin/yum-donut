@@ -1473,63 +1473,82 @@ export default function YumDonutApp() {
     const handleWinBonus = async (prize, cooldownField = 'last_daily_bonus', gameName = "the Claw Machine") => {
         if (!user || !myProfile) return;
 
+        const userRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
+        const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
+
         try {
-            const userRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
-            const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
+            await runTransaction(db, async (transaction) => {
+                const userDoc = await transaction.get(userRef);
+                if (!userDoc.exists()) throw "User profile not found";
 
-            // 1. Update Last Played Time (if field provided)
-            if (cooldownField) {
-                await updateDoc(userRef, { [cooldownField]: serverTimestamp() });
-            }
+                const data = userDoc.data();
 
-            // 2. Process Reward
+                // 1. Server-Side Cooldown Check
+                if (cooldownField) {
+                    const lastPlayed = data[cooldownField];
+                    if (lastPlayed) {
+                        const today = new Date().toDateString();
+                        const lastDate = lastPlayed.toDate().toDateString();
+                        if (lastDate === today) {
+                            throw "Daily Limit Reached";
+                        }
+                    }
+                }
+
+                // 2. Prepare Private Updates
+                const updates = {
+                    [cooldownField]: serverTimestamp()
+                };
+
+                let amount = 0;
+                if (prize.type === 'donut') {
+                    amount = prize.amount;
+                } else if (prize.type === 'item') {
+                    amount = 10; // Golden Ticket
+                }
+
+                updates.balance = (data.balance || 0) + amount;
+
+                transaction.update(userRef, updates);
+            });
+
+            // 3. Post-Transaction Updates (Public Profile & Logs)
+            const amount = prize.type === 'donut' ? prize.amount : 10;
+
+            await updateDoc(publicRef, {
+                balance: increment(amount),
+                lifetime_received: increment(amount)
+            });
+
             if (prize.type === 'donut') {
-                const amount = prize.amount;
-                // Update Private (Atomic)
-                await updateDoc(userRef, { balance: increment(amount) });
-
-                // Update Public (Atomic)
-                // Note: We use updateDoc here. If the public doc doesn't exist, this might fail, 
-                // but for existing users it should be fine. 
-                // To be safe, we can use setDoc with merge, but updateDoc is standard for existing fields.
-                // Given the previous code checked for existence, we can try update, or just set with merge.
-                // Let's stick to updateDoc but without the read first if possible, OR keep the check but use increment.
-                // Actually, for public stats, we should just use set with merge to be safe? 
-                // No, previous code did getDoc. Let's keep it simple and just use updateDoc with increment.
-                // If public doc is missing, it's a bigger issue.
-
-                await updateDoc(publicRef, {
-                    balance: increment(amount),
-                    lifetime_received: increment(amount)
-                });
                 showNotification(`You won ${amount} Donut${amount > 1 ? 's' : ''}! Added to wallet.`);
-            } else if (prize.type === 'item') {
-                // Golden Ticket Logic
-                const amount = 10;
-                // Update Private
-                await updateDoc(userRef, { balance: increment(amount) });
-                // Update Public
-                await updateDoc(publicRef, {
-                    balance: increment(amount),
-                    lifetime_received: increment(amount)
-                });
+            } else {
                 showNotification("GOLDEN TICKET! You won 10 Donuts!");
             }
 
-            // 3. Log Transaction
+            // 4. Log Transaction
             await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
                 fromName: "The Arcade",
                 toName: myProfile.name,
                 message: `Won a ${prize.label} playing ${gameName}!`,
                 timestamp: serverTimestamp(),
                 emoji: "🕹️",
-                amount: prize.amount || 10,
+                amount: amount,
                 likes: []
             });
 
-        } catch (e) {
-            console.error("Bonus Error", e);
-            showNotification("Error claiming prize. Contact Mr Rayner.", "error");
+        } catch (error) {
+            console.error("Transaction failed: ", error);
+            if (error === "Daily Limit Reached") {
+                showNotification("Daily Limit Reached! Come back tomorrow.");
+                // Ensure local lock is set if it wasn't (double safety)
+                const today = new Date().toDateString();
+                if (gameName.includes("Claw")) localStorage.setItem(`claw_lock_${user.uid}_${today}`, 'true');
+                if (gameName.includes("Typing")) localStorage.setItem(`typing_defence_lock_${today}`, 'true');
+                if (gameName.includes("Rushes")) localStorage.setItem(`daily_rushes_lock_${user.uid}_${today}`, 'true');
+            } else {
+                showNotification("Error claiming prize. Please try again.");
+            }
         }
     };
 
