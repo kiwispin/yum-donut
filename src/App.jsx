@@ -31,8 +31,9 @@ function CableCommanderModal({ user, onWin, onClose }) {
 
     // Game Constants
     const GRID_SIZE = 5;
-    const START_POS = { r: 0, c: 0 };
-    const END_POS = { r: 4, c: 4 };
+    // Align Start/End with the centered icons (Middle Row)
+    const START_POS = { r: 2, c: 0 };
+    const END_POS = { r: 2, c: 4 };
 
     // Tile Types: 
     // straight: connects opposite sides (e.g., Top-Bottom)
@@ -73,14 +74,11 @@ function CableCommanderModal({ user, onWin, onClose }) {
     const startGame = () => {
         if (hasPlayedToday) return;
 
-        // Generate Grid
+        // 1. Initialize Grid with Random Tiles
         const newGrid = [];
         for (let r = 0; r < GRID_SIZE; r++) {
             const row = [];
             for (let c = 0; c < GRID_SIZE; c++) {
-                // Random tile
-                const types = ['straight', 'elbow', 'tee', 'cross'];
-                // Weight towards elbows and straights for better flow
                 const weightedTypes = ['straight', 'straight', 'elbow', 'elbow', 'elbow', 'tee', 'cross'];
                 const type = weightedTypes[Math.floor(Math.random() * weightedTypes.length)];
                 const rotation = Math.floor(Math.random() * 4);
@@ -89,24 +87,72 @@ function CableCommanderModal({ user, onWin, onClose }) {
             newGrid.push(row);
         }
 
-        // Ensure Start and End are usable
-        // Start (0,0) needs to connect to Right or Bottom? 
-        // Let's say Camera enters from Left, so (0,0) MUST have Left connection?
-        // Or we just say Camera is AT (0,0).
-        // Let's say Camera is to the Left of (0,0). So (0,0) must connect Left.
-        // Monitor is to the Right of (4,4). So (4,4) must connect Right.
+        // 2. Generate Guaranteed Path
+        const path = generatePath();
 
-        // Actually, let's just ensure a valid path exists first?
-        // For MVP, random grid + rotation might be unsolvable.
-        // Better: Generate a random path from Start to End, then fill rest.
+        // 3. Overlay Path Tiles
+        // We need to set the tile type such that it CAN connect the prev and next steps.
+        // And we set a random rotation, but we ensure the TYPE is correct.
+        // Actually, we just need to pick a type that supports the required connections.
+        // e.g. if we need Top and Right, we can use Elbow, Tee, or Cross.
 
-        let path = generatePath();
-        // Overlay path onto grid
-        path.forEach(p => {
-            newGrid[p.r][p.c] = { type: p.type, rotation: p.rotation, active: false };
-        });
+        for (let i = 0; i < path.length; i++) {
+            const { r, c } = path[i];
 
-        // Scramble rotations
+            // Determine required connections
+            let req = 0;
+
+            // From previous (or Start)
+            if (i === 0) {
+                req |= 8; // Start needs Left connection
+            } else {
+                const prev = path[i - 1];
+                if (prev.r < r) req |= 1; // From Top
+                if (prev.r > r) req |= 4; // From Bottom
+                if (prev.c < c) req |= 8; // From Left
+                if (prev.c > c) req |= 2; // From Right
+            }
+
+            // To next (or End)
+            if (i === path.length - 1) {
+                req |= 2; // End needs Right connection
+            } else {
+                const next = path[i + 1];
+                if (next.r < r) req |= 1; // To Top
+                if (next.r > r) req |= 4; // To Bottom
+                if (next.c < c) req |= 8; // To Left
+                if (next.c > c) req |= 2; // To Right
+            }
+
+            // Pick a compatible tile type
+            // Straight: 5 (TB), 10 (RL)
+            // Elbow: 3 (TR), 6 (RB), 12 (BL), 9 (LT)
+            // Tee: 7 (TRB), 14 (RBL), 13 (BLT), 11 (LTR)
+            // Cross: 15
+
+            let possibleTypes = [];
+
+            // Check Straight
+            if ((req === 5) || (req === 10)) possibleTypes.push('straight');
+
+            // Check Elbow
+            if ([3, 6, 12, 9].includes(req)) possibleTypes.push('elbow');
+
+            // Always allow Tee and Cross as they are versatile
+            possibleTypes.push('tee');
+            possibleTypes.push('cross');
+
+            // If it's a straight line, prefer straight
+            if (possibleTypes.includes('straight') && Math.random() > 0.3) {
+                newGrid[r][c].type = 'straight';
+            } else if (possibleTypes.includes('elbow') && Math.random() > 0.3) {
+                newGrid[r][c].type = 'elbow';
+            } else {
+                newGrid[r][c].type = possibleTypes[Math.floor(Math.random() * possibleTypes.length)];
+            }
+        }
+
+        // 4. Scramble Rotations (User has to solve it)
         for (let r = 0; r < GRID_SIZE; r++) {
             for (let c = 0; c < GRID_SIZE; c++) {
                 newGrid[r][c].rotation = Math.floor(Math.random() * 4);
@@ -119,23 +165,53 @@ function CableCommanderModal({ user, onWin, onClose }) {
     };
 
     const generatePath = () => {
-        // Simple random walk from 0,0 to 4,4
-        let path = [];
-        let curr = { r: 0, c: 0 };
-        let visited = new Set(['0,0']);
+        // Simple random walk from Start to End
+        // Retry loop to ensure we find a valid path
+        for (let attempt = 0; attempt < 100; attempt++) {
+            let path = [{ ...START_POS }];
+            let curr = { ...START_POS };
+            let visited = new Set([`${curr.r},${curr.c}`]);
 
-        // We need to determine types based on entry/exit
-        // Entry for (0,0) is Left (virtual).
+            while (curr.r !== END_POS.r || curr.c !== END_POS.c) {
+                const neighbors = [];
+                // Try moving in all directions
+                const dirs = [
+                    { r: -1, c: 0 }, // Up
+                    { r: 1, c: 0 },  // Down
+                    { r: 0, c: 1 },  // Right
+                    { r: 0, c: -1 }  // Left
+                ];
 
-        // This is complex to generate perfectly.
-        // Simplification: Just random grid. If unsolvable, user restarts?
-        // No, that's frustrating.
-        // "Pipe Mania" usually guarantees a solution.
+                // Bias towards Right and End Row to avoid long loops
+                dirs.sort(() => Math.random() - 0.5);
 
-        // Let's stick to random grid for now but give plenty of "Cross" and "Tee" pieces to make it easier.
-        // And maybe 90s timer.
+                for (const d of dirs) {
+                    const nr = curr.r + d.r;
+                    const nc = curr.c + d.c;
 
-        return []; // Placeholder if we skip path gen
+                    if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE && !visited.has(`${nr},${nc}`)) {
+                        neighbors.push({ r: nr, c: nc });
+                    }
+                }
+
+                if (neighbors.length === 0) break; // Stuck
+
+                // Pick random neighbor
+                curr = neighbors[0];
+                visited.add(`${curr.r},${curr.c}`);
+                path.push(curr);
+
+                if (path.length > 20) break; // Too long
+            }
+
+            if (curr.r === END_POS.r && curr.c === END_POS.c) {
+                return path;
+            }
+        }
+        // Fallback: Straight line
+        return [
+            { r: 2, c: 0 }, { r: 2, c: 1 }, { r: 2, c: 2 }, { r: 2, c: 3 }, { r: 2, c: 4 }
+        ];
     };
 
     useEffect(() => {
@@ -170,10 +246,10 @@ function CableCommanderModal({ user, onWin, onClose }) {
     };
 
     const checkWinCondition = () => {
-        // BFS from (0,0) assuming entry from Left
+        // BFS from START_POS assuming entry from Left
         // 1=Top, 2=Right, 4=Bottom, 8=Left
 
-        const q = [{ r: 0, c: 0, from: 8 }]; // Entering (0,0) from Left (8)
+        const q = [{ r: START_POS.r, c: START_POS.c, from: 8 }]; // Entering Start from Left (8)
         const visited = new Set();
         const activeSet = new Set();
 
@@ -183,16 +259,17 @@ function CableCommanderModal({ user, onWin, onClose }) {
             const { r, c, from } = q.shift();
             const key = `${r},${c}`;
 
-            if (visited.has(key + '_' + from)) continue; // Avoid loops with same entry
+            if (visited.has(key + '_' + from)) continue;
             visited.add(key + '_' + from);
-            activeSet.add(key);
 
             const cell = grid[r][c];
             const conns = getConnections(cell.type, cell.rotation);
 
             // Must connect to 'from' direction
-            // If we came from Left (8), this cell must have Left connection (8).
             if (!(conns & from)) continue;
+
+            // Connection valid! Mark as active.
+            activeSet.add(key);
 
             // Reached End?
             if (r === END_POS.r && c === END_POS.c) {
@@ -203,13 +280,9 @@ function CableCommanderModal({ user, onWin, onClose }) {
             }
 
             // Explore neighbors
-            // Top (1) -> Neighbor is (r-1, c), entering from Bottom (4)
             if ((conns & 1) && r > 0) q.push({ r: r - 1, c, from: 4 });
-            // Right (2) -> Neighbor is (r, c+1), entering from Left (8)
             if ((conns & 2) && c < GRID_SIZE - 1) q.push({ r, c: c + 1, from: 8 });
-            // Bottom (4) -> Neighbor is (r+1, c), entering from Top (1)
             if ((conns & 4) && r < GRID_SIZE - 1) q.push({ r: r + 1, c, from: 1 });
-            // Left (8) -> Neighbor is (r, c-1), entering from Right (2)
             if ((conns & 8) && c > 0) q.push({ r, c: c - 1, from: 2 });
         }
 
@@ -246,9 +319,17 @@ function CableCommanderModal({ user, onWin, onClose }) {
                 {/* Game Board */}
                 {gameState === 'start' || gameState === 'playing' ? (
                     <div className="flex items-center gap-2">
-                        <div className="text-cyan-400 animate-pulse"><Camera /></div>
+                        {/* Camera Input Indicator */}
+                        <div className="flex flex-col items-center">
+                            <div className="text-cyan-400 animate-pulse mb-1"><Camera /></div>
+                            <div className="h-1 w-4 bg-cyan-500/50 rounded-full"></div>
+                        </div>
 
-                        <div className="grid grid-cols-5 gap-1 bg-slate-800 p-2 rounded-lg border border-slate-700">
+                        <div className="grid grid-cols-5 gap-1 bg-slate-800 p-2 rounded-lg border border-slate-700 relative">
+                            {/* Start/End Indicators on Border */}
+                            <div className="absolute left-0 top-[40%] -translate-x-3 text-cyan-500/50">▶</div>
+                            <div className="absolute right-0 top-[40%] translate-x-3 text-cyan-500/50">▶</div>
+
                             {grid.map((row, r) => row.map((cell, c) => (
                                 <button
                                     key={`${r}-${c}`}
@@ -258,6 +339,7 @@ function CableCommanderModal({ user, onWin, onClose }) {
                                         w-12 h-12 flex items-center justify-center rounded transition-all duration-200
                                         ${cell.active ? 'bg-cyan-900/50 shadow-[0_0_10px_rgba(34,211,238,0.3)]' : 'bg-slate-900'}
                                         hover:bg-slate-700
+                                        ${(r === START_POS.r && c === START_POS.c) || (r === END_POS.r && c === END_POS.c) ? 'border border-slate-600' : ''}
                                     `}
                                 >
                                     <div
@@ -276,7 +358,11 @@ function CableCommanderModal({ user, onWin, onClose }) {
                             )))}
                         </div>
 
-                        <div className={`text-cyan-400 ${gameState === 'won' ? 'animate-bounce' : ''}`}><Monitor /></div>
+                        {/* Monitor Output Indicator */}
+                        <div className="flex flex-col items-center">
+                            <div className={`text-cyan-400 ${gameState === 'won' ? 'animate-bounce' : ''} mb-1`}><Monitor /></div>
+                            <div className="h-1 w-4 bg-cyan-500/50 rounded-full"></div>
+                        </div>
                     </div>
                 ) : null}
 
@@ -285,7 +371,7 @@ function CableCommanderModal({ user, onWin, onClose }) {
                     <div className="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center rounded-2xl z-10 p-6 text-center">
                         <Cable size={48} className="text-cyan-400 mb-4" />
                         <h3 className="text-2xl font-bold text-white mb-2">Cable Management</h3>
-                        <p className="text-slate-400 mb-6">Rotate the cables to connect the Camera to the Monitor before the battery dies!</p>
+                        <p className="text-slate-400 mb-6">Rotate the cables to connect the Camera to the Monitor!</p>
 
                         {hasPlayedToday ? (
                             <div className="bg-slate-800 px-6 py-3 rounded-lg border border-slate-700 font-mono text-red-400">
