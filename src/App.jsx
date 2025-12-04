@@ -542,6 +542,20 @@ const SYSTEM_AVATARS = {
         ],
         gridSize: 8,
         color: "#000000"
+    },
+    "The Bank": {
+        pixels: [
+            null, null, null, "#F1C40F", "#F1C40F", null, null, null,
+            null, null, "#F1C40F", "#F1C40F", "#F1C40F", "#F1C40F", null, null,
+            null, "#F1C40F", "#F1C40F", "#F1C40F", "#F1C40F", "#F1C40F", "#F1C40F", null,
+            null, "#BDC3C7", "#BDC3C7", "#BDC3C7", "#BDC3C7", "#BDC3C7", "#BDC3C7", null,
+            null, "#BDC3C7", null, "#BDC3C7", "#BDC3C7", null, "#BDC3C7", null,
+            null, "#BDC3C7", null, "#BDC3C7", "#BDC3C7", null, "#BDC3C7", null,
+            null, "#BDC3C7", "#BDC3C7", "#BDC3C7", "#BDC3C7", "#BDC3C7", "#BDC3C7", null,
+            null, "#7F8C8D", "#7F8C8D", "#7F8C8D", "#7F8C8D", "#7F8C8D", "#7F8C8D", null
+        ],
+        gridSize: 8,
+        color: "#2c3e50"
     }
 };
 
