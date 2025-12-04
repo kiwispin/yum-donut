@@ -926,11 +926,12 @@ function ArcadeView({ user, allUsers, onWinBonus }) {
             </div>
 
             {/* Modals */}
+            {/* Modals */}
             {showClawMachine && (
                 <ClawMachineModal
                     user={user}
                     lastPlayed={user?.last_daily_bonus}
-                    onWin={(prize) => onWinBonus(prize, 'last_daily_bonus')}
+                    onWin={(prize) => onWinBonus(prize, 'last_daily_bonus', 'the Claw Machine')}
                     onClose={() => setShowClawMachine(false)}
                 />
             )}
@@ -938,7 +939,7 @@ function ArcadeView({ user, allUsers, onWinBonus }) {
             {showTypingDefence && (
                 <TypingDefenceModal
                     onClose={() => setShowTypingDefence(false)}
-                    onReward={(prize) => onWinBonus(prize, 'last_typing_defence_win')}
+                    onReward={(prize) => onWinBonus(prize, 'last_typing_defence_win', 'Typing Defence')}
                 />
             )}
 
@@ -946,7 +947,7 @@ function ArcadeView({ user, allUsers, onWinBonus }) {
                 <DailyRushesModal
                     user={user}
                     onClose={() => setShowDailyRushes(false)}
-                    onWin={(prize) => onWinBonus(prize, 'last_wordle_win')}
+                    onWin={(prize) => onWinBonus(prize, 'last_wordle_win', 'The Daily Rushes')}
                 />
             )}
         </div>
@@ -1489,7 +1490,7 @@ export default function YumDonutApp() {
         await updateDoc(txRef, { likes: arrayUnion(myProfile.name) });
     };
 
-    const handleWinBonus = async (prize, cooldownField = 'last_daily_bonus') => {
+    const handleWinBonus = async (prize, cooldownField = 'last_daily_bonus', gameName = "the Claw Machine") => {
         if (!user || !myProfile) return;
 
         try {
@@ -1539,7 +1540,7 @@ export default function YumDonutApp() {
             await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
                 fromName: "The Arcade",
                 toName: myProfile.name,
-                message: `Won a ${prize.label} playing the Claw Machine!`,
+                message: `Won a ${prize.label} playing ${gameName}!`,
                 timestamp: serverTimestamp(),
                 emoji: "🕹️",
                 amount: prize.amount || 10,
