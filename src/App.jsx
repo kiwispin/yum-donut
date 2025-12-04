@@ -1882,7 +1882,7 @@ export default function YumDonutApp() {
             await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
                 fromName: "The Donut Muncher",
                 toName: "Someone",
-                message: `Nom nom! Ate ${amount} donut${amount > 1 ? 's' : ''} from ${munchSource === 'bank' ? 'the BANK' : 'wallet'} because: ${reason}`,
+                message: `Nom nom! Ate a donut from ${munchSource === 'bank' ? 'the BANK' : 'wallet'} because: ${reason}`,
                 timestamp: serverTimestamp(),
                 emoji: "👾",
                 amount: amount,
