@@ -1844,11 +1844,11 @@ export default function YumDonutApp() {
         }
     };
 
-    const handleMunchDonut = async (victimName, reason) => {
+    const handleMunchDonut = async (victimName, reason, amount = 1) => {
         if (!myProfile) return;
 
         if (isSandbox) {
-            showNotification(`Sandbox: Munched 1 donut from ${victimName} (Simulated)`, "info");
+            showNotification(`Sandbox: Munched ${amount} donut${amount > 1 ? 's' : ''} from ${victimName} (Simulated)`, "info");
             return;
         }
 
@@ -1866,14 +1866,14 @@ export default function YumDonutApp() {
             let updateData = {};
             let munchSource = "";
 
-            if (currentBal >= 1) {
-                updateData = { balance: currentBal - 1 };
+            if (currentBal >= amount) {
+                updateData = { balance: currentBal - amount };
                 munchSource = "wallet";
-            } else if (currentBank >= 1) {
-                updateData = { bank_balance: currentBank - 1 };
+            } else if (currentBank >= amount) {
+                updateData = { bank_balance: currentBank - amount };
                 munchSource = "bank";
             } else {
-                showNotification("The Muncher goes hungry (0 donuts anywhere).", "error");
+                showNotification(`The Muncher goes hungry (not enough donuts for ${amount}).`, "error");
                 return;
             }
 
@@ -1882,13 +1882,13 @@ export default function YumDonutApp() {
             await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
                 fromName: "The Donut Muncher",
                 toName: "Someone",
-                message: `Nom nom! Ate a donut from ${munchSource === 'bank' ? 'the BANK' : 'wallet'} because: ${reason}`,
+                message: `Nom nom! Ate ${amount} donut${amount > 1 ? 's' : ''} from ${munchSource === 'bank' ? 'the BANK' : 'wallet'} because: ${reason}`,
                 timestamp: serverTimestamp(),
                 emoji: "👾",
-                amount: 1,
+                amount: amount,
                 likes: []
             });
-            showNotification(`Munched 1 donut from ${victimName}'s ${munchSource}!`);
+            showNotification(`Munched ${amount} donut${amount > 1 ? 's' : ''} from ${victimName}'s ${munchSource}!`);
             setView('feed');
         } catch (e) {
             console.error(e);
@@ -4737,7 +4737,7 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
         if (!isMunch && !selectedValue) return; // Value required for giving
 
         if (isMunch) {
-            onMunch(selectedUser, message);
+            onMunch(selectedUser, message, amount);
         } else {
             onGive(selectedUser, message, amount, selectedValue, selectedVirtue);
         }
@@ -4933,8 +4933,8 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
                                     />
                                 </div>
 
-                                {/* Admin Bulk Controls (Only show in Give Mode) */}
-                                {isAdmin && !isMunch && (
+                                {/* Admin Bulk Controls (Show in Give AND Munch Mode) */}
+                                {isAdmin && (
                                     <div className="space-y-2">
                                         <label className="text-sm font-semibold text-slate-600 flex items-center gap-2">
                                             <Zap size={16} className="text-yellow-500" /> Admin Multiplier
@@ -4962,7 +4962,7 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
                                     className="w-full py-3 text-lg"
                                     variant={isMunch ? "danger" : "primary"}
                                 >
-                                    {isMunch ? `Feed The Muncher (1 ${EMOJI})` :
+                                    {isMunch ? `Feed The Muncher (${amount} ${EMOJI})` :
                                         `Give ${amount > 1 ? `${amount} ${EMOJI}` : EMOJI}`}
                                     {!isMunch && <span className="text-sm opacity-80 ml-1">
                                         {isAdmin ? "(∞ left)" : `(${remaining} left)`}
