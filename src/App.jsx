@@ -788,7 +788,7 @@ function ClawMachine({ user, onWin, lastPlayed }) {
                 </button>
             </div>
         </div>
-        </div >
+
     );
 }
 
