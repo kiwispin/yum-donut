@@ -654,22 +654,15 @@ function ClawMachine({ user, onWin, lastPlayed }) {
     const [clawState, setClawState] = useState('idle'); // idle, dropping, grabbing, rising
     const [prize, setPrize] = useState(null);
     const [showConfetti, setShowConfetti] = useState(false);
+    const [justPlayed, setJustPlayed] = useState(false);
 
-    // Cooldown Logic
-    const COOLDOWN_HOURS = 24;
-    const now = Date.now();
-    const lastPlayedTime = lastPlayed ? lastPlayed.toMillis() : 0;
-    const timeSinceLastPlay = now - lastPlayedTime;
-    const cooldownMs = COOLDOWN_HOURS * 60 * 60 * 1000;
-    const isOnCooldown = timeSinceLastPlay < cooldownMs;
-    const remainingMs = cooldownMs - timeSinceLastPlay;
-
-    // Format remaining time
-    const hoursLeft = Math.floor(remainingMs / (1000 * 60 * 60));
-    const minsLeft = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+    // Cooldown Logic (Midnight Reset)
+    const today = new Date().toDateString();
+    const lastPlayedDate = lastPlayed ? lastPlayed.toDate().toDateString() : null;
+    const hasPlayedToday = lastPlayedDate === today || justPlayed;
 
     const handlePlay = () => {
-        if (isPlaying || isOnCooldown) return;
+        if (isPlaying || hasPlayedToday) return;
 
         setIsPlaying(true);
         setClawState('dropping');
@@ -704,119 +697,98 @@ function ClawMachine({ user, onWin, lastPlayed }) {
             setClawState('idle');
             setIsPlaying(false);
             setShowConfetti(true);
-            try {
-                triggerConfetti();
-            } catch (e) {
-                console.error("Confetti error:", e);
-            }
-            // Note: We do NOT call onWin here anymore. 
-            // We wait for the user to click "Awesome!" to claim the prize.
+            setJustPlayed(true); // Immediate lock
+            onWin(wonPrize);
         }, 5500);
     };
 
-    const handleClaim = () => {
-        if (prize) {
-            onWin(prize);
-        }
-        setShowConfetti(false);
-    };
-
     return (
-        <div className="flex flex-col items-center justify-center p-4 animate-in fade-in zoom-in duration-500">
-            <div className="relative w-full max-w-sm bg-slate-900 rounded-t-3xl rounded-b-xl p-2 shadow-2xl border-4 border-slate-800 ring-4 ring-pink-500/30">
-                {/* Marquee Header */}
-                <div className="bg-pink-500 text-white text-center py-2 rounded-t-xl font-black tracking-widest uppercase text-sm mb-2 shadow-lg border-b-4 border-pink-700 relative overflow-hidden">
-                    <span className="relative z-10 drop-shadow-md">Daily Claw</span>
-                    <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
-                </div>
+        <div className="w-full max-w-xs mx-auto">
+            <div className="bg-slate-800 rounded-t-3xl p-4 border-4 border-slate-700 relative overflow-hidden h-64 shadow-inner">
+                {/* Glass Reflection */}
+                <div className="absolute top-0 right-0 w-2/3 h-full bg-gradient-to-l from-white/5 to-transparent pointer-events-none z-20"></div>
 
-                {/* Glass Cabinet */}
-                <div className="claw-machine-glass h-64 w-full bg-slate-800 rounded-lg border-4 border-slate-700 relative">
-                    {/* Background Grid */}
-                    <div className="absolute inset-0 arcade-grid-bg opacity-30"></div>
-
-                    {/* The Claw Assembly */}
-                    <div className={`claw-cable z-20 ${clawState === 'dropping' ? 'h-[140px]' : clawState === 'rising' ? 'h-[20px]' : 'h-[20px]'}`}></div>
-                    <div
-                        className={`absolute left-1/2 -translate-x-1/2 z-20 transition-all duration-[2500ms] ease-in-out ${clawState === 'dropping' ? 'top-[140px]' : 'top-[20px]'}`}
-                    >
-                        {/* Claw Sprite */}
-                        <div className={`text-4xl filter drop-shadow-lg ${clawState === 'grabbing' || clawState === 'rising' ? '' : 'animate-claw-shake'}`}>
-                            {clawState === 'grabbing' || clawState === 'rising' ? '✊' : '🖐️'}
+                {/* Claw Mechanism */}
+                <div
+                    className={`absolute top-0 left-1/2 -translate-x-1/2 w-2 h-full bg-slate-400 transition-all duration-[2500ms] ease-in-out z-10 ${clawState === 'dropping' ? 'h-[80%]' : clawState === 'rising' ? 'h-[10%]' : 'h-[10%]'}`}
+                >
+                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-8 bg-slate-300 rounded-full shadow-lg flex items-center justify-center">
+                        <div className={`transition-all duration-500 ${clawState === 'grabbing' ? 'scale-75' : 'scale-100'}`}>
+                            ⚙️
                         </div>
-
                         {/* Prize in Claw */}
-                        {clawState === 'rising' && prize && (
+                        {prize && clawState !== 'dropping' && clawState !== 'grabbing' && (
                             <div className="absolute top-6 left-1/2 -translate-x-1/2 text-2xl animate-bounce">
                                 {prize.icon}
                             </div>
                         )}
                     </div>
-
-                    {/* Pile of Donuts (Bottom) */}
-                    <div className="absolute bottom-0 left-0 right-0 h-16 flex items-end justify-center gap-1 overflow-hidden opacity-80">
-                        {Array.from({ length: 12 }).map((_, i) => (
-                            <div key={i} className="text-2xl transform translate-y-2" style={{ animationDelay: `${i * 0.1}s` }}>
-                                {['🍩', '🍪', '🎁', '🎫'][i % 4]}
-                            </div>
-                        ))}
-                    </div>
                 </div>
 
-                {/* Controls */}
-                <div className="bg-slate-800 p-4 rounded-b-lg mt-2 flex flex-col items-center gap-3 border-t-2 border-slate-700">
-                    {isOnCooldown ? (
-                        <div className="text-center">
-                            <div className="text-slate-400 text-xs font-bold uppercase mb-1">Next Play In</div>
-                            <div className="bg-slate-900 text-red-500 font-mono text-xl px-4 py-2 rounded border border-slate-700 shadow-inner">
-                                {hoursLeft}h {minsLeft}m
-                            </div>
+                {/* Pile of Donuts (Bottom) */}
+                <div className="absolute bottom-0 left-0 right-0 h-16 flex items-end justify-center gap-1 overflow-hidden opacity-80">
+                    {Array.from({ length: 12 }).map((_, i) => (
+                        <div key={i} className="text-2xl transform translate-y-2" style={{ animationDelay: `${i * 0.1}s` }}>
+                            {['🍩', '🍪', '🎁', '🎫'][i % 4]}
                         </div>
-                    ) : (
-                        <div className="text-green-400 text-xs font-bold uppercase animate-pulse">
-                            READY TO PLAY!
-                        </div>
-                    )}
-
-                    <button
-                        onClick={handlePlay}
-                        disabled={isPlaying || isOnCooldown}
-                        className={`
-                            w-full py-4 rounded-xl font-black text-lg tracking-wider uppercase transition-all transform
-                            ${isPlaying || isOnCooldown
-                                ? 'bg-slate-700 text-slate-500 cursor-not-allowed border-b-4 border-slate-900'
-                                : 'bg-pink-500 hover:bg-pink-400 text-white shadow-lg border-b-4 border-pink-700 active:border-b-0 active:translate-y-1 pixel-btn'
-                            }
-                        `}
-                    >
-                        {isPlaying ? "Good Luck..." : "GRAB!"}
-                    </button>
-
-                    <div className="text-[10px] text-slate-500 font-mono text-center">
-                        100% WIN RATE • 1 PLAY / 24H
-                    </div>
+                    ))}
                 </div>
             </div>
 
-            {/* Result Modal */}
-            {showConfetti && prize && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pointer-events-none">
-                    <div className="bg-white border-4 border-yellow-400 p-6 rounded-2xl shadow-2xl text-center transform animate-in zoom-in duration-300 pointer-events-auto max-w-xs w-full">
-                        <div className="text-6xl mb-4 animate-bounce">{prize.icon}</div>
-                        <h3 className="text-2xl font-black text-slate-800 mb-2">YOU WON!</h3>
-                        <p className="text-slate-500 font-medium mb-6">
-                            You grabbed a <span className="text-pink-500 font-bold">{prize.label}</span>!
-                        </p>
-                        <button
-                            onClick={handleClaim}
-                            className="bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold py-2 px-6 rounded-full shadow-lg transition-transform hover:scale-105"
-                        >
-                            Awesome!
-                        </button>
+            {/* Controls */}
+            <div className="bg-slate-800 p-4 rounded-b-lg mt-2 flex flex-col items-center gap-3 border-t-2 border-slate-700">
+                {hasPlayedToday ? (
+                    <div className="text-center">
+                        <div className="text-slate-400 text-xs font-bold uppercase mb-1">Daily Limit Reached</div>
+                        <div className="bg-slate-900 text-slate-500 font-mono text-sm px-4 py-2 rounded border border-slate-700 shadow-inner">
+                            Come back tomorrow!
+                        </div>
                     </div>
+                ) : (
+                    <div className="text-green-400 text-xs font-bold uppercase animate-pulse">
+                        READY TO PLAY!
+                    </div>
+                )}
+
+                <button
+                    onClick={handlePlay}
+                    disabled={isPlaying || hasPlayedToday}
+                    className={`
+                        w-full py-4 rounded-xl font-black text-lg tracking-wider uppercase transition-all transform
+                        ${isPlaying || hasPlayedToday
+                            ? 'bg-slate-700 text-slate-500 cursor-not-allowed border-b-4 border-slate-900'
+                            : 'bg-pink-500 hover:bg-pink-400 text-white shadow-lg border-b-4 border-pink-700 active:border-b-0 active:translate-y-1 pixel-btn'
+                        }
+                    `}
+                >
+                    {isPlaying ? "Good Luck..." : "GRAB!"}
+                </button>
+
+                <div className="text-[10px] text-slate-500 font-mono text-center">
+                    100% WIN RATE • 1 PLAY / DAY
                 </div>
-            )}
+            </div>
         </div>
+    );
+} {/* Result Modal */ }
+{
+    showConfetti && prize && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pointer-events-none">
+            <div className="bg-white border-4 border-yellow-400 p-6 rounded-2xl shadow-2xl text-center transform animate-in zoom-in duration-300 pointer-events-auto max-w-xs w-full">
+                <div className="text-6xl mb-4 animate-bounce">{prize.icon}</div>
+                <h3 className="text-2xl font-black text-slate-800 mb-2">YOU WON!</h3>
+                <p className="text-slate-500 font-medium mb-6">
+                    You grabbed a <span className="text-pink-500 font-bold">{prize.label}</span>!
+                </p>
+                <button
+                    onClick={handleClaim}
+                    className="bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold py-2 px-6 rounded-full shadow-lg transition-transform hover:scale-105"
+                >
+                    Awesome!
+                </button>
+            </div>
+        </div>
+        </div >
     );
 }
 
@@ -4828,7 +4800,7 @@ function TypingStatsModal({ onClose }) {
     );
 }
 
-function TypingDefenceModal({ onClose, onReward }) {
+function TypingDefenceModal({ onClose, onReward, lastPlayed }) {
     const [gameState, setGameState] = useState('start'); // start, playing, gameover
     const [score, setScore] = useState(0);
     const [lives, setLives] = useState(3);
@@ -4836,6 +4808,12 @@ function TypingDefenceModal({ onClose, onReward }) {
     const [inputValue, setInputValue] = useState("");
     const [level, setLevel] = useState(1);
     const [earnedReward, setEarnedReward] = useState(0);
+    const [justPlayed, setJustPlayed] = useState(false);
+
+    // Cooldown Logic (Midnight Reset)
+    const today = new Date().toDateString();
+    const lastPlayedDate = lastPlayed ? lastPlayed.toDate().toDateString() : null;
+    const hasPlayedToday = lastPlayedDate === today || justPlayed;
 
     // Refs for Game Loop (to avoid stale closures)
     const gameStateRef = useRef('start');
@@ -5036,34 +5014,50 @@ function TypingDefenceModal({ onClose, onReward }) {
                     />
                 </div>
 
-                {/* Overlays */}
+                {/* Start Screen */}
                 {gameState === 'start' && (
-                    <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-center p-8 z-20">
-                        <h1 className="text-6xl font-black text-green-500 mb-2 tracking-tighter drop-shadow-[0_0_10px_rgba(34,197,94,0.8)]">TYPING DEFENCE</h1>
-                        <p className="text-green-300 mb-4 text-xl">DEFEND THE BASE FROM ALIEN WORDS</p>
-                        <p className="text-yellow-400 font-bold mb-8 text-lg animate-pulse">EARN 1 🍩 PER 1000 POINTS</p>
-                        <Button onClick={startGame} className="text-2xl px-8 py-4 bg-green-600 hover:bg-green-500 text-black font-bold border-b-8 border-green-800 active:border-b-0 active:translate-y-2 transition-all">
-                            START MISSION
-                        </Button>
+                    <div className="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center z-20">
+                        <h2 className="text-4xl font-black text-green-500 mb-2 tracking-widest glitch-text">TYPING DEFENCE</h2>
+                        <p className="text-green-400/70 mb-8 font-mono text-sm">DEFEND THE BASE FROM INCOMING WORDS</p>
+
+                        {hasPlayedToday ? (
+                            <div className="text-center">
+                                <div className="text-red-500 font-bold mb-2">DAILY LIMIT REACHED</div>
+                                <button disabled className="px-8 py-3 bg-slate-700 text-slate-500 font-bold rounded cursor-not-allowed border-2 border-slate-600">
+                                    COME BACK TOMORROW
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={startGame}
+                                className="px-8 py-3 bg-green-600 hover:bg-green-500 text-black font-bold rounded text-xl animate-pulse shadow-[0_0_20px_rgba(34,197,94,0.5)] transition-all hover:scale-105"
+                            >
+                                INSERT COIN (START)
+                            </button>
+                        )}
                     </div>
                 )}
 
+                {/* Game Over Screen */}
                 {gameState === 'gameover' && (
-                    <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center text-center p-8 z-20">
-                        <h1 className="text-6xl font-black text-red-500 mb-4 tracking-tighter">GAME OVER</h1>
-                        <div className="text-4xl text-white mb-4">FINAL SCORE: {score}</div>
-                        {earnedReward > 0 && (
-                            <div className="text-2xl text-green-400 font-bold mb-8 animate-bounce">
-                                YOU WON {earnedReward} DONUT{earnedReward > 1 ? 'S' : ''}! 🍩
-                            </div>
-                        )}
+                    <div className="absolute inset-0 bg-slate-900/95 flex flex-col items-center justify-center z-20">
+                        <h2 className="text-5xl font-black text-red-500 mb-4 tracking-widest">GAME OVER</h2>
+                        <div className="text-2xl text-white mb-2 font-mono">SCORE: {score}</div>
+                        <div className="text-xl text-green-400 mb-8 font-mono">REWARD: {earnedReward} DONUT(S)</div>
+
                         <div className="flex gap-4">
-                            <Button onClick={startGame} className="text-xl px-6 py-3 bg-green-600 hover:bg-green-500 text-black font-bold">
-                                RETRY
-                            </Button>
-                            <Button onClick={onClose} variant="outline" className="text-xl px-6 py-3 border-2 border-slate-500 text-slate-400 hover:bg-slate-800">
-                                BACK TO ARCADE
-                            </Button>
+                            <button
+                                onClick={() => {
+                                    if (earnedReward > 0) {
+                                        onReward({ type: 'donut', amount: earnedReward, label: `${earnedReward} Donut(s)` });
+                                        setJustPlayed(true); // Lock immediately
+                                    }
+                                    onClose();
+                                }}
+                                className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded border-2 border-slate-500 transition-colors"
+                            >
+                                EXIT
+                            </button>
                         </div>
                     </div>
                 )}
@@ -5082,6 +5076,12 @@ function DailyRushesModal({ user, onWin, onClose }) {
     const [gameStatus, setGameStatus] = useState('playing'); // playing, won, lost
     const [message, setMessage] = useState("");
     const [shakeRow, setShakeRow] = useState(false);
+    const [justPlayed, setJustPlayed] = useState(false);
+
+    // Cooldown Logic (Midnight Reset)
+    const today = new Date().toDateString();
+    const lastPlayedDate = user?.last_wordle_win ? user.last_wordle_win.toDate().toDateString() : null;
+    const hasPlayedToday = lastPlayedDate === today || justPlayed;
 
     const MEDIA_WORDS = [
         "AUDIO", "BROLL", "COLOR", "DEPTH", "EDIT", "FADER", "FOCUS", "FRAME", "GRAIN", "IMAGE",
@@ -5145,6 +5145,7 @@ function DailyRushesModal({ user, onWin, onClose }) {
 
             if (currentGuess === TARGET_WORD) {
                 setGameStatus('won');
+                setJustPlayed(true); // Lock immediately
                 onWin({ type: 'donut', amount: 1, label: 'Daily Rushes Win', icon: '🎬' });
             } else if (newGuesses.length >= 6) {
                 setGameStatus('lost');
