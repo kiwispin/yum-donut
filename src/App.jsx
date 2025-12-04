@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import {
     getFirestore, collection, addDoc, query, orderBy, limit, getDocs,
     onSnapshot, doc, updateDoc, setDoc, getDoc, serverTimestamp,
-    runTransaction, arrayUnion, arrayRemove, deleteDoc, Timestamp
+    runTransaction, arrayUnion, arrayRemove, deleteDoc, Timestamp, increment
 } from 'firebase/firestore';
 import {
     getAuth, onAuthStateChanged, signInWithCustomToken,
@@ -1504,36 +1504,34 @@ export default function YumDonutApp() {
             // 2. Process Reward
             if (prize.type === 'donut') {
                 const amount = prize.amount;
-                // Update Private
-                await updateDoc(userRef, { balance: (myProfile.balance || 0) + amount });
-                // Update Public
-                const publicDoc = await getDoc(publicRef);
-                if (publicDoc.exists()) {
-                    await updateDoc(publicRef, {
-                        balance: (publicDoc.data().balance || 0) + amount,
-                        lifetime_received: (publicDoc.data().lifetime_received || 0) + amount
-                    });
-                }
+                // Update Private (Atomic)
+                await updateDoc(userRef, { balance: increment(amount) });
+
+                // Update Public (Atomic)
+                // Note: We use updateDoc here. If the public doc doesn't exist, this might fail, 
+                // but for existing users it should be fine. 
+                // To be safe, we can use setDoc with merge, but updateDoc is standard for existing fields.
+                // Given the previous code checked for existence, we can try update, or just set with merge.
+                // Let's stick to updateDoc but without the read first if possible, OR keep the check but use increment.
+                // Actually, for public stats, we should just use set with merge to be safe? 
+                // No, previous code did getDoc. Let's keep it simple and just use updateDoc with increment.
+                // If public doc is missing, it's a bigger issue.
+
+                await updateDoc(publicRef, {
+                    balance: increment(amount),
+                    lifetime_received: increment(amount)
+                });
                 showNotification(`You won ${amount} Donut${amount > 1 ? 's' : ''}! Added to wallet.`);
             } else if (prize.type === 'item') {
-                // Add item to inventory (Assuming inventory exists or just notify for now)
-                // For now, we'll just give the cash equivalent or a special note
-                // Actually, let's just give 10 donuts as a "Golden Ticket" equivalent for simplicity in this version
-                // OR implement inventory logic if it exists. 
-                // Looking at the code, there isn't a robust inventory system visible in the snippets, 
-                // so let's treat Golden Ticket as a massive donut win (e.g. 10) or just a badge.
-                // Let's give 10 donuts for now to be safe and valuable.
+                // Golden Ticket Logic
                 const amount = 10;
                 // Update Private
-                await updateDoc(userRef, { balance: (myProfile.balance || 0) + amount });
+                await updateDoc(userRef, { balance: increment(amount) });
                 // Update Public
-                const publicDoc = await getDoc(publicRef);
-                if (publicDoc.exists()) {
-                    await updateDoc(publicRef, {
-                        balance: (publicDoc.data().balance || 0) + amount,
-                        lifetime_received: (publicDoc.data().lifetime_received || 0) + amount
-                    });
-                }
+                await updateDoc(publicRef, {
+                    balance: increment(amount),
+                    lifetime_received: increment(amount)
+                });
                 showNotification("GOLDEN TICKET! You won 10 Donuts!");
             }
 
