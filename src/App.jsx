@@ -4627,7 +4627,7 @@ function FeedView({ transactions, onReact, coreValues, onDelete, currentUser, us
                                         )}
                                     </div>
                                     <p className={`p-2 rounded-lg border italic text-sm ${isMunch ? 'text-red-700 bg-red-100 border-red-200' : 'text-slate-700 bg-slate-50 border-slate-100'}`}>
-                                        "{tx.message}"
+                                        "{tx.message.replace(/\[object Object\]/g, "???")}"
                                     </p>
                                     <p className="text-xs text-slate-400 mt-2 text-right">
                                         {tx.timestamp ? new Date(tx.timestamp.toDate()).toLocaleString() : 'Just now'}
