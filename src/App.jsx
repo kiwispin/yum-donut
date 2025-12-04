@@ -658,8 +658,12 @@ function ClawMachine({ user, onWin, lastPlayed }) {
 
     // Cooldown Logic (Midnight Reset)
     const today = new Date().toDateString();
+    const lockKey = `claw_lock_${user?.uid}_${today}`;
+    // Check localStorage immediately
+    const [localLock, setLocalLock] = useState(() => localStorage.getItem(lockKey) === 'true');
+
     const lastPlayedDate = lastPlayed ? lastPlayed.toDate().toDateString() : null;
-    const hasPlayedToday = lastPlayedDate === today || justPlayed;
+    const hasPlayedToday = lastPlayedDate === today || justPlayed || localLock;
 
     const handlePlay = () => {
         if (isPlaying || hasPlayedToday) return;
@@ -697,7 +701,9 @@ function ClawMachine({ user, onWin, lastPlayed }) {
             setClawState('idle');
             setIsPlaying(false);
             setShowConfetti(true);
-            setJustPlayed(true); // Immediate lock
+            setJustPlayed(true); // Immediate memory lock
+            setLocalLock(true); // Immediate storage lock
+            localStorage.setItem(lockKey, 'true'); // Persist lock
             onWin(wonPrize);
         }, 5500);
     };
@@ -4813,9 +4819,18 @@ function TypingDefenceModal({ onClose, onReward, lastPlayed }) {
     const [justPlayed, setJustPlayed] = useState(false);
 
     // Cooldown Logic (Midnight Reset)
+    // We need user ID for unique lock, but it's not passed directly.
+    // However, we can assume single user session or just use a generic key if user prop missing.
+    // Ideally we should pass user prop. Let's check if we can get it from context or props.
+    // ArcadeView passes it? No, ArcadeView has user.
+    // Let's update ArcadeView to pass user to TypingDefenceModal first? 
+    // Or just use a simpler key for now since it's local storage on the user's device.
     const today = new Date().toDateString();
+    const lockKey = `typing_defence_lock_${today}`;
+    const [localLock, setLocalLock] = useState(() => localStorage.getItem(lockKey) === 'true');
+
     const lastPlayedDate = lastPlayed ? lastPlayed.toDate().toDateString() : null;
-    const hasPlayedToday = lastPlayedDate === today || justPlayed;
+    const hasPlayedToday = lastPlayedDate === today || justPlayed || localLock;
 
     // Refs for Game Loop (to avoid stale closures)
     const gameStateRef = useRef('start');
@@ -5053,6 +5068,8 @@ function TypingDefenceModal({ onClose, onReward, lastPlayed }) {
                                     if (earnedReward > 0) {
                                         onReward({ type: 'donut', amount: earnedReward, label: `${earnedReward} Donut(s)` });
                                         setJustPlayed(true); // Lock immediately
+                                        setLocalLock(true);
+                                        localStorage.setItem(lockKey, 'true');
                                     }
                                     onClose();
                                 }}
@@ -5082,8 +5099,11 @@ function DailyRushesModal({ user, onWin, onClose }) {
 
     // Cooldown Logic (Midnight Reset)
     const today = new Date().toDateString();
+    const lockKey = `daily_rushes_lock_${user?.uid}_${today}`;
+    const [localLock, setLocalLock] = useState(() => localStorage.getItem(lockKey) === 'true');
+
     const lastPlayedDate = user?.last_wordle_win ? user.last_wordle_win.toDate().toDateString() : null;
-    const hasPlayedToday = lastPlayedDate === today || justPlayed;
+    const hasPlayedToday = lastPlayedDate === today || justPlayed || localLock;
 
     const MEDIA_WORDS = [
         "AUDIO", "BROLL", "COLOR", "DEPTH", "EDIT", "FADER", "FOCUS", "FRAME", "GRAIN", "IMAGE",
@@ -5148,6 +5168,8 @@ function DailyRushesModal({ user, onWin, onClose }) {
             if (currentGuess === TARGET_WORD) {
                 setGameStatus('won');
                 setJustPlayed(true); // Lock immediately
+                setLocalLock(true);
+                localStorage.setItem(lockKey, 'true');
                 onWin({ type: 'donut', amount: 1, label: 'Daily Rushes Win', icon: '🎬' });
             } else if (newGuesses.length >= 6) {
                 setGameStatus('lost');
