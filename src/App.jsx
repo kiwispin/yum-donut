@@ -2530,7 +2530,7 @@ export default function YumDonutApp() {
                     <ArcadeView
                         user={user}
                         allUsers={users}
-                        onWinBonus={handleTrainingReward}
+                        onWinBonus={handleWinBonus}
                     />
                 )}
 
