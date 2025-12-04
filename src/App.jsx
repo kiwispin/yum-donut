@@ -407,7 +407,7 @@ function CableCommanderModal({ user, onWin, onClose }) {
                     </div>
                 )}
 
-                <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors">
+                <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors z-20">
                     <XCircle size={32} />
                 </button>
             </div>
