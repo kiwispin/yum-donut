@@ -1595,25 +1595,8 @@ export default function YumDonutApp() {
         return () => { unsubUsers(); unsubFeed(); unsubGoal(); unsubBounties(); unsubRaffle(); };
     }, [user]);
 
-    // Auto-Sync Wallet & Bank
-    useEffect(() => {
-        if (!user || !myProfile || users.length === 0 || isSandbox) return; // Added isSandbox check
-        const publicProfile = users.find(u => u.name === myProfile.name);
-        if (publicProfile) {
-            const publicBalance = publicProfile.balance || 0;
-            const privateBalance = myProfile.balance || 0;
-            const publicBank = publicProfile.bank_balance || 0;
-            const privateBank = myProfile.bank_balance || 0;
-
-            if (publicBalance !== privateBalance || publicBank !== privateBank) {
-                const userRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
-                updateDoc(userRef, {
-                    balance: publicBalance,
-                    bank_balance: publicBank
-                }).catch(console.error);
-            }
-        }
-    }, [user, myProfile, users, isSandbox]); // Added isSandbox to dependencies
+    // Auto-Sync Wallet & Bank REMOVED to prevent race conditions
+    // useEffect(() => { ... }, []);
 
     const openBountyCount = bounties.filter(b => {
         if (b.status !== 'open') return false;
@@ -1927,7 +1910,7 @@ export default function YumDonutApp() {
                     }
                 }
 
-                // 2. Prepare Private Updates
+                // 2. Prepare Updates
                 const updates = {
                     [cooldownField]: serverTimestamp()
                 };
@@ -1941,16 +1924,16 @@ export default function YumDonutApp() {
 
                 updates.balance = (data.balance || 0) + amount;
 
+                // 3. Atomic Update (Private & Public)
                 transaction.update(userRef, updates);
+                transaction.update(publicRef, {
+                    balance: increment(amount),
+                    lifetime_received: increment(amount)
+                });
             });
 
-            // 3. Post-Transaction Updates (Public Profile & Logs)
+            // 4. Post-Transaction UI & Logs
             const amount = prize.type === 'donut' ? prize.amount : 10;
-
-            await updateDoc(publicRef, {
-                balance: increment(amount),
-                lifetime_received: increment(amount)
-            });
 
             if (prize.type === 'donut') {
                 showNotification(`You won ${amount} Donut${amount > 1 ? 's' : ''}! Added to wallet.`);
