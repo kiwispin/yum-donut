@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { initializeApp } from 'firebase/app';
 import {
     getFirestore, collection, addDoc, query, orderBy, limit, getDocs,
@@ -288,6 +288,9 @@ function CableCommanderModal({ user, lastPlayed, onWin, onClose }) {
                             {timeLeft}s
                         </div>
                     )}
+                    <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors ml-4">
+                        <XCircle size={28} />
+                    </button>
                 </div>
 
                 {/* Game Board */}
@@ -352,6 +355,10 @@ function CableCommanderModal({ user, lastPlayed, onWin, onClose }) {
                         <Cable size={48} className="text-cyan-400 mb-4" />
                         <h3 className="text-2xl font-bold text-white mb-2">Cable Management</h3>
 
+                        <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors">
+                            <XCircle size={24} />
+                        </button>
+
                         {hasPlayedToday ? (
                             <div className="bg-slate-800 px-6 py-3 rounded-lg border border-slate-700 font-mono text-red-400 mt-4">
                                 DAILY LIMIT REACHED
@@ -380,85 +387,7 @@ function CableCommanderModal({ user, lastPlayed, onWin, onClose }) {
 
                 {/* --- RENDER --- */}
 
-                {/* 0. Holiday Mode Check */}
-                {/* We only show this after loading is done so we know if it's admin or not */}
-                {/* If Admin, they see the screen but can click "Bypass" (which we implement via a local override state?) */}
-                {/* Actually, simpler: If Admin, we allow them to effectively "close" the modal locally for this session. */}
-                {/* Let's use a temporary "bypassed" state. */}
 
-                {/* Wait, I can't inject state hooks inside a conditional return or changing block logic easily without a new state. */}
-                {/* Let's add [bypassed, setBypassed] state at the top. */}
-
-                {/* ... (This tool call only replaces this block, I need to add state first. Let me add state in next call or previous). */}
-                {/* Actually, I can add the render logic here and use a dirty trick or just assume 'simulateHoliday' handles the test, */}
-                {/* and for real mode, I'll add 'bypassSession' state in the next step. */}
-
-                {/* Let's just do the render logic for now assuming 'bypassSession' exists (I will add it). */}
-
-                {!loading && (holidayMode || simulateHoliday) && (() => {
-                    {/* Check bypass */ }
-                    {/* We need to define the screen here or use the one defined above. */ }
-                    {/* Let's use the one defined above. */ }
-
-                    const isBypassed = sessionStorage.getItem('holiday_bypass') === 'true';
-
-                    if (!isBypassed) {
-                        return (
-                            <div className="fixed inset-0 z-[100] bg-gradient-to-b from-sky-900 via-sky-800 to-indigo-900 flex flex-col items-center justify-center text-center p-8 text-white">
-                                <div className="animate-in fade-in zoom-in duration-1000 flex flex-col items-center">
-                                    <div className="text-8xl mb-6 animate-bounce">🏖️</div>
-                                    <h1 className="text-5xl md:text-7xl font-black mb-4 tracking-tight drop-shadow-lg text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-orange-400">
-                                        SCHOOL'S OUT!
-                                    </h1>
-                                    <p className="text-2xl md:text-3xl font-light text-sky-200 mb-8 max-w-2xl leading-relaxed">
-                                        Have a fantastic summer break! <br />
-                                        See you in the New Year.
-                                    </p>
-
-                                    {/* Simulation Toggle for User Testing */}
-                                    {simulateHoliday && (
-                                        <div className="mb-8 px-4 py-2 bg-pink-500/20 border border-pink-500 rounded text-pink-300 text-sm font-mono">
-                                            TEST MODE ACTIVE
-                                        </div>
-                                    )}
-
-                                    <div className="mt-12 text-sm text-sky-400/50 font-mono">
-                                        Resting mode active • Data preserved
-                                    </div>
-
-                                    {/* Admin Bypass for Mr Rayner */}
-                                    {(isAdmin || simulateHoliday) && (
-                                        <div className="mt-12 p-6 bg-white/5 rounded-xl backdrop-blur border border-white/10 animate-in slide-in-from-bottom-8">
-                                            <div className="text-sm font-bold text-yellow-300 mb-4 opacity-75 uppercase tracking-widest">Teacher Access</div>
-                                            <button
-                                                onClick={() => {
-                                                    if (simulateHoliday) setSimulateHoliday(false);
-                                                    else {
-                                                        sessionStorage.setItem('holiday_bypass', 'true');
-                                                        // Force re-render? React won't react to sessionStorage change automatically.
-                                                        // I should use a state for this. I will add 'bypass' state.
-                                                        window.location.reload(); // Simple brute force for now, or just use state.
-                                                    }
-                                                }}
-                                                className="bg-white text-indigo-900 font-bold py-3 px-8 rounded-full hover:bg-sky-100 transition shadow-lg flex items-center gap-2 hover:scale-105 active:scale-95 duration-200"
-                                            >
-                                                <span>🔓</span> Enter Dashboard
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        );
-                    }
-                    return null; // If bypassed, render nothing for the holiday screen
-                })()}
-
-                {loading && (
-                    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
-                        <div className="animate-spin text-4xl mb-4">🍩</div>
-                        <div className="text-slate-400 font-medium">Loading Yum Donut...</div>
-                    </div>
-                )}
 
                 {gameState === 'won' && (
                     <div className="absolute inset-0 bg-slate-900/95 flex flex-col items-center justify-center rounded-2xl z-10 p-6 text-center animate-in zoom-in">
@@ -493,11 +422,9 @@ function CableCommanderModal({ user, lastPlayed, onWin, onClose }) {
                     </div>
                 )}
 
-                <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors z-20">
-                    <XCircle size={32} />
-                </button>
+
             </div>
-        </div>
+        </div >
     );
 }
 
@@ -1514,21 +1441,33 @@ export default function YumDonutApp() {
         return () => clearInterval(interval);
     }, [user, myProfile?.name]);
 
-    // --- HOLIDAY MODE ---
+    // --- HOLIDAY MODE & CONFIG ---
     const [holidayMode, setHolidayMode] = useState(false);
-    const [simulateHoliday, setSimulateHoliday] = useState(false); // Local test toggle
+    const [simulateHoliday, setSimulateHoliday] = useState(false);
+    const [shopPrices, setShopPrices] = useState({});
 
     useEffect(() => {
         const configRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'global');
         const unsub = onSnapshot(configRef, (snap) => {
-            if (snap.exists() && snap.data().holiday_mode) {
-                setHolidayMode(true);
+            if (snap.exists()) {
+                const data = snap.data();
+                setHolidayMode(!!data.holiday_mode);
+                setShopPrices(data.shop_prices || {});
             } else {
                 setHolidayMode(false);
+                setShopPrices({});
             }
         });
         return () => unsub();
     }, []);
+
+    const currentShopItems = useMemo(() => {
+        return SHOP_ITEMS.map(item => ({
+            ...item,
+            cost: (shopPrices && shopPrices[item.id] !== undefined) ? Number(shopPrices[item.id]) : item.cost,
+            originalCost: item.cost // Keep track for UI comparison
+        }));
+    }, [shopPrices]);
 
     // Holiday Screen Component (Internal)
     const HolidayScreen = () => (
@@ -3003,6 +2942,7 @@ export default function YumDonutApp() {
                     onClose={() => setIsAdminSettingsOpen(false)}
                     roster={roster}
                     holidayMode={holidayMode}
+                    shopPrices={shopPrices}
                 />
             )}
 
@@ -3082,7 +3022,7 @@ export default function YumDonutApp() {
 
                 {view === 'shop' && (
                     <ShopView
-                        items={SHOP_ITEMS}
+                        items={currentShopItems}
                         userBalance={myProfile?.balance || 0}
                         onPurchase={handlePurchase}
                         currentUserPublic={myProfile}
@@ -4096,26 +4036,28 @@ function PatchNotesModal({ onClose }) {
     );
 }
 
-function AdminSettingsModal({ onClose, roster, holidayMode }) {
-    const [activeTab, setActiveTab] = useState('general'); // 'general', 'roster'
-
-    // --- ROSTER LOGIC ---
+function AdminSettingsModal({ onClose, roster, holidayMode, shopPrices }) {
+    const [activeTab, setActiveTab] = useState('general'); // general, roster, shop
     const [newName, setNewName] = useState("");
     const [error, setError] = useState("");
     const [auditUser, setAuditUser] = useState(null);
+    const [editingPrices, setEditingPrices] = useState({}); // Local draft for price edits
+
+    // Initialize editingPrices when shopPrices changes
+    useEffect(() => {
+        setEditingPrices(shopPrices || {});
+    }, [shopPrices]);
 
     const handleAddUser = async () => {
-        if (!newName.trim()) return;
-        if (roster.includes(newName.trim())) {
-            setError("User already exists!");
+        const name = newName.trim();
+        if (!name) return;
+        if (roster.includes(name)) {
+            setError("Name already exists.");
             return;
         }
-
         try {
             const rosterRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'roster');
-            await setDoc(rosterRef, {
-                names: arrayUnion(newName.trim())
-            }, { merge: true });
+            await setDoc(rosterRef, { names: arrayUnion(name) }, { merge: true });
             setNewName("");
             setError("");
         } catch (e) {
@@ -4124,87 +4066,154 @@ function AdminSettingsModal({ onClose, roster, holidayMode }) {
         }
     };
 
-    const handleRemoveUser = async (nameToRemove) => {
-        if (!confirm(`Are you sure you want to remove ${nameToRemove}?`)) return;
-
+    const handleRemoveUser = async (name) => {
+        if (!confirm(`Remove ${name} from the roster?`)) return;
         try {
             const rosterRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'roster');
-            await setDoc(rosterRef, {
-                names: arrayRemove(nameToRemove)
-            }, { merge: true });
+            await setDoc(rosterRef, { names: arrayRemove(name) }, { merge: true });
         } catch (e) {
             console.error(e);
             setError("Failed to remove user.");
         }
     };
 
-    // --- GENERAL LOGIC ---
-    const toggleHolidayMode = async () => {
-        const configRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'global');
+    const handleHolidayToggle = async () => {
         try {
+            const configRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'global');
             await setDoc(configRef, { holiday_mode: !holidayMode }, { merge: true });
         } catch (e) {
-            console.error("Failed to toggle holiday mode", e);
+            console.error(e);
         }
     };
 
+    const handlePriceChange = (itemId, newCost) => {
+        setEditingPrices(prev => ({
+            ...prev,
+            [itemId]: Number(newCost)
+        }));
+    };
+
+    const handleSavePrice = async (itemId) => {
+        try {
+            const configRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'global');
+            const newPrice = editingPrices[itemId];
+
+            // If new price equals base price or is invalid, remove the override
+            const baseItem = SHOP_ITEMS.find(i => i.id === itemId);
+            if (newPrice === '' || Number(newPrice) === baseItem.cost) {
+                // To delete a field in a map in Firestore, we actually need to update the whole map or use dot notation if we knew the key?
+                // Actually, simplest is to just overwrite the 'shop_prices' map.
+                // But merging is better.
+                // Firestore doesn't support deleting a map key easily via merge.
+                // We'll read the current map, modify, and set back? Or just store the override even if same.
+                // Let's just store the override. It's fine.
+                // Actually to "Reset", passing 'undefined' or a special delete string might be needed if we want to clean up.
+                // For now, let's just save whatever value is there.
+
+                await setDoc(configRef, {
+                    shop_prices: {
+                        ...shopPrices,
+                        [itemId]: Number(newPrice)
+                    }
+                }, { merge: true });
+
+            } else {
+                await setDoc(configRef, {
+                    shop_prices: {
+                        ...shopPrices,
+                        [itemId]: Number(newPrice)
+                    }
+                }, { merge: true });
+            }
+        } catch (e) {
+            console.error("Error saving price", e);
+        }
+    };
+
+    const handleResetPrice = async (itemId) => {
+        try {
+            const configRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'global');
+            // To remove a key from a map, we need to read-modify-write if we can't use FieldValue.delete() on a nested field easily without dot notation.
+            // We can use dot notation: "shop_prices.itemId": deleteField()
+            const { deleteField } = await import('firebase/firestore'); // distinct import if not already at top, but easier to just use standard logic
+            // I'll trust standard setDoc merge dot notation works:
+            await updateDoc(configRef, {
+                [`shop_prices.${itemId}`]: deleteField()
+            });
+        } catch (e) {
+            console.error("Error resetting price", e);
+        }
+    };
+
+
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in duration-200">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full m-4 overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[80vh]">
-                <div className="bg-slate-800 p-4 text-white flex justify-between items-center">
-                    <h2 className="text-lg font-bold flex items-center gap-2">
-                        <Settings size={20} /> Admin Settings
-                    </h2>
-                    <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl h-[80vh] flex flex-col overflow-hidden">
+                {/* Header */}
+                <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600">
+                            <Settings size={24} />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-bold text-slate-800">Admin Settings</h2>
+                            <p className="text-xs text-slate-500">Manage school configuration</p>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-500">
                         <XCircle size={24} />
                     </button>
                 </div>
 
-                {/* TABS */}
-                <div className="flex border-b border-slate-200">
+                {/* Tabs */}
+                <div className="flex border-b border-slate-200 px-4">
                     <button
                         onClick={() => setActiveTab('general')}
-                        className={`flex-1 py-3 text-sm font-bold transition-colors ${activeTab === 'general' ? 'text-pink-600 border-b-2 border-pink-600 bg-pink-50' : 'text-slate-500 hover:bg-slate-50'}`}
+                        className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'general' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                     >
                         General
                     </button>
                     <button
                         onClick={() => setActiveTab('roster')}
-                        className={`flex-1 py-3 text-sm font-bold transition-colors ${activeTab === 'roster' ? 'text-pink-600 border-b-2 border-pink-600 bg-pink-50' : 'text-slate-500 hover:bg-slate-50'}`}
+                        className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'roster' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                     >
                         Roster
                     </button>
+                    <button
+                        onClick={() => setActiveTab('shop')}
+                        className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'shop' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                    >
+                        Shop Sales
+                    </button>
                 </div>
 
-                {/* CONTENT */}
-                <div className="flex-1 overflow-y-auto p-4 bg-slate-50">
-
+                {/* Content */}
+                <div className="flex-1 overflow-auto p-6 bg-slate-50/50">
                     {/* --- GENERAL TAB --- */}
                     {activeTab === 'general' && (
                         <div className="space-y-6">
-                            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                <h3 className="font-bold text-slate-800 mb-2 flex items-center gap-2">
-                                    <span>🏖️</span> Holiday Mode
-                                </h3>
-                                <p className="text-xs text-slate-500 mb-4">
-                                    Pauses the app for students. They will see a "School's Out" message. Admin access is preserved.
-                                </p>
-
-                                <div className="flex items-center justify-between">
-                                    <span className={`text-sm font-bold ${holidayMode ? 'text-green-600' : 'text-slate-400'}`}>
-                                        {holidayMode ? 'ACTIVE' : 'INACTIVE'}
-                                    </span>
+                            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div>
+                                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                                            <span>🏖️</span> Holiday Mode
+                                        </h3>
+                                        <p className="text-sm text-slate-500 mt-1">
+                                            Closes the school interface for all students.
+                                        </p>
+                                    </div>
                                     <button
-                                        onClick={toggleHolidayMode}
-                                        className={`px-4 py-2 rounded-full font-bold text-sm transition-all ${holidayMode ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-green-100 text-green-600 hover:bg-green-200'}`}
+                                        onClick={handleHolidayToggle}
+                                        className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${holidayMode ? 'bg-indigo-600' : 'bg-slate-200'}`}
                                     >
-                                        {holidayMode ? 'Deactivate' : 'Activate'}
+                                        <span
+                                            className={`${holidayMode ? 'translate-x-7' : 'translate-x-1'} inline-block h-6 w-6 transform rounded-full bg-white transition-transform`}
+                                        />
                                     </button>
                                 </div>
-                            </div>
-
-                            <div className="bg-slate-100 p-4 rounded-xl border border-slate-200 opacity-75">
-                                <h3 className="font-bold text-slate-500 mb-1 text-sm">More settings coming soon...</h3>
+                                <div className={`text-xs font-mono p-3 rounded-lg ${holidayMode ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-500'}`}>
+                                    STATUS: {holidayMode ? 'ACTIVE (Students Locked Out)' : 'INACTIVE (Normal Access)'}
+                                </div>
                             </div>
                         </div>
                     )}
@@ -4271,6 +4280,86 @@ function AdminSettingsModal({ onClose, roster, holidayMode }) {
                                         </div>
                                     </div>
                                 ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* --- SHOP TAB --- */}
+                    {activeTab === 'shop' && (
+                        <div className="h-full flex flex-col">
+                            <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4 mb-6">
+                                <h3 className="font-bold text-indigo-900 text-sm mb-1">Store Overrides</h3>
+                                <p className="text-xs text-indigo-700">
+                                    Set temporary prices for items (e.g. for sales).
+                                    Green border indicates a custom price is active.
+                                    Use the "Undo" button to revert to the base price.
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-3">
+                                {SHOP_ITEMS.map(item => {
+                                    const currentPrice = shopPrices?.[item.id] !== undefined ? shopPrices[item.id] : item.cost;
+                                    const isModified = shopPrices?.[item.id] !== undefined;
+                                    const draftPrice = editingPrices[item.id] !== undefined ? editingPrices[item.id] : currentPrice;
+
+                                    return (
+                                        <div
+                                            key={item.id}
+                                            className={`bg-white p-4 rounded-xl border flex items-center gap-4 shadow-sm transition-all
+                                                ${isModified ? 'border-green-500 ring-1 ring-green-500/20' : 'border-slate-200'}
+                                            `}
+                                        >
+                                            <div className="text-2xl bg-slate-50 w-12 h-12 flex items-center justify-center rounded-lg">
+                                                {item.icon}
+                                            </div>
+
+                                            <div className="flex-1 min-w-0">
+                                                <div className="font-bold text-slate-800 text-sm truncate">{item.name}</div>
+                                                <div className="text-xs text-slate-500 flex items-center gap-2">
+                                                    Base Cost: <span className="font-mono font-bold">{item.cost}</span>
+                                                    {isModified && (
+                                                        <span className="text-green-600 bg-green-50 px-1.5 py-0.5 rounded ml-2 font-bold">
+                                                            SALE ACTIVE
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-2">
+                                                <div className="relative">
+                                                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">🍩</div>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        value={draftPrice}
+                                                        onChange={(e) => handlePriceChange(item.id, e.target.value)}
+                                                        className={`w-20 pl-8 pr-2 py-2 text-sm font-bold text-right rounded-lg border focus:ring-2 outline-none transition-all
+                                                            ${Number(draftPrice) < item.cost ? 'text-green-600 border-green-200 focus:border-green-500 focus:ring-green-200' : 'text-slate-700 border-slate-200 focus:border-indigo-500 focus:ring-indigo-200'}
+                                                        `}
+                                                    />
+                                                </div>
+
+                                                <button
+                                                    onClick={() => handleSavePrice(item.id)}
+                                                    className="p-2 bg-slate-100 hover:bg-indigo-100 text-slate-400 hover:text-indigo-600 rounded-lg transition-colors"
+                                                    title="Save Price"
+                                                >
+                                                    <CheckCircle size={18} />
+                                                </button>
+
+                                                {isModified && (
+                                                    <button
+                                                        onClick={() => handleResetPrice(item.id)}
+                                                        className="p-2 bg-slate-50 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-lg transition-colors"
+                                                        title="Reset to Base Price"
+                                                    >
+                                                        <RotateCcw size={18} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )
+                                })}
                             </div>
                         </div>
                     )}
@@ -5923,7 +6012,7 @@ function DailyRushesModal({ user, lastPlayed, onWin, onClose }) {
     const [currentGuess, setCurrentGuess] = useState("");
     const [gameStatus, setGameStatus] = useState(() => {
         try {
-            const saved = localStorage.getItem(`daily_rushes_${user.uid}_${new Date().toISOString().slice(0, 10)}`);
+            const saved = localStorage.getItem(`daily_rushes_${user.uid}_${new Date().toDateString()}`);
             return saved ? JSON.parse(saved).gameStatus : 'playing';
         } catch {
             return 'playing';
@@ -5931,7 +6020,7 @@ function DailyRushesModal({ user, lastPlayed, onWin, onClose }) {
     });
     const [guesses, setGuesses] = useState(() => {
         try {
-            const saved = localStorage.getItem(`daily_rushes_${user.uid}_${new Date().toISOString().slice(0, 10)}`);
+            const saved = localStorage.getItem(`daily_rushes_${user.uid}_${new Date().toDateString()}`);
             return saved ? JSON.parse(saved).guesses : [];
         } catch {
             return [];
@@ -5972,7 +6061,7 @@ function DailyRushesModal({ user, lastPlayed, onWin, onClose }) {
     // Save State
     useEffect(() => {
         if (guesses.length > 0 || gameStatus !== 'playing') {
-            localStorage.setItem(`daily_rushes_${user.uid}_${new Date().toISOString().slice(0, 10)}`, JSON.stringify({
+            localStorage.setItem(`daily_rushes_${user.uid}_${new Date().toDateString()}`, JSON.stringify({
                 guesses,
                 gameStatus
             }));
