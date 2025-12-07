@@ -12,73 +12,83 @@ import {
 import {
     Trophy, Gift, Activity, MessageSquare,
     LogOut, UserPlus, Heart, Zap, Search, CheckCircle, Target, Sparkles,
-    Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock, Users, Skull, Trash2, Clock, Calendar, Edit2, RotateCcw, Landmark, PiggyBank, ArrowRight, ArrowLeft, UserCheck, Keyboard, Shield, Settings, Gamepad2, Cable, Monitor
+
+    Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock, Users, Skull, Trash2, Clock, Calendar, Edit2, RotateCcw, Landmark, PiggyBank, ArrowRight, ArrowLeft, UserCheck, Keyboard, Shield, Settings, Gamepad2, Cable, Monitor, ClipboardList
 } from 'lucide-react';
 
 
 // --- CABLE COMMANDER COMPONENT ---
-function CableCommanderModal({ user, onWin, onClose }) {
+// --- CABLE COMMANDER HELPERS ---
+
+const TILE_TYPES = {
+    straight: [5, 10], // 0101 (T-B), 1010 (R-L)
+    elbow: [3, 6, 12, 9], // 0011 (T-R), 0110 (R-B), 1100 (B-L), 1001 (L-T)
+    tee: [7, 14, 13, 11], // 0111 (T-R-B), 1110 (R-B-L), 1101 (B-L-T), 1011 (L-T-R)
+    cross: [15] // 1111
+};
+
+const getConnections = (type, rotation) => {
+    // Base shapes at rotation 0
+    let base = 0;
+    if (type === 'straight') base = 5; // Top-Bottom
+    if (type === 'elbow') base = 3;    // Top-Right
+    if (type === 'tee') base = 7;      // Top-Right-Bottom
+    if (type === 'cross') base = 15;
+
+    // Rotate clockwise
+    // 1(T) -> 2(R) -> 4(B) -> 8(L) -> 1(T)
+    let rotated = base;
+    for (let i = 0; i < rotation; i++) {
+        let next = 0;
+        if (rotated & 1) next |= 2;
+        if (rotated & 2) next |= 4;
+        if (rotated & 4) next |= 8;
+        if (rotated & 8) next |= 1;
+        rotated = next;
+    }
+    return rotated;
+};
+
+// --- CABLE COMMANDER COMPONENT ---
+function CableCommanderModal({ user, lastPlayed, onWin, onClose }) {
     const [grid, setGrid] = useState([]);
     const [timeLeft, setTimeLeft] = useState(60);
-    const [gameState, setGameState] = useState('start'); // start, playing, won, lost
+    const [gameState, setGameState] = useState('start'); // start, playing, won, lost, lost_hard
     const [justPlayed, setJustPlayed] = useState(false);
+    const [difficulty, setDifficulty] = useState(null); // 'easy', 'hard'
 
     // Cooldown Logic
     const today = new Date().toDateString();
     const lockKey = `cable_commander_lock_${user?.uid}_${today}`;
     const [localLock, setLocalLock] = useState(() => localStorage.getItem(lockKey) === 'true');
-    const hasPlayedToday = justPlayed || localLock;
 
-    // Game Constants
-    const GRID_SIZE = 5;
-    // Align Start/End with the centered icons (Middle Row)
-    const START_POS = { r: 2, c: 0 };
-    const END_POS = { r: 2, c: 4 };
+    const lastPlayedDate = lastPlayed ? lastPlayed.toDate().toDateString() : null;
+    const hasPlayedToday = lastPlayedDate === today || justPlayed || localLock;
 
-    // Tile Types: 
-    // straight: connects opposite sides (e.g., Top-Bottom)
-    // elbow: connects adjacent sides (e.g., Top-Right)
-    // tee: connects 3 sides
-    // cross: connects all 4
-    // Connections bitmask: 1=Top, 2=Right, 4=Bottom, 8=Left
-
-    const TILE_TYPES = {
-        straight: [5, 10], // 0101 (T-B), 1010 (R-L)
-        elbow: [3, 6, 12, 9], // 0011 (T-R), 0110 (R-B), 1100 (B-L), 1001 (L-T)
-        tee: [7, 14, 13, 11], // 0111 (T-R-B), 1110 (R-B-L), 1101 (B-L-T), 1011 (L-T-R)
-        cross: [15] // 1111
+    // Dynamic Config
+    const getGameConfig = (diff) => {
+        if (diff === 'hard') return { size: 7, time: 90, reward: 2, label: 'Cable Expert', icon: '⚡' };
+        return { size: 5, time: 60, reward: 1, label: 'Cable Manager', icon: '🔌' };
     };
 
-    const getConnections = (type, rotation) => {
-        // Base shapes at rotation 0
-        let base = 0;
-        if (type === 'straight') base = 5; // Top-Bottom
-        if (type === 'elbow') base = 3;    // Top-Right
-        if (type === 'tee') base = 7;      // Top-Right-Bottom
-        if (type === 'cross') base = 15;
+    const currentConfig = getGameConfig(difficulty || 'easy');
+    const GRID_SIZE = currentConfig.size;
+    const START_POS = { r: Math.floor(GRID_SIZE / 2), c: 0 };
+    const END_POS = { r: Math.floor(GRID_SIZE / 2), c: GRID_SIZE - 1 };
 
-        // Rotate clockwise
-        // 1(T) -> 2(R) -> 4(B) -> 8(L) -> 1(T)
-        let rotated = base;
-        for (let i = 0; i < rotation; i++) {
-            let next = 0;
-            if (rotated & 1) next |= 2;
-            if (rotated & 2) next |= 4;
-            if (rotated & 4) next |= 8;
-            if (rotated & 8) next |= 1;
-            rotated = next;
-        }
-        return rotated;
-    };
-
-    const startGame = () => {
+    const initGame = (selectedDiff) => {
         if (hasPlayedToday) return;
 
-        // 1. Initialize Grid with Random Tiles
+        const cfg = getGameConfig(selectedDiff);
+        const size = cfg.size;
+        const start = { r: Math.floor(size / 2), c: 0 };
+        const end = { r: Math.floor(size / 2), c: size - 1 };
+
+        // 1. Initialize Grid
         const newGrid = [];
-        for (let r = 0; r < GRID_SIZE; r++) {
+        for (let r = 0; r < size; r++) {
             const row = [];
-            for (let c = 0; c < GRID_SIZE; c++) {
+            for (let c = 0; c < size; c++) {
                 const weightedTypes = ['straight', 'straight', 'elbow', 'elbow', 'elbow', 'tee', 'cross'];
                 const type = weightedTypes[Math.floor(Math.random() * weightedTypes.length)];
                 const rotation = Math.floor(Math.random() * 4);
@@ -87,62 +97,40 @@ function CableCommanderModal({ user, onWin, onClose }) {
             newGrid.push(row);
         }
 
-        // 2. Generate Guaranteed Path
-        const path = generatePath();
+        // 2. Generate Path (using explicit dimensions)
+        const path = generatePath(size, start, end);
 
-        // 3. Overlay Path Tiles
-        // We need to set the tile type such that it CAN connect the prev and next steps.
-        // And we set a random rotation, but we ensure the TYPE is correct.
-        // Actually, we just need to pick a type that supports the required connections.
-        // e.g. if we need Top and Right, we can use Elbow, Tee, or Cross.
-
+        // 3. Overlay Path
         for (let i = 0; i < path.length; i++) {
             const { r, c } = path[i];
-
-            // Determine required connections
             let req = 0;
 
-            // From previous (or Start)
-            if (i === 0) {
-                req |= 8; // Start needs Left connection
-            } else {
+            // From previous
+            if (i === 0) req |= 8; // Start needs Left
+            else {
                 const prev = path[i - 1];
-                if (prev.r < r) req |= 1; // From Top
-                if (prev.r > r) req |= 4; // From Bottom
-                if (prev.c < c) req |= 8; // From Left
-                if (prev.c > c) req |= 2; // From Right
+                if (prev.r < r) req |= 1;
+                if (prev.r > r) req |= 4;
+                if (prev.c < c) req |= 8;
+                if (prev.c > c) req |= 2;
             }
 
-            // To next (or End)
-            if (i === path.length - 1) {
-                req |= 2; // End needs Right connection
-            } else {
+            // To next
+            if (i === path.length - 1) req |= 2; // End needs Right
+            else {
                 const next = path[i + 1];
-                if (next.r < r) req |= 1; // To Top
-                if (next.r > r) req |= 4; // To Bottom
-                if (next.c < c) req |= 8; // To Left
-                if (next.c > c) req |= 2; // To Right
+                if (next.r < r) req |= 1;
+                if (next.r > r) req |= 4;
+                if (next.c < c) req |= 8;
+                if (next.c > c) req |= 2;
             }
-
-            // Pick a compatible tile type
-            // Straight: 5 (TB), 10 (RL)
-            // Elbow: 3 (TR), 6 (RB), 12 (BL), 9 (LT)
-            // Tee: 7 (TRB), 14 (RBL), 13 (BLT), 11 (LTR)
-            // Cross: 15
 
             let possibleTypes = [];
-
-            // Check Straight
             if ((req === 5) || (req === 10)) possibleTypes.push('straight');
-
-            // Check Elbow
             if ([3, 6, 12, 9].includes(req)) possibleTypes.push('elbow');
-
-            // Always allow Tee and Cross as they are versatile
             possibleTypes.push('tee');
             possibleTypes.push('cross');
 
-            // If it's a straight line, prefer straight
             if (possibleTypes.includes('straight') && Math.random() > 0.3) {
                 newGrid[r][c].type = 'straight';
             } else if (possibleTypes.includes('elbow') && Math.random() > 0.3) {
@@ -152,75 +140,57 @@ function CableCommanderModal({ user, onWin, onClose }) {
             }
         }
 
-        // 4. Scramble Rotations (User has to solve it)
-        for (let r = 0; r < GRID_SIZE; r++) {
-            for (let c = 0; c < GRID_SIZE; c++) {
-                newGrid[r][c].rotation = Math.floor(Math.random() * 4);
-            }
-        }
+        // 4. Scramble
+        newGrid.forEach(row => row.forEach(tile => tile.rotation = Math.floor(Math.random() * 4)));
 
         setGrid(newGrid);
+        setDifficulty(selectedDiff);
         setGameState('playing');
-        setTimeLeft(60);
+        setTimeLeft(cfg.time);
     };
 
-    const generatePath = () => {
-        // Simple random walk from Start to End
-        // Retry loop to ensure we find a valid path
+    const generatePath = (size, start, end) => {
         for (let attempt = 0; attempt < 100; attempt++) {
-            let path = [{ ...START_POS }];
-            let curr = { ...START_POS };
+            let path = [{ ...start }];
+            let curr = { ...start };
             let visited = new Set([`${curr.r},${curr.c}`]);
 
-            while (curr.r !== END_POS.r || curr.c !== END_POS.c) {
+            while (curr.r !== end.r || curr.c !== end.c) {
                 const neighbors = [];
-                // Try moving in all directions
-                const dirs = [
-                    { r: -1, c: 0 }, // Up
-                    { r: 1, c: 0 },  // Down
-                    { r: 0, c: 1 },  // Right
-                    { r: 0, c: -1 }  // Left
-                ];
-
-                // Bias towards Right and End Row to avoid long loops
+                const dirs = [{ r: -1, c: 0 }, { r: 1, c: 0 }, { r: 0, c: 1 }, { r: 0, c: -1 }];
                 dirs.sort(() => Math.random() - 0.5);
 
                 for (const d of dirs) {
                     const nr = curr.r + d.r;
                     const nc = curr.c + d.c;
-
-                    if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE && !visited.has(`${nr},${nc}`)) {
+                    if (nr >= 0 && nr < size && nc >= 0 && nc < size && !visited.has(`${nr},${nc}`)) {
                         neighbors.push({ r: nr, c: nc });
                     }
                 }
 
-                if (neighbors.length === 0) break; // Stuck
-
-                // Pick random neighbor
+                if (neighbors.length === 0) break;
                 curr = neighbors[0];
                 visited.add(`${curr.r},${curr.c}`);
                 path.push(curr);
-
-                if (path.length > 20) break; // Too long
+                if (path.length > (size * size)) break; // Safety break
             }
 
-            if (curr.r === END_POS.r && curr.c === END_POS.c) {
-                return path;
-            }
+            if (curr.r === end.r && curr.c === end.c) return path;
         }
-        // Fallback: Straight line
-        return [
-            { r: 2, c: 0 }, { r: 2, c: 1 }, { r: 2, c: 2 }, { r: 2, c: 3 }, { r: 2, c: 4 }
-        ];
+        // Fallback straight line
+        const fallback = [];
+        for (let c = 0; c < size; c++) fallback.push({ r: start.r, c });
+        return fallback;
     };
 
+    // Timer & Loss
     useEffect(() => {
         if (gameState === 'playing') {
             const timer = setInterval(() => {
                 setTimeLeft(prev => {
                     if (prev <= 1) {
                         clearInterval(timer);
-                        setGameState('lost');
+                        handleLoss();
                         return 0;
                     }
                     return prev - 1;
@@ -230,63 +200,65 @@ function CableCommanderModal({ user, onWin, onClose }) {
         }
     }, [gameState]);
 
-    useEffect(() => {
-        if (gameState === 'playing') {
-            checkWinCondition();
+    const handleLoss = () => {
+        if (difficulty === 'hard') {
+            setGameState('lost_hard');
+            setJustPlayed(true);
+            localStorage.setItem(lockKey, 'true');
+        } else {
+            setGameState('lost');
         }
+    };
+
+    // Win Check
+    useEffect(() => {
+        if (gameState === 'playing') checkWinCondition();
     }, [grid]);
 
     const handleRotate = (r, c) => {
         if (gameState !== 'playing') return;
         setGrid(prev => {
-            const newGrid = [...prev.map(row => [...row])];
+            const newGrid = prev.map(row => row.map(tile => ({ ...tile })));
             newGrid[r][c].rotation = (newGrid[r][c].rotation + 1) % 4;
             return newGrid;
         });
     };
 
     const checkWinCondition = () => {
-        // BFS from START_POS assuming entry from Left
-        // 1=Top, 2=Right, 4=Bottom, 8=Left
+        // Must use current render scope constants (GRID_SIZE, START_POS, END_POS)
+        // Since this runs in useEffect[grid], and setGrid happens after setDifficulty,
+        // GRID_SIZE should be correct for the current difficulty.
 
-        const q = [{ r: START_POS.r, c: START_POS.c, from: 8 }]; // Entering Start from Left (8)
+        const q = [{ r: START_POS.r, c: START_POS.c, from: 8 }];
         const visited = new Set();
         const activeSet = new Set();
-
         let won = false;
 
         while (q.length > 0) {
             const { r, c, from } = q.shift();
             const key = `${r},${c}`;
-
             if (visited.has(key + '_' + from)) continue;
             visited.add(key + '_' + from);
 
+            if (r < 0 || r >= GRID_SIZE || c < 0 || c >= GRID_SIZE) continue;
+
             const cell = grid[r][c];
+            if (!cell) continue; // Safety
             const conns = getConnections(cell.type, cell.rotation);
 
-            // Must connect to 'from' direction
             if (!(conns & from)) continue;
+            activeSet.add(`${r},${c}`);
 
-            // Connection valid! Mark as active.
-            activeSet.add(key);
-
-            // Reached End?
             if (r === END_POS.r && c === END_POS.c) {
-                // Must exit to Right (2)
-                if (conns & 2) {
-                    won = true;
-                }
+                if (conns & 2) won = true;
             }
 
-            // Explore neighbors
             if ((conns & 1) && r > 0) q.push({ r: r - 1, c, from: 4 });
             if ((conns & 2) && c < GRID_SIZE - 1) q.push({ r, c: c + 1, from: 8 });
             if ((conns & 4) && r < GRID_SIZE - 1) q.push({ r: r + 1, c, from: 1 });
             if ((conns & 8) && c > 0) q.push({ r, c: c - 1, from: 2 });
         }
 
-        // Update active state for styling
         setGrid(prev => prev.map((row, r) => row.map((cell, c) => ({
             ...cell,
             active: activeSet.has(`${r},${c}`)
@@ -297,68 +269,76 @@ function CableCommanderModal({ user, onWin, onClose }) {
             setJustPlayed(true);
             setLocalLock(true);
             localStorage.setItem(lockKey, 'true');
-            onWin({ type: 'donut', amount: 1, label: 'Cable Master', icon: '🔌' });
+            onWin({ type: 'donut', amount: currentConfig.reward, label: currentConfig.label, icon: currentConfig.icon });
         }
     };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="relative w-full max-w-md bg-slate-900 rounded-2xl border-4 border-slate-700 shadow-2xl p-6 flex flex-col items-center">
+            <div className={`relative w-full ${difficulty === 'hard' ? 'max-w-2xl' : 'max-w-md'} bg-slate-900 rounded-2xl border-4 border-slate-700 shadow-2xl p-6 flex flex-col items-center transition-all`}>
 
                 {/* Header */}
-                <div className="flex justify-between items-center w-full mb-6">
+                <div className="flex justify-between items-center w-full mb-6 relative z-10">
                     <div className="flex items-center gap-2">
                         <Cable className="text-cyan-400" />
                         <h2 className="text-xl font-bold text-white">CABLE COMMANDER</h2>
                     </div>
-                    <div className={`font-mono text-xl font-bold ${timeLeft < 10 ? 'text-red-500 animate-pulse' : 'text-cyan-400'}`}>
-                        {timeLeft}s
-                    </div>
+                    {gameState === 'playing' && (
+                        <div className={`font-mono text-xl font-bold ${timeLeft < 10 ? 'text-red-500 animate-pulse' : 'text-cyan-400'}`}>
+                            {timeLeft}s
+                        </div>
+                    )}
                 </div>
 
                 {/* Game Board */}
-                {gameState === 'start' || gameState === 'playing' ? (
+                {gameState === 'playing' ? (
                     <div className="flex items-center gap-2">
-                        {/* Camera Input Indicator */}
+                        {/* Camera Input */}
                         <div className="flex flex-col items-center">
                             <div className="text-cyan-400 animate-pulse mb-1"><Camera /></div>
                             <div className="h-1 w-4 bg-cyan-500/50 rounded-full"></div>
                         </div>
 
-                        <div className="grid grid-cols-5 gap-1 bg-slate-800 p-2 rounded-lg border border-slate-700 relative">
-                            {/* Start/End Indicators on Border */}
-                            <div className="absolute left-0 top-[40%] -translate-x-3 text-cyan-500/50">▶</div>
-                            <div className="absolute right-0 top-[40%] translate-x-3 text-cyan-500/50">▶</div>
+                        <div className="bg-slate-800 p-2 rounded-lg border border-slate-700 relative">
+                            {/* Indicators */}
+                            <div className="absolute left-0 top-[50%] -translate-y-1/2 -translate-x-3 text-cyan-500/50">▶</div>
+                            <div className="absolute right-0 top-[50%] -translate-y-1/2 translate-x-3 text-cyan-500/50">▶</div>
 
-                            {grid.map((row, r) => row.map((cell, c) => (
-                                <button
-                                    key={`${r}-${c}`}
-                                    onClick={() => handleRotate(r, c)}
-                                    disabled={gameState !== 'playing'}
-                                    className={`
-                                        w-12 h-12 flex items-center justify-center rounded transition-all duration-200
-                                        ${cell.active ? 'bg-cyan-900/50 shadow-[0_0_10px_rgba(34,211,238,0.3)]' : 'bg-slate-900'}
-                                        hover:bg-slate-700
-                                        ${(r === START_POS.r && c === START_POS.c) || (r === END_POS.r && c === END_POS.c) ? 'border border-slate-600' : ''}
-                                    `}
-                                >
-                                    <div
-                                        className={`w-full h-full transition-transform duration-200`}
-                                        style={{ transform: `rotate(${cell.rotation * 90}deg)` }}
+                            <div
+                                style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: `repeat(${GRID_SIZE}, minmax(0, 1fr))`,
+                                    gap: '0.25rem'
+                                }}
+                            >
+                                {grid.map((row, r) => row.map((cell, c) => (
+                                    <button
+                                        key={`${r}-${c}`}
+                                        onClick={() => handleRotate(r, c)}
+                                        className={`
+                                            w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded transition-all duration-200
+                                            ${cell.active ? 'bg-cyan-900/50 shadow-[0_0_10px_rgba(34,211,238,0.3)]' : 'bg-slate-900'}
+                                            hover:bg-slate-700
+                                            ${(r === START_POS.r && c === START_POS.c) || (r === END_POS.r && c === END_POS.c) ? 'border border-slate-600' : ''}
+                                        `}
                                     >
-                                        {/* Render Pipe SVG based on type */}
-                                        <svg viewBox="0 0 100 100" className={cell.active ? 'stroke-cyan-400' : 'stroke-slate-600'} fill="none" strokeWidth="12" strokeLinecap="round">
-                                            {cell.type === 'straight' && <path d="M50,0 L50,100" />}
-                                            {cell.type === 'elbow' && <path d="M50,0 L50,50 L100,50" />}
-                                            {cell.type === 'tee' && <path d="M50,0 L50,100 M50,50 L100,50" />}
-                                            {cell.type === 'cross' && <path d="M50,0 L50,100 M0,50 L100,50" />}
-                                        </svg>
-                                    </div>
-                                </button>
-                            )))}
+                                        <div
+                                            className={`w-full h-full transition-transform duration-200`}
+                                            style={{ transform: `rotate(${cell.rotation * 90}deg)` }}
+                                        >
+                                            <svg viewBox="0 0 100 100" className={cell.active ? 'stroke-cyan-400' : 'stroke-slate-600'} fill="none" strokeWidth="12" strokeLinecap="round">
+                                                {cell.type === 'straight' && <path d="M50,0 L50,100" />}
+                                                {cell.type === 'elbow' && <path d="M50,0 L50,50 L100,50" />}
+                                                {cell.type === 'tee' && <path d="M50,0 L50,100 M50,50 L100,50" />}
+                                                {cell.type === 'cross' && <path d="M50,0 L50,100 M0,50 L100,50" />}
+                                            </svg>
+                                        </div>
+                                    </button>
+                                )))}
+                            </div>
                         </div>
 
-                        {/* Monitor Output Indicator */}
+                        {/* Monitor Output */}
                         <div className="flex flex-col items-center">
                             <div className={`text-cyan-400 ${gameState === 'won' ? 'animate-bounce' : ''} mb-1`}><Monitor /></div>
                             <div className="h-1 w-4 bg-cyan-500/50 rounded-full"></div>
@@ -366,27 +346,122 @@ function CableCommanderModal({ user, onWin, onClose }) {
                     </div>
                 ) : null}
 
-                {/* Start / Result Screens */}
+                {/* SCREENS */}
                 {gameState === 'start' && (
-                    <div className="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center rounded-2xl z-10 p-6 text-center">
+                    <div className="absolute inset-0 bg-slate-900/95 flex flex-col items-center justify-center rounded-2xl z-10 p-6 text-center">
                         <Cable size={48} className="text-cyan-400 mb-4" />
                         <h3 className="text-2xl font-bold text-white mb-2">Cable Management</h3>
-                        <p className="text-slate-400 mb-6">Rotate the cables to connect the Camera to the Monitor!</p>
 
                         {hasPlayedToday ? (
-                            <div className="bg-slate-800 px-6 py-3 rounded-lg border border-slate-700 font-mono text-red-400">
+                            <div className="bg-slate-800 px-6 py-3 rounded-lg border border-slate-700 font-mono text-red-400 mt-4">
                                 DAILY LIMIT REACHED
                             </div>
                         ) : (
-                            <button onClick={startGame} className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold py-3 px-8 rounded-full shadow-lg transition-transform hover:scale-105">
-                                START CABLING
-                            </button>
+                            <div className="w-full space-y-4 max-w-xs mt-4">
+                                <p className="text-slate-400 mb-4">Choose your clearance level:</p>
+                                <button onClick={() => initGame('easy')} className="w-full bg-slate-800 hover:bg-slate-700 border border-slate-600 hover:border-cyan-500 p-4 rounded-xl flex items-center justify-between group transition-all">
+                                    <div className="text-left">
+                                        <div className="font-bold text-white group-hover:text-cyan-400">Standard</div>
+                                        <div className="text-xs text-slate-400">5x5 Grid • 60s</div>
+                                    </div>
+                                    <div className="text-xl">🍩</div>
+                                </button>
+                                <button onClick={() => initGame('hard')} className="w-full bg-slate-800 hover:bg-slate-700 border border-slate-600 hover:border-purple-500 p-4 rounded-xl flex items-center justify-between group transition-all">
+                                    <div className="text-left">
+                                        <div className="font-bold text-white group-hover:text-purple-400">PRO MODE</div>
+                                        <div className="text-xs text-slate-400">7x7 Grid • 90s • One Try</div>
+                                    </div>
+                                    <div className="text-xl">🍩🍩</div>
+                                </button>
+                            </div>
                         )}
                     </div>
                 )}
 
+                {/* --- RENDER --- */}
+
+                {/* 0. Holiday Mode Check */}
+                {/* We only show this after loading is done so we know if it's admin or not */}
+                {/* If Admin, they see the screen but can click "Bypass" (which we implement via a local override state?) */}
+                {/* Actually, simpler: If Admin, we allow them to effectively "close" the modal locally for this session. */}
+                {/* Let's use a temporary "bypassed" state. */}
+
+                {/* Wait, I can't inject state hooks inside a conditional return or changing block logic easily without a new state. */}
+                {/* Let's add [bypassed, setBypassed] state at the top. */}
+
+                {/* ... (This tool call only replaces this block, I need to add state first. Let me add state in next call or previous). */}
+                {/* Actually, I can add the render logic here and use a dirty trick or just assume 'simulateHoliday' handles the test, */}
+                {/* and for real mode, I'll add 'bypassSession' state in the next step. */}
+
+                {/* Let's just do the render logic for now assuming 'bypassSession' exists (I will add it). */}
+
+                {!loading && (holidayMode || simulateHoliday) && (() => {
+                    {/* Check bypass */ }
+                    {/* We need to define the screen here or use the one defined above. */ }
+                    {/* Let's use the one defined above. */ }
+
+                    const isBypassed = sessionStorage.getItem('holiday_bypass') === 'true';
+
+                    if (!isBypassed) {
+                        return (
+                            <div className="fixed inset-0 z-[100] bg-gradient-to-b from-sky-900 via-sky-800 to-indigo-900 flex flex-col items-center justify-center text-center p-8 text-white">
+                                <div className="animate-in fade-in zoom-in duration-1000 flex flex-col items-center">
+                                    <div className="text-8xl mb-6 animate-bounce">🏖️</div>
+                                    <h1 className="text-5xl md:text-7xl font-black mb-4 tracking-tight drop-shadow-lg text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-orange-400">
+                                        SCHOOL'S OUT!
+                                    </h1>
+                                    <p className="text-2xl md:text-3xl font-light text-sky-200 mb-8 max-w-2xl leading-relaxed">
+                                        Have a fantastic summer break! <br />
+                                        See you in the New Year.
+                                    </p>
+
+                                    {/* Simulation Toggle for User Testing */}
+                                    {simulateHoliday && (
+                                        <div className="mb-8 px-4 py-2 bg-pink-500/20 border border-pink-500 rounded text-pink-300 text-sm font-mono">
+                                            TEST MODE ACTIVE
+                                        </div>
+                                    )}
+
+                                    <div className="mt-12 text-sm text-sky-400/50 font-mono">
+                                        Resting mode active • Data preserved
+                                    </div>
+
+                                    {/* Admin Bypass for Mr Rayner */}
+                                    {(isAdmin || simulateHoliday) && (
+                                        <div className="mt-12 p-6 bg-white/5 rounded-xl backdrop-blur border border-white/10 animate-in slide-in-from-bottom-8">
+                                            <div className="text-sm font-bold text-yellow-300 mb-4 opacity-75 uppercase tracking-widest">Teacher Access</div>
+                                            <button
+                                                onClick={() => {
+                                                    if (simulateHoliday) setSimulateHoliday(false);
+                                                    else {
+                                                        sessionStorage.setItem('holiday_bypass', 'true');
+                                                        // Force re-render? React won't react to sessionStorage change automatically.
+                                                        // I should use a state for this. I will add 'bypass' state.
+                                                        window.location.reload(); // Simple brute force for now, or just use state.
+                                                    }
+                                                }}
+                                                className="bg-white text-indigo-900 font-bold py-3 px-8 rounded-full hover:bg-sky-100 transition shadow-lg flex items-center gap-2 hover:scale-105 active:scale-95 duration-200"
+                                            >
+                                                <span>🔓</span> Enter Dashboard
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    }
+                    return null; // If bypassed, render nothing for the holiday screen
+                })()}
+
+                {loading && (
+                    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+                        <div className="animate-spin text-4xl mb-4">🍩</div>
+                        <div className="text-slate-400 font-medium">Loading Yum Donut...</div>
+                    </div>
+                )}
+
                 {gameState === 'won' && (
-                    <div className="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center rounded-2xl z-10 p-6 text-center animate-in zoom-in">
+                    <div className="absolute inset-0 bg-slate-900/95 flex flex-col items-center justify-center rounded-2xl z-10 p-6 text-center animate-in zoom-in">
                         <div className="text-6xl mb-4">📺</div>
                         <h3 className="text-2xl font-bold text-white mb-2">SIGNAL RECEIVED!</h3>
                         <p className="text-cyan-400 font-bold mb-6">Great cable management!</p>
@@ -396,14 +471,25 @@ function CableCommanderModal({ user, onWin, onClose }) {
                     </div>
                 )}
 
-                {gameState === 'lost' && (
-                    <div className="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center rounded-2xl z-10 p-6 text-center animate-in zoom-in">
+                {(gameState === 'lost' || gameState === 'lost_hard') && (
+                    <div className="absolute inset-0 bg-slate-900/95 flex flex-col items-center justify-center rounded-2xl z-10 p-6 text-center animate-in zoom-in">
                         <div className="text-6xl mb-4">🔋</div>
                         <h3 className="text-2xl font-bold text-white mb-2">BATTERY DEAD</h3>
-                        <p className="text-slate-400 mb-6">The signal didn't make it.</p>
-                        <button onClick={() => setGameState('start')} className="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-6 rounded-full">
-                            Try Again
-                        </button>
+                        <p className="text-slate-400 mb-6">The signal didn't make it in time.</p>
+
+                        {gameState === 'lost_hard' ? (
+                            <div className="text-red-400 font-bold border border-red-500/30 bg-red-500/10 px-4 py-2 rounded-lg">
+                                PRO MODE FAILED.<br />DAILY LIMIT REACHED.
+                            </div>
+                        ) : (
+                            <button onClick={() => setGameState('start')} className="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-6 rounded-full">
+                                Try Again
+                            </button>
+                        )}
+
+                        <div className="mt-8">
+                            <button onClick={onClose} className="text-slate-500 hover:text-white text-sm">Close</button>
+                        </div>
                     </div>
                 )}
 
@@ -834,80 +920,7 @@ const LiveDock = ({ users, currentUser, onEditProfile, onEditPixels }) => {
     );
 };
 
-const DressingRoomModal = ({ isOpen, onClose, currentData, onSave }) => {
-    const [selectedColor, setSelectedColor] = useState(currentData?.color || AVATAR_COLORS[0]);
-    const [selectedIcon, setSelectedIcon] = useState(currentData?.icon || MEDIA_EMOJIS[0]);
 
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-2xl border-4 border-slate-900 shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
-                <div className="bg-slate-100 p-4 border-b-2 border-slate-200 flex justify-between items-center">
-                    <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
-                        <Sparkles className="text-purple-500" /> Dressing Room
-                    </h2>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-                        <XCircle />
-                    </button>
-                </div>
-
-                <div className="p-6 space-y-6">
-                    {/* Preview */}
-                    <div className="flex justify-center">
-                        <div className="text-center">
-                            <p className="text-xs font-bold text-slate-400 uppercase mb-2">Preview</p>
-                            <PixelAvatar
-                                icon={selectedIcon}
-                                color={selectedColor}
-                                isOnline={true}
-                                size="lg"
-                            />
-                        </div>
-                    </div>
-
-                    {/* Color Picker */}
-                    <div>
-                        <p className="text-xs font-bold text-slate-400 uppercase mb-2">Choose Background</p>
-                        <div className="flex flex-wrap gap-2 justify-center">
-                            {AVATAR_COLORS.map(color => (
-                                <button
-                                    key={color}
-                                    onClick={() => setSelectedColor(color)}
-                                    className={`w-8 h-8 rounded-lg border-2 transition-transform hover:scale-110 ${selectedColor === color ? 'border-slate-900 scale-110 ring-2 ring-offset-2 ring-slate-200' : 'border-transparent'}`}
-                                    style={{ backgroundColor: color }}
-                                />
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Icon Picker */}
-                    <div>
-                        <p className="text-xs font-bold text-slate-400 uppercase mb-2">Choose Icon</p>
-                        <div className="grid grid-cols-5 gap-2">
-                            {MEDIA_EMOJIS.map(emoji => (
-                                <button
-                                    key={emoji}
-                                    onClick={() => setSelectedIcon(emoji)}
-                                    className={`w-10 h-10 flex items-center justify-center text-xl rounded-lg border-2 transition-all hover:bg-slate-50 ${selectedIcon === emoji ? 'border-slate-900 bg-slate-50 shadow-sm' : 'border-slate-100'}`}
-                                >
-                                    {emoji}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    <button
-                        onClick={() => onSave(selectedColor, selectedIcon)}
-                        className="w-full bg-slate-900 text-white font-bold py-3 rounded-xl hover:bg-slate-800 transition-colors shadow-lg active:scale-95"
-                    >
-                        Save & Update
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
 
 // --- Main Application ---
 
@@ -1272,7 +1285,7 @@ function ClawMachineModal({ user, lastPlayed, onWin, onClose }) {
     );
 }
 
-function ArcadeView({ user, allUsers, onWinBonus }) {
+function ArcadeView({ user, profile, allUsers, onWinBonus }) {
     const [showClawMachine, setShowClawMachine] = useState(false);
     const [showTypingDefence, setShowTypingDefence] = useState(false);
     const [showDailyRushes, setShowDailyRushes] = useState(false);
@@ -1334,7 +1347,7 @@ function ArcadeView({ user, allUsers, onWinBonus }) {
             {showClawMachine && (
                 <ClawMachineModal
                     user={user}
-                    lastPlayed={user?.last_daily_bonus}
+                    lastPlayed={profile?.last_daily_bonus}
                     onWin={(prize) => onWinBonus(prize, 'last_daily_bonus', 'the Claw Machine')}
                     onClose={() => setShowClawMachine(false)}
                 />
@@ -1350,6 +1363,7 @@ function ArcadeView({ user, allUsers, onWinBonus }) {
             {showDailyRushes && (
                 <DailyRushesModal
                     user={user}
+                    lastPlayed={profile?.last_wordle_win}
                     onClose={() => setShowDailyRushes(false)}
                     onWin={(prize) => onWinBonus(prize, 'last_wordle_win', 'The Daily Rushes')}
                 />
@@ -1358,6 +1372,7 @@ function ArcadeView({ user, allUsers, onWinBonus }) {
             {showCableCommander && (
                 <CableCommanderModal
                     user={user}
+                    lastPlayed={profile?.last_cable_commander_win}
                     onClose={() => setShowCableCommander(false)}
                     onWin={(prize) => onWinBonus(prize, 'last_cable_commander_win', 'Cable Commander')}
                 />
@@ -1383,7 +1398,7 @@ export default function YumDonutApp() {
     const [showPatchNotes, setShowPatchNotes] = useState(false);
     const [featuredItemIds, setFeaturedItemIds] = useState([]);
     const [roster, setRoster] = useState(INITIAL_ROSTER);
-    const [isRosterManagerOpen, setIsRosterManagerOpen] = useState(false);
+    const [isAdminSettingsOpen, setIsAdminSettingsOpen] = useState(false);
 
     // Roster Listener & Migration
     useEffect(() => {
@@ -1406,7 +1421,7 @@ export default function YumDonutApp() {
     }, []);
 
     // Live Studio State
-    const [isDressingRoomOpen, setIsDressingRoomOpen] = useState(false);
+
 
     // Pixel Avatar State
     const [isPixelStudioOpen, setIsPixelStudioOpen] = useState(false);
@@ -1498,6 +1513,78 @@ export default function YumDonutApp() {
         const interval = setInterval(updateHeartbeat, 5 * 60 * 1000);
         return () => clearInterval(interval);
     }, [user, myProfile?.name]);
+
+    // --- HOLIDAY MODE ---
+    const [holidayMode, setHolidayMode] = useState(false);
+    const [simulateHoliday, setSimulateHoliday] = useState(false); // Local test toggle
+
+    useEffect(() => {
+        const configRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'global');
+        const unsub = onSnapshot(configRef, (snap) => {
+            if (snap.exists() && snap.data().holiday_mode) {
+                setHolidayMode(true);
+            } else {
+                setHolidayMode(false);
+            }
+        });
+        return () => unsub();
+    }, []);
+
+    // Holiday Screen Component (Internal)
+    const HolidayScreen = () => (
+        <div className="fixed inset-0 z-[100] bg-gradient-to-b from-sky-900 via-sky-800 to-indigo-900 flex flex-col items-center justify-center text-center p-8 text-white">
+            <div className="animate-in fade-in zoom-in duration-1000 flex flex-col items-center">
+                <div className="text-8xl mb-6 animate-bounce">🏖️</div>
+                <h1 className="text-5xl md:text-7xl font-black mb-4 tracking-tight drop-shadow-lg text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-orange-400">
+                    SCHOOL'S OUT!
+                </h1>
+                <p className="text-2xl md:text-3xl font-light text-sky-200 mb-8 max-w-2xl leading-relaxed">
+                    Have a fantastic summer break! <br />
+                    See you in the New Year.
+                </p>
+                <div className="flex gap-4 items-center justify-center">
+                    <span className="text-4xl">🍦</span>
+                    <span className="text-4xl">🐚</span>
+                    <span className="text-4xl">☀️</span>
+                </div>
+                <div className="mt-12 text-sm text-sky-400/50 font-mono">
+                    Resting mode active • Data preserved
+                </div>
+
+                {/* Admin Bypass for Mr Rayner */}
+                {isAdmin && (
+                    <div className="mt-12 p-4 bg-white/10 rounded-xl backdrop-blur border border-white/20">
+                        <div className="text-sm font-bold text-yellow-300 mb-2">ADMIN DETECTED</div>
+                        <button
+                            onClick={() => setSimulateHoliday(false)} // For local test
+                            className="bg-white text-indigo-900 font-bold py-2 px-6 rounded-full hover:bg-sky-100 transition shadow-lg"
+                        >
+                            Access Dashboard
+                        </button>
+                        {/* Note: This button only works for the local simulation. 
+                            For the real remote switch, we'd need a local override state that persists or just temporarily hides it. 
+                            For now, let's assume the simulated toggle is enough for testing. 
+                        */}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+
+    // Render Holiday Screen
+    // Show if: (Real Holiday Mode OR Simulated) AND Not bypassing (simulated bypass logic needed? Logic below handles it)
+    // Actually, distinct logic:
+    // If Real Holiday Mode is ON, and user is NOT Admin -> SHOW.
+    // If Real Holiday Mode is ON, and user IS Admin -> Show (with bypass button? Or just let them pass?)
+    // Let's keep it simple: Standard users get blocked. Admins get blocked but have a 'Bypass' button.
+
+    // For this implementation:
+    // If (holidayMode || simulateHoliday) is TRUE:
+    //   Render HolidayScreen.
+    //   Pass a 'onBypass' prop if admin?
+
+    // Let's refine the render block below instead of a separate return here to keep state accessible.
+
 
     const handleSaveProfile = async (color, icon) => {
         if (!user || !myProfile) return;
@@ -2761,11 +2848,63 @@ export default function YumDonutApp() {
     };
 
 
-    if (loading) return (
-        <div className="flex items-center justify-center min-h-screen bg-pink-50">
-            <div className="animate-spin text-4xl">{EMOJI}</div>
-        </div>
-    );
+    // --- RENDER ---
+
+    const isBypassed = sessionStorage.getItem('holiday_bypass') === 'true';
+    if (!loading && (holidayMode || simulateHoliday) && !isBypassed) {
+        return (
+            <div className="fixed inset-0 z-[100] bg-gradient-to-b from-sky-900 via-sky-800 to-indigo-900 flex flex-col items-center justify-center text-center p-8 text-white">
+                <div className="animate-in fade-in zoom-in duration-1000 flex flex-col items-center">
+                    <div className="text-8xl mb-6 animate-bounce">🏖️</div>
+                    <h1 className="text-5xl md:text-7xl font-black mb-4 tracking-tight drop-shadow-lg text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-orange-400">
+                        SCHOOL'S OUT!
+                    </h1>
+                    <p className="text-2xl md:text-3xl font-light text-sky-200 mb-8 max-w-2xl leading-relaxed">
+                        Have a fantastic summer break! <br />
+                        See you in the New Year.
+                    </p>
+
+                    {/* Simulation Toggle for User Testing */}
+                    {simulateHoliday && (
+                        <div className="mb-8 px-4 py-2 bg-pink-500/20 border border-pink-500 rounded text-pink-300 text-sm font-mono">
+                            TEST MODE ACTIVE
+                        </div>
+                    )}
+
+                    <div className="mt-12 text-sm text-sky-400/50 font-mono">
+                        Resting mode active • Data preserved
+                    </div>
+
+                    {/* Admin Bypass for Mr Rayner */}
+                    {(isAdmin || simulateHoliday) && (
+                        <div className="mt-12 p-6 bg-white/5 rounded-xl backdrop-blur border border-white/10 animate-in slide-in-from-bottom-8">
+                            <div className="text-sm font-bold text-yellow-300 mb-4 opacity-75 uppercase tracking-widest">Teacher Access</div>
+                            <button
+                                onClick={() => {
+                                    if (simulateHoliday) setSimulateHoliday(false);
+                                    else {
+                                        sessionStorage.setItem('holiday_bypass', 'true');
+                                        window.location.reload();
+                                    }
+                                }}
+                                className="bg-white text-indigo-900 font-bold py-3 px-8 rounded-full hover:bg-sky-100 transition shadow-lg flex items-center gap-2 hover:scale-105 active:scale-95 duration-200"
+                            >
+                                <span>🔓</span> Enter Dashboard
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-pink-50">
+                <div className="animate-spin text-4xl">{EMOJI}</div>
+            </div>
+        );
+    }
 
     if (!user || !myProfile) {
         return <LoginScreen onLogin={handleLoginOrRegister} existingUsers={users} roster={roster} />;
@@ -2778,7 +2917,6 @@ export default function YumDonutApp() {
             <LiveDock
                 users={users}
                 currentUser={myProfile}
-                onEditProfile={() => setIsDressingRoomOpen(true)}
                 onEditPixels={() => setIsPixelStudioOpen(true)}
             />
 
@@ -2813,18 +2951,20 @@ export default function YumDonutApp() {
                 </div>
 
                 <div className="flex items-center gap-3">
+                    {/* Admin Settings Button */}
+                    {isAdmin && (
+                        <button
+                            onClick={() => setIsAdminSettingsOpen(true)}
+                            className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
+                            title="Admin Settings"
+                        >
+                            <Settings size={20} />
+                        </button>
+                    )}
                     <div className="hidden md:block text-right">
                         <div className="flex items-center justify-end gap-2">
                             <p className="text-sm font-semibold">{myProfile.name}</p>
-                            {myProfile.name === "Mr Rayner" && (
-                                <button
-                                    onClick={() => setIsRosterManagerOpen(true)}
-                                    className="text-slate-400 hover:text-blue-600 transition-colors"
-                                    title="Manage Roster"
-                                >
-                                    <Users size={14} />
-                                </button>
-                            )}
+
                             <button
                                 onClick={() => setIsPixelStudioOpen(true)}
                                 className="text-slate-400 hover:text-pink-600 transition-colors"
@@ -2832,12 +2972,7 @@ export default function YumDonutApp() {
                             >
                                 <Edit2 size={14} />
                             </button>
-                            <button
-                                onClick={() => setIsDressingRoomOpen(true)}
-                                className="text-slate-400 hover:text-slate-600 transition-colors"
-                            >
-                                <Settings size={14} />
-                            </button>
+
                         </div>
                         <p className="text-xs text-slate-500">
                             {myProfile.name === "Mr Rayner"
@@ -2862,17 +2997,12 @@ export default function YumDonutApp() {
                 </div>
             </div>
 
-            <DressingRoomModal
-                isOpen={isDressingRoomOpen}
-                onClose={() => setIsDressingRoomOpen(false)}
-                currentData={{ color: myProfile.live_avatar_color, icon: myProfile.live_avatar_icon }}
-                onSave={handleSaveProfile}
-            />
-
-            {isRosterManagerOpen && (
-                <RosterManagerModal
-                    onClose={() => setIsRosterManagerOpen(false)}
+            {/* Admin Settings Modal */}
+            {isAdminSettingsOpen && (
+                <AdminSettingsModal
+                    onClose={() => setIsAdminSettingsOpen(false)}
                     roster={roster}
+                    holidayMode={holidayMode}
                 />
             )}
 
@@ -2944,6 +3074,7 @@ export default function YumDonutApp() {
                 {view === 'arcade' && (
                     <ArcadeView
                         user={user}
+                        profile={myProfile}
                         allUsers={users}
                         onWinBonus={handleWinBonus}
                     />
@@ -3905,12 +4036,12 @@ function PatchNotesModal({ onClose }) {
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in duration-200">
             <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full m-4 overflow-hidden animate-in zoom-in-95 duration-200">
-                <div className="bg-gradient-to-r from-pink-500 to-purple-600 p-6 text-white flex justify-between items-start">
+                <div className="bg-gradient-to-r from-cyan-500 to-blue-600 p-6 text-white flex justify-between items-start">
                     <div>
                         <h2 className="text-2xl font-bold flex items-center gap-2">
                             <Sparkles className="text-yellow-300" /> What's New
                         </h2>
-                        <p className="opacity-90 text-sm mt-1">Live Studio & Visual Upgrades!</p>
+                        <p className="opacity-90 text-sm mt-1">Games, Raffles & Fixes!</p>
                     </div>
                     <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
                         <XCircle size={24} />
@@ -3920,37 +4051,37 @@ function PatchNotesModal({ onClose }) {
                 <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
                     <div className="space-y-2">
                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <span className="text-xl">🕹️</span> The Arcade is Open!
+                            <Cable className="text-cyan-500" size={20} /> New Game: Cable Commander
                         </h3>
                         <p className="text-slate-600 text-sm">
-                            Visit the new <strong>Arcade</strong> tab to play the Daily Claw Machine. Win free donuts, boxes of donuts, or even a Golden Ticket! 🎟️
+                            Connect the camera to the monitor in our newest puzzle game! Solve the grid to earn donuts. 🔌📺
                         </p>
                     </div>
 
                     <div className="space-y-2">
                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <Edit2 className="text-pink-500" size={20} /> Pixel Art Studio
+                            <span className="text-xl">🎟️</span> Weekly Raffle
                         </h3>
                         <p className="text-slate-600 text-sm">
-                            Unleash your creativity! Click the <strong>Pencil Icon</strong> (next to settings) to draw your own custom 8x8 or 16x16 pixel avatar. It shows up everywhere! 🎨
+                            The Raffle is LIVE! Buy a ticket in the shop for a chance to win the <strong>Friday Jackpot</strong> (2 items from the box)! Good luck! 🍀
                         </p>
                     </div>
 
                     <div className="space-y-2">
                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <Zap className="text-yellow-500" size={20} /> Ninja Mode Tuned
+                            <Edit2 className="text-pink-500" size={20} /> Better Pixel Art
                         </h3>
                         <p className="text-slate-600 text-sm">
-                            Think you're fast? Ninja mode now gets <strong>faster</strong> as your combo grows. Plus, at Combo 20, the hints disappear! Good luck. 🥋
+                            We've smoothed out the pixel art brush so your avatars look better than ever. Plus, your avatar now shows up in the Feed! 🎨
                         </p>
                     </div>
 
                     <div className="space-y-2">
                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <MessageSquare className="text-blue-500" size={20} /> Feed Upgrade
+                            <Shield className="text-green-500" size={20} /> Secure Donuts
                         </h3>
                         <p className="text-slate-600 text-sm">
-                            The feed now displays everyone's custom pixel avatars. See who's who at a glance! 👀
+                            We fixed a pesky bug that was making donuts disappear. Your rewards are now safe and sound! 🍩✅
                         </p>
                     </div>
                 </div>
@@ -3965,9 +4096,13 @@ function PatchNotesModal({ onClose }) {
     );
 }
 
-function RosterManagerModal({ onClose, roster }) {
+function AdminSettingsModal({ onClose, roster, holidayMode }) {
+    const [activeTab, setActiveTab] = useState('general'); // 'general', 'roster'
+
+    // --- ROSTER LOGIC ---
     const [newName, setNewName] = useState("");
     const [error, setError] = useState("");
+    const [auditUser, setAuditUser] = useState(null);
 
     const handleAddUser = async () => {
         if (!newName.trim()) return;
@@ -4003,71 +4138,296 @@ function RosterManagerModal({ onClose, roster }) {
         }
     };
 
+    // --- GENERAL LOGIC ---
+    const toggleHolidayMode = async () => {
+        const configRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'global');
+        try {
+            await setDoc(configRef, { holiday_mode: !holidayMode }, { merge: true });
+        } catch (e) {
+            console.error("Failed to toggle holiday mode", e);
+        }
+    };
+
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in duration-200">
             <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full m-4 overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[80vh]">
                 <div className="bg-slate-800 p-4 text-white flex justify-between items-center">
                     <h2 className="text-lg font-bold flex items-center gap-2">
-                        <Users size={20} /> Manage Roster
+                        <Settings size={20} /> Admin Settings
                     </h2>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={async () => {
-                                if (confirm("Reset roster to default list? This will remove custom additions.")) {
-                                    try {
-                                        const rosterRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'roster');
-                                        await setDoc(rosterRef, { names: INITIAL_ROSTER }, { merge: true });
-                                    } catch (e) {
-                                        console.error(e);
-                                    }
-                                }
-                            }}
-                            className="text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded text-slate-300 transition-colors"
-                        >
-                            Reset
-                        </button>
-                        <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
-                            <XCircle size={24} />
-                        </button>
-                    </div>
+                    <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
+                        <XCircle size={24} />
+                    </button>
                 </div>
 
-                <div className="p-4 border-b border-slate-100 bg-slate-50">
-                    <div className="flex gap-2">
-                        <input
-                            className="flex-1 p-2 border border-slate-300 rounded-lg text-sm"
-                            placeholder="Enter new student name..."
-                            value={newName}
-                            onChange={e => setNewName(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && handleAddUser()}
-                        />
-                        <button
-                            onClick={handleAddUser}
-                            disabled={!newName.trim()}
-                            className="bg-green-500 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-green-600 disabled:opacity-50"
-                        >
-                            Add
-                        </button>
-                    </div>
-                    {error && <p className="text-red-500 text-xs mt-2">{error}</p>}
+                {/* TABS */}
+                <div className="flex border-b border-slate-200">
+                    <button
+                        onClick={() => setActiveTab('general')}
+                        className={`flex-1 py-3 text-sm font-bold transition-colors ${activeTab === 'general' ? 'text-pink-600 border-b-2 border-pink-600 bg-pink-50' : 'text-slate-500 hover:bg-slate-50'}`}
+                    >
+                        General
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('roster')}
+                        className={`flex-1 py-3 text-sm font-bold transition-colors ${activeTab === 'roster' ? 'text-pink-600 border-b-2 border-pink-600 bg-pink-50' : 'text-slate-500 hover:bg-slate-50'}`}
+                    >
+                        Roster
+                    </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-2">
-                    {[...roster].sort().map(name => (
-                        <div key={name} className="flex justify-between items-center p-3 hover:bg-slate-50 rounded-lg group">
-                            <span className="font-medium text-slate-700">{name}</span>
-                            <button
-                                onClick={() => handleRemoveUser(name)}
-                                className="text-slate-300 hover:text-red-500 transition-colors"
-                            >
-                                <Trash2 size={18} />
-                            </button>
+                {/* CONTENT */}
+                <div className="flex-1 overflow-y-auto p-4 bg-slate-50">
+
+                    {/* --- GENERAL TAB --- */}
+                    {activeTab === 'general' && (
+                        <div className="space-y-6">
+                            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                <h3 className="font-bold text-slate-800 mb-2 flex items-center gap-2">
+                                    <span>🏖️</span> Holiday Mode
+                                </h3>
+                                <p className="text-xs text-slate-500 mb-4">
+                                    Pauses the app for students. They will see a "School's Out" message. Admin access is preserved.
+                                </p>
+
+                                <div className="flex items-center justify-between">
+                                    <span className={`text-sm font-bold ${holidayMode ? 'text-green-600' : 'text-slate-400'}`}>
+                                        {holidayMode ? 'ACTIVE' : 'INACTIVE'}
+                                    </span>
+                                    <button
+                                        onClick={toggleHolidayMode}
+                                        className={`px-4 py-2 rounded-full font-bold text-sm transition-all ${holidayMode ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-green-100 text-green-600 hover:bg-green-200'}`}
+                                    >
+                                        {holidayMode ? 'Deactivate' : 'Activate'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="bg-slate-100 p-4 rounded-xl border border-slate-200 opacity-75">
+                                <h3 className="font-bold text-slate-500 mb-1 text-sm">More settings coming soon...</h3>
+                            </div>
                         </div>
-                    ))}
+                    )}
+
+                    {/* --- ROSTER TAB --- */}
+                    {activeTab === 'roster' && (
+                        <div className="h-full flex flex-col">
+                            <div className="flex gap-2 mb-4">
+                                <input
+                                    className="flex-1 p-2 border border-slate-300 rounded-lg text-sm"
+                                    placeholder="Enter new student name..."
+                                    value={newName}
+                                    onChange={e => setNewName(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && handleAddUser()}
+                                />
+                                <button
+                                    onClick={handleAddUser}
+                                    disabled={!newName.trim()}
+                                    className="bg-green-500 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-green-600 disabled:opacity-50"
+                                >
+                                    Add
+                                </button>
+                            </div>
+                            {error && <p className="text-red-500 text-xs mb-2">{error}</p>}
+
+                            <div className="flex justify-between items-center mb-2 px-1">
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Students ({roster.length})</span>
+                                <button
+                                    onClick={async () => {
+                                        if (confirm("Reset roster to default list? This will remove custom additions.")) {
+                                            try {
+                                                const rosterRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'roster');
+                                                await setDoc(rosterRef, { names: INITIAL_ROSTER }, { merge: true });
+                                            } catch (e) {
+                                                console.error(e);
+                                            }
+                                        }
+                                    }}
+                                    className="text-[10px] text-slate-400 hover:text-red-500 transition-colors"
+                                >
+                                    Reset to Default
+                                </button>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
+                                {[...roster].sort().map(name => (
+                                    <div key={name} className="flex justify-between items-center p-3 hover:bg-slate-50 group transition-colors">
+                                        <span className="font-medium text-slate-700 text-sm">{name}</span>
+                                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button
+                                                onClick={() => setAuditUser(name)}
+                                                className="bg-blue-100 hover:bg-blue-200 text-blue-600 rounded p-1 transition-colors"
+                                                title="Audit Activity"
+                                            >
+                                                <span className="text-sm">📋</span>
+                                            </button>
+                                            <button
+                                                onClick={() => handleRemoveUser(name)}
+                                                className="text-slate-300 hover:text-red-500 transition-colors p-1"
+                                                title="Remove User"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
-                <div className="p-3 bg-slate-50 text-center text-xs text-slate-400 border-t border-slate-100">
-                    {roster.length} students in roster
+
+                {auditUser && (
+                    <UserAuditModal
+                        userToCheck={auditUser}
+                        onClose={() => setAuditUser(null)}
+                    />
+                )}
+            </div>
+        </div>
+    );
+}
+
+function UserAuditModal({ userToCheck, onClose }) {
+    const [logs, setLogs] = useState([]);
+    const [stats, setStats] = useState({ won: 0, given: 0, received: 0, spent: 0, balance: 0, bank: 0 });
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchAudit = async () => {
+            try {
+                // Fetch Profile
+                const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', userToCheck);
+                const publicDoc = await getDoc(publicRef);
+                const currentData = publicDoc.exists() ? publicDoc.data() : { balance: 0, bank_balance: 0 };
+
+                // Dates - Start of Today
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                // Fetch Transactions
+                const txRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions');
+                const q = query(txRef, orderBy('timestamp', 'desc'), limit(100)); // Limit to last 100 for perf, usually enough for a day
+                const snapshot = await getDocs(q);
+
+                const dailyLogs = [];
+                let won = 0, given = 0, received = 0, spent = 0;
+
+                snapshot.forEach(doc => {
+                    const t = doc.data();
+                    const txDate = t.timestamp?.toDate();
+
+                    if (!txDate || txDate < today) return; // Filter for today only
+
+                    if (t.toName === userToCheck || t.fromName === userToCheck) {
+                        const isIn = t.toName === userToCheck;
+                        let type = 'other';
+
+                        if (isIn) {
+                            if (t.fromName === "The Arcade" || t.fromName === "The Bank") {
+                                type = 'won'; won += (t.amount || 0);
+                            } else {
+                                type = 'received'; received += (t.amount || 0);
+                            }
+                        } else {
+                            if (t.toName === "The Shop") {
+                                type = 'spent'; spent += (t.amount || 0);
+                            } else {
+                                type = 'given'; given += (t.amount || 0);
+                            }
+                        }
+
+                        dailyLogs.push({
+                            id: doc.id,
+                            time: txDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                            message: t.message,
+                            amount: t.amount,
+                            type,
+                            isIn
+                        });
+                    }
+                });
+
+                setLogs(dailyLogs);
+                setStats({
+                    won, given, received, spent,
+                    balance: currentData.balance || 0,
+                    bank: currentData.bank_balance || 0
+                });
+
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchAudit();
+    }, [userToCheck]);
+
+    return (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full m-4 overflow-hidden flex flex-col max-h-[85vh]">
+                <div className="bg-slate-800 p-4 text-white flex justify-between items-center shrink-0">
+                    <div>
+                        <h2 className="text-lg font-bold flex items-center gap-2">
+                            <ClipboardList size={20} className="text-blue-400" /> Audit Report: {userToCheck}
+                        </h2>
+                        <p className="text-xs text-slate-400">Activity for Today ({new Date().toLocaleDateString()})</p>
+                    </div>
+                    <button onClick={onClose}><XCircle size={24} /></button>
                 </div>
+
+                {loading ? (
+                    <div className="flex-1 flex items-center justify-center p-12">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900"></div>
+                    </div>
+                ) : (
+                    <div className="flex-1 overflow-y-auto bg-slate-50 p-6">
+                        {/* Stats Grid */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+                            <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                                <p className="text-xs font-bold text-slate-400 uppercase">Wallet / Bank</p>
+                                <p className="text-xl font-black text-slate-800">{stats.balance} / {stats.bank}</p>
+                            </div>
+                            <div className="bg-green-50 p-3 rounded-xl border border-green-100 shadow-sm">
+                                <p className="text-xs font-bold text-green-600 uppercase">Won Today</p>
+                                <p className="text-xl font-black text-green-700">+{stats.won}</p>
+                            </div>
+                            <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 shadow-sm">
+                                <p className="text-xs font-bold text-blue-600 uppercase">Received Today</p>
+                                <p className="text-xl font-black text-blue-700">+{stats.received}</p>
+                            </div>
+                            <div className="bg-purple-50 p-3 rounded-xl border border-purple-100 shadow-sm">
+                                <p className="text-xs font-bold text-purple-600 uppercase">Given / Spent</p>
+                                <p className="text-xl font-black text-purple-700">{stats.given} / {stats.spent}</p>
+                            </div>
+                        </div>
+
+                        {/* Log */}
+                        <div className="space-y-2">
+                            {logs.length === 0 ? (
+                                <p className="text-center text-slate-400 italic py-8">No activity recorded today.</p>
+                            ) : (
+                                logs.map(log => (
+                                    <div key={log.id} className="bg-white p-3 rounded-lg border border-slate-100 flex items-center gap-3 text-sm">
+                                        <span className="font-mono text-xs text-slate-400 shrink-0">{log.time}</span>
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${log.type === 'won' ? 'bg-green-100 text-green-600' :
+                                            log.type === 'spent' ? 'bg-red-100 text-red-600' :
+                                                log.isIn ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'
+                                            }`}>
+                                            {log.type === 'won' ? '🎉' : log.type === 'spent' ? '🛒' : log.isIn ? '📥' : '📤'}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-slate-800 font-medium truncate">{log.message}</p>
+                                        </div>
+                                        <div className={`font-bold shrink-0 ${log.isIn ? 'text-green-600' : 'text-slate-500'}`}>
+                                            {log.isIn ? '+' : ''}{log.amount}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -5238,6 +5598,18 @@ function TypingStatsModal({ onClose }) {
                     )}
                 </div>
             </div>
+            {/* Admin Holiday Test Toggle */}
+            {isAdmin && !loading && (
+                <div className="fixed bottom-4 right-20 z-50">
+                    <button
+                        onClick={() => setSimulateHoliday(prev => !prev)}
+                        className="bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white px-2 py-1 rounded text-xs font-mono border border-purple-500/50 backdrop-blur"
+                        title="Simulate Holiday Mode"
+                    >
+                        🏖️ TEST
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
@@ -5275,6 +5647,7 @@ function TypingDefenceModal({ onClose, onReward, lastPlayed }) {
     const inputRef = useRef(null);
     const requestRef = useRef();
     const lastSpawnTime = useRef(0);
+    const lastFrameTime = useRef(0);
 
     // Dynamic Difficulty Calculation
     const getDifficulty = () => {
@@ -5319,6 +5692,26 @@ function TypingDefenceModal({ onClose, onReward, lastPlayed }) {
     const gameLoop = (time) => {
         if (gameStateRef.current !== 'playing') return;
 
+        // Initialize lastFrameTime if it's the first frame
+        if (!lastSpawnTime.current) {
+            lastSpawnTime.current = time;
+        }
+
+        // Calculate Delta Time
+        // If lastFrameTime is not set (first frame), assume 16ms (60fps)
+        const previousTime = lastFrameTime.current || (time - 16);
+        const deltaTime = time - previousTime;
+        lastFrameTime.current = time;
+
+        // Calculate FPS Ratio (Target 60 FPS)
+        // If running at 60Hz, ratio is 1.0
+        // If running at 144Hz, ratio is ~0.41 (movement is smaller per frame, but happens more often)
+        const TARGET_FPS = 60;
+        const fpsRatio = deltaTime / (1000 / TARGET_FPS);
+
+        // Cap ratio to prevent huge jumps if tab was backgrounded
+        const safeRatio = Math.min(fpsRatio, 4.0);
+
         const { spawnRate, fallSpeed } = getDifficulty();
 
         // Spawn Logic
@@ -5333,7 +5726,9 @@ function TypingDefenceModal({ onClose, onReward, lastPlayed }) {
             let lifeLost = false;
 
             prev.forEach(enemy => {
-                const newY = enemy.y + fallSpeed;
+                // Apply 'safeRatio' to fallSpeed to make it frame-rate independent
+                const newY = enemy.y + (fallSpeed * safeRatio);
+
                 if (newY > 90) { // Hit bottom (base)
                     lifeLost = true;
                 } else {
@@ -5406,6 +5801,7 @@ function TypingDefenceModal({ onClose, onReward, lastPlayed }) {
         gameStateRef.current = 'playing';
         setGameState('playing');
         lastSpawnTime.current = performance.now();
+        lastFrameTime.current = 0; // Reset frame timer
     };
 
     return (
@@ -5522,21 +5918,35 @@ function TypingDefenceModal({ onClose, onReward, lastPlayed }) {
     );
 }
 
-// --- DAILY RUSHES (WORDLE) COMPONENT ---
-function DailyRushesModal({ user, onWin, onClose }) {
-    const [guesses, setGuesses] = useState([]);
+// --- DAILY RUSHES COMPONENT ---
+function DailyRushesModal({ user, lastPlayed, onWin, onClose }) {
     const [currentGuess, setCurrentGuess] = useState("");
-    const [gameStatus, setGameStatus] = useState('playing'); // playing, won, lost
+    const [gameStatus, setGameStatus] = useState(() => {
+        try {
+            const saved = localStorage.getItem(`daily_rushes_${user.uid}_${new Date().toISOString().slice(0, 10)}`);
+            return saved ? JSON.parse(saved).gameStatus : 'playing';
+        } catch {
+            return 'playing';
+        }
+    });
+    const [guesses, setGuesses] = useState(() => {
+        try {
+            const saved = localStorage.getItem(`daily_rushes_${user.uid}_${new Date().toISOString().slice(0, 10)}`);
+            return saved ? JSON.parse(saved).guesses : [];
+        } catch {
+            return [];
+        }
+    });
+    const [justPlayed, setJustPlayed] = useState(false);
     const [message, setMessage] = useState("");
     const [shakeRow, setShakeRow] = useState(false);
-    const [justPlayed, setJustPlayed] = useState(false);
 
-    // Cooldown Logic (Midnight Reset)
+    // Cooldown Logic
     const today = new Date().toDateString();
     const lockKey = `daily_rushes_lock_${user?.uid}_${today}`;
     const [localLock, setLocalLock] = useState(() => localStorage.getItem(lockKey) === 'true');
 
-    const lastPlayedDate = user?.last_wordle_win ? user.last_wordle_win.toDate().toDateString() : null;
+    const lastPlayedDate = lastPlayed ? lastPlayed.toDate().toDateString() : null;
     const hasPlayedToday = lastPlayedDate === today || justPlayed || localLock;
 
     const MEDIA_WORDS = [
@@ -5557,14 +5967,7 @@ function DailyRushesModal({ user, onWin, onClose }) {
     const TARGET_WORD = getDailyWord();
 
     // Load State
-    useEffect(() => {
-        const savedState = localStorage.getItem(`daily_rushes_${user.uid}_${new Date().toISOString().slice(0, 10)}`);
-        if (savedState) {
-            const parsed = JSON.parse(savedState);
-            setGuesses(parsed.guesses);
-            setGameStatus(parsed.gameStatus);
-        }
-    }, [user.uid]);
+    // Load State removed (moved to initialization)
 
     // Save State
     useEffect(() => {
@@ -5651,84 +6054,99 @@ function DailyRushesModal({ user, onWin, onClose }) {
                     <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Guess the Media Word</p>
                 </div>
 
-                {/* Message Toast */}
-                {message && (
-                    <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-4 py-2 rounded shadow-xl z-50 font-bold animate-bounce border border-slate-700">
-                        {message}
+                {hasPlayedToday && gameStatus === 'playing' ? (
+                    <div className="flex flex-col items-center justify-center p-8 text-center animate-in zoom-in">
+                        <div className="text-6xl mb-4">🔒</div>
+                        <h3 className="text-2xl font-bold text-white mb-2">DAILY LIMIT REACHED</h3>
+                        <div className="text-slate-400 mb-6">
+                            You've already played today.<br />Come back tomorrow for a new word!
+                        </div>
+                        <button onClick={onClose} className="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-6 rounded-full">
+                            Close
+                        </button>
                     </div>
-                )}
-
-                {/* Grid */}
-                <div className="grid grid-rows-6 gap-1 mb-6">
-                    {Array.from({ length: 6 }).map((_, rowIndex) => {
-                        const guess = guesses[rowIndex] || (rowIndex === guesses.length ? currentGuess : "");
-                        const isCurrent = rowIndex === guesses.length;
-                        const isCompleted = rowIndex < guesses.length;
-
-                        return (
-                            <div key={rowIndex} className={`grid grid-cols-5 gap-1 ${isCurrent && shakeRow ? 'animate-shake' : ''}`}>
-                                {Array.from({ length: 5 }).map((_, colIndex) => {
-                                    const letter = guess[colIndex] || "";
-                                    let statusClass = "bg-slate-900 border-slate-700"; // Default
-
-                                    if (isCompleted) {
-                                        if (letter === TARGET_WORD[colIndex]) statusClass = "bg-green-600 border-green-800";
-                                        else if (TARGET_WORD.includes(letter)) statusClass = "bg-yellow-500 border-yellow-700";
-                                        else statusClass = "bg-slate-800 border-slate-900 opacity-50";
-                                    } else if (letter) {
-                                        statusClass = "bg-slate-800 border-slate-500"; // Active typing
-                                    }
-
-                                    return (
-                                        <div key={colIndex} className={`w-12 h-12 border-2 flex items-center justify-center text-2xl font-black text-white ${statusClass} transition-colors duration-500`}>
-                                            {letter}
-                                        </div>
-                                    );
-                                })}
+                ) : (
+                    <>
+                        {/* Message Toast */}
+                        {message && (
+                            <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-4 py-2 rounded shadow-xl z-50 font-bold animate-bounce border border-slate-700">
+                                {message}
                             </div>
-                        );
-                    })}
-                </div>
+                        )}
 
-                {/* Result Overlay */}
-                {gameStatus !== 'playing' && (
-                    <div className="mb-6 text-center animate-in zoom-in bg-slate-800 p-4 rounded-xl border-2 border-slate-700 w-full">
-                        <div className="text-2xl font-black mb-2">
-                            {gameStatus === 'won' ? <span className="text-green-500">THAT'S A WRAP! 🎬</span> : <span className="text-red-500">CUT! ✂️</span>}
-                        </div>
-                        <div className="text-slate-400 text-sm mb-1">
-                            The word was <span className="text-white font-bold tracking-widest">{TARGET_WORD}</span>
-                        </div>
-                        <div className="text-xs text-slate-500">Come back tomorrow!</div>
-                    </div>
-                )}
+                        {/* Grid */}
+                        <div className="grid grid-rows-6 gap-1 mb-6">
+                            {Array.from({ length: 6 }).map((_, rowIndex) => {
+                                const guess = guesses[rowIndex] || (rowIndex === guesses.length ? currentGuess : "");
+                                const isCurrent = rowIndex === guesses.length;
+                                const isCompleted = rowIndex < guesses.length;
 
-                {/* Keyboard */}
-                <div className="w-full flex flex-col gap-1">
-                    {["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"].map((row, i) => (
-                        <div key={i} className="flex justify-center gap-1">
-                            {row.split("").map(char => (
-                                <button
-                                    key={char}
-                                    onClick={() => handleKey(char)}
-                                    className={`h-12 flex-1 flex items-center justify-center rounded font-bold text-white text-sm border-b-4 active:border-b-0 active:translate-y-1 transition-all ${getKeyColor(char)}`}
-                                >
-                                    {char}
-                                </button>
+                                return (
+                                    <div key={rowIndex} className={`grid grid-cols-5 gap-1 ${isCurrent && shakeRow ? 'animate-shake' : ''}`}>
+                                        {Array.from({ length: 5 }).map((_, colIndex) => {
+                                            const letter = guess[colIndex] || "";
+                                            let statusClass = "bg-slate-900 border-slate-700"; // Default
+
+                                            if (isCompleted) {
+                                                if (letter === TARGET_WORD[colIndex]) statusClass = "bg-green-600 border-green-800";
+                                                else if (TARGET_WORD.includes(letter)) statusClass = "bg-yellow-500 border-yellow-700";
+                                                else statusClass = "bg-slate-800 border-slate-900 opacity-50";
+                                            } else if (letter) {
+                                                statusClass = "bg-slate-800 border-slate-500"; // Active typing
+                                            }
+
+                                            return (
+                                                <div key={colIndex} className={`w-12 h-12 border-2 flex items-center justify-center text-2xl font-black text-white ${statusClass} transition-colors duration-500`}>
+                                                    {letter}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Result Overlay */}
+                        {gameStatus !== 'playing' && (
+                            <div className="mb-6 text-center animate-in zoom-in bg-slate-800 p-4 rounded-xl border-2 border-slate-700 w-full">
+                                <div className="text-2xl font-black mb-2">
+                                    {gameStatus === 'won' ? <span className="text-green-500">THAT'S A WRAP! 🎬</span> : <span className="text-red-500">CUT! ✂️</span>}
+                                </div>
+                                <div className="text-slate-400 text-sm mb-1">
+                                    The word was <span className="text-white font-bold tracking-widest">{TARGET_WORD}</span>
+                                </div>
+                                <div className="text-xs text-slate-500">Come back tomorrow!</div>
+                            </div>
+                        )}
+
+                        {/* Keyboard */}
+                        <div className="w-full flex flex-col gap-1">
+                            {["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"].map((row, i) => (
+                                <div key={i} className="flex justify-center gap-1">
+                                    {row.split("").map(char => (
+                                        <button
+                                            key={char}
+                                            onClick={() => handleKey(char)}
+                                            className={`h-12 flex-1 flex items-center justify-center rounded font-bold text-white text-sm border-b-4 active:border-b-0 active:translate-y-1 transition-all ${getKeyColor(char)}`}
+                                        >
+                                            {char}
+                                        </button>
+                                    ))}
+                                    {i === 2 && (
+                                        <button onClick={() => handleKey('BACKSPACE')} className="h-12 px-3 flex items-center justify-center rounded font-bold text-white bg-slate-700 border-b-4 border-slate-900 active:border-b-0 active:translate-y-1">
+                                            ⌫
+                                        </button>
+                                    )}
+                                    {i === 2 && (
+                                        <button onClick={() => handleKey('ENTER')} className="h-12 px-3 flex items-center justify-center rounded font-bold text-white bg-green-600 border-b-4 border-green-800 active:border-b-0 active:translate-y-1 ml-1">
+                                            ↵
+                                        </button>
+                                    )}
+                                </div>
                             ))}
-                            {i === 2 && (
-                                <button onClick={() => handleKey('BACKSPACE')} className="h-12 px-3 flex items-center justify-center rounded font-bold text-white bg-slate-700 border-b-4 border-slate-900 active:border-b-0 active:translate-y-1">
-                                    ⌫
-                                </button>
-                            )}
-                            {i === 2 && (
-                                <button onClick={() => handleKey('ENTER')} className="h-12 px-3 flex items-center justify-center rounded font-bold text-white bg-green-600 border-b-4 border-green-800 active:border-b-0 active:translate-y-1 ml-1">
-                                    ↵
-                                </button>
-                            )}
                         </div>
-                    ))}
-                </div>
+                    </>
+                )}
 
                 {/* Close Button */}
                 <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors">
