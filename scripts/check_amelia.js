@@ -1,6 +1,6 @@
 
 import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 
 const firebaseConfig = {
     apiKey: "AIzaSyAnjuK_F8ZO3WqTfCEeXEF5J84CG8Irjq4",
@@ -40,7 +40,14 @@ async function checkAmeliaDetailed() {
         console.log("\nFetching transactions...");
         const transactionsRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions');
 
-        // FROM Amelia
+        // Check latest system activity
+        console.log("Checking latest system activity...");
+        const qLatest = query(transactionsRef, orderBy('timestamp', 'desc'), limit(5));
+        const snapLatest = await getDocs(qLatest);
+        snapLatest.forEach(d => {
+            console.log(`LATEST: ${d.data().timestamp?.toDate().toLocaleString()} | ${d.data().fromName} -> ${d.data().toName} | ${d.data().message}`);
+        });
+
         const qFrom = query(transactionsRef, where("fromName", "==", "Amelia"));
         const snapFrom = await getDocs(qFrom);
 
@@ -81,19 +88,44 @@ async function checkAmeliaDetailed() {
         history.sort((a, b) => b.timestamp - a.timestamp);
 
         console.log(`\nTransaction History (${history.length} items):`);
-        history.slice(0, 20).forEach(t => {
+        let calculatedGiven = 0;
+        let goalContributions = 0;
+
+        console.log(`\nTransaction History (${history.length} items):`);
+        history.forEach(t => {
             const arrow = t.type === 'IN' ? '⬅️  IN ' : '➡️  OUT';
-            // Determine if it affects wallet
-            // Given donuts (OUT) do NOT affect wallet unless it's a Purchase
             let walletImpact = "   ";
-            if (t.type === 'IN') walletImpact = "+ " + t.amount;
+            if (t.type === 'IN') {
+                walletImpact = "+ " + t.amount;
+            }
             if (t.type === 'OUT') {
-                if (t.toName === "The Shop") walletImpact = "- " + t.amount; // Purchase
-                else walletImpact = "(0)"; // Gift (free)
+                if (t.to === "The Shop") {
+                    walletImpact = "- " + t.amount; // Purchase
+                } else if (t.to.includes("Goal") || t.msg.includes("Contributed")) {
+                    walletImpact = "- " + t.amount; // Goal Contribution
+                    calculatedGiven += t.amount;
+                    goalContributions += t.amount;
+                    t.isGoal = true;
+                } else {
+                    walletImpact = "(0)"; // Gift (free)
+                    // Regular gifts count towards lifetime_given
+                    calculatedGiven += t.amount;
+                }
             }
 
-            console.log(`${t.dateStr} | ${arrow} | ${walletImpact.padStart(3)} | To: ${(t.to || "Unknown").padEnd(10)} | ${t.msg}`);
+            // Only log last 20 or if it's a goal transaction
+            if (history.indexOf(t) < 20 || t.isGoal) {
+                console.log(`${t.dateStr} | ${arrow} | ${walletImpact.padStart(3)} | To: ${(t.to || "Unknown").padEnd(15)} | ${t.msg} ${t.isGoal ? '(GOAL)' : ''}`);
+            }
         });
+
+        console.log("\n--- Audit Results ---");
+        console.log(`Measured Goal Contributions: ${goalContributions}`);
+        console.log(`Calculated Lifetime Given (Gifts + Goal): ${calculatedGiven}`);
+
+        if (publicSnap.exists()) {
+            console.log(`Actual Lifetime Given (In DB):        ${publicSnap.data().lifetime_given}`);
+        }
 
     } catch (error) {
         console.error("Error:", error);

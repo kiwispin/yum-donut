@@ -1821,7 +1821,7 @@ export default function YumDonutApp() {
             const senderPublicDoc = await getDoc(senderPublicRef);
             if (senderPublicDoc.exists()) {
                 await updateDoc(senderPublicRef, {
-                    lifetime_given: (senderPublicDoc.data().lifetime_given || 0) + amount
+                    lifetime_given: increment(amount)
                 });
             }
 
@@ -1831,8 +1831,8 @@ export default function YumDonutApp() {
                 const currentBal = recipientDoc.data().balance || 0;
                 const currentLifetime = recipientDoc.data().lifetime_received || currentBal;
                 await updateDoc(recipientRef, {
-                    balance: currentBal + amount,
-                    lifetime_received: currentLifetime + amount
+                    balance: increment(amount),
+                    lifetime_received: increment(amount)
                 });
             } else {
                 await setDoc(recipientRef, {
@@ -2064,7 +2064,7 @@ export default function YumDonutApp() {
                     [`contributors.${myProfile.name}`]: myContribution
                 });
                 const txRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
-                transaction.set(txRef, { fromName: myProfile.name, toName: goalDoc.data()?.title || "Team Goal", message: `Contributed ${amount} donut${amount > 1 ? 's' : ''} to the goal!`, timestamp: serverTimestamp(), emoji: "🚀", likes: [] });
+                transaction.set(txRef, { fromName: myProfile.name, toName: goalDoc.data()?.title || "Team Goal", message: `Contributed ${amount} donut${amount > 1 ? 's' : ''} to the goal!`, timestamp: serverTimestamp(), emoji: "🚀", likes: [], amount: amount });
             });
             const privateUserRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
             await updateDoc(privateUserRef, { balance: myProfile.balance - amount });
