@@ -2857,7 +2857,7 @@ export default function YumDonutApp() {
 
             {/* LIVE DOCK */}
             <LiveDock
-                users={users}
+                users={users.filter(u => roster.includes(u.name))}
                 currentUser={myProfile}
                 onEditPixels={() => setIsPixelStudioOpen(true)}
             />
@@ -3018,7 +3018,7 @@ export default function YumDonutApp() {
                     <ArcadeView
                         user={user}
                         profile={myProfile}
-                        allUsers={users}
+                        allUsers={users.filter(u => roster.includes(u.name))}
                         onWinBonus={handleWinBonus}
                     />
                 )}
@@ -3044,7 +3044,7 @@ export default function YumDonutApp() {
                         onWithdraw={handleWithdraw}
                         onPayInterest={handlePayInterest}
                         isAdmin={myProfile.name === "Mr Rayner"}
-                        allUsers={users}
+                        allUsers={users.filter(u => roster.includes(u.name))}
                     />
                 )}
 
@@ -3052,7 +3052,7 @@ export default function YumDonutApp() {
                     <TrainingView
                         user={myProfile}
                         onReward={handleTrainingReward}
-                        allUsers={users}
+                        allUsers={users.filter(u => roster.includes(u.name))}
                         onUpdateLicense={handleUpdateLicense}
                         onLogAttempt={handleLogTypingAttempt}
                     />
@@ -3078,7 +3078,7 @@ export default function YumDonutApp() {
                         coreValues={CORE_VALUES}
                         onDelete={handleDeleteTransaction}
                         currentUser={myProfile}
-                        users={users}
+                        users={users.filter(u => roster.includes(u.name))}
                     />
                 )}
 
