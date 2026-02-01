@@ -3180,6 +3180,12 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense, onLogAttempt 
     }, [mode, gameState]);
 
     const startNinjaGame = () => {
+        // Anti-Phone Check
+        if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (navigator.maxTouchPoints && navigator.maxTouchPoints > 0 && window.innerWidth < 1024)) {
+            alert("🛑 KEYBOARD REQUIRED 🛑\n\nNice try! This training module requires a physical keyboard.\n\nPlease switch to a computer.");
+            return;
+        }
+
         setNinjaScore(0);
         setNinjaLives(3);
         setNinjaCombo(0);
@@ -3264,6 +3270,12 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense, onLogAttempt 
 
     // --- TYPING DOJO LOGIC ---
     const startGame = () => {
+        // Anti-Phone Check
+        if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (navigator.maxTouchPoints && navigator.maxTouchPoints > 0 && window.innerWidth < 1024)) {
+            alert("🛑 KEYBOARD REQUIRED 🛑\n\nNice try! This training module requires a physical keyboard.\n\nPlease switch to a computer.");
+            return;
+        }
+
         if (mode === 'shortcut_ninja') {
             startNinjaGame();
             return;
