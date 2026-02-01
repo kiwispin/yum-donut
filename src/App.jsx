@@ -2055,7 +2055,10 @@ export default function YumDonutApp() {
                 const contributors = goalDoc.data()?.contributors || {};
                 const myContribution = (contributors[myProfile.name] || 0) + amount;
 
-                transaction.update(publicUserRef, { balance: newBalance });
+                transaction.update(publicUserRef, {
+                    balance: newBalance,
+                    lifetime_given: increment(amount)
+                });
                 transaction.update(goalRef, {
                     current: goalCurrent,
                     [`contributors.${myProfile.name}`]: myContribution
