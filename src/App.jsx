@@ -1378,9 +1378,29 @@ export default function YumDonutApp() {
             setUser(currentUser);
             if (currentUser) {
                 const userRef = doc(db, 'artifacts', APP_ID, 'users', currentUser.uid, 'profile', 'data');
-                const unsubProfile = onSnapshot(userRef, (docSnap) => {
+                const unsubProfile = onSnapshot(userRef, async (docSnap) => {
                     if (docSnap.exists()) {
-                        setMyProfile(docSnap.data());
+                        const privateData = docSnap.data();
+                        setMyProfile(privateData);
+
+                        // === AUTO-SYNC WALLET ===
+                        // Check if public balance differs from private balance and sync if needed
+                        if (privateData.name) {
+                            try {
+                                const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', privateData.name);
+                                const publicSnap = await getDoc(publicRef);
+                                if (publicSnap.exists()) {
+                                    const publicBalance = publicSnap.data().balance || 0;
+                                    const privateBalance = privateData.balance || 0;
+                                    if (publicBalance !== privateBalance) {
+                                        console.log(`Syncing wallet for ${privateData.name}: ${privateBalance} -> ${publicBalance}`);
+                                        await updateDoc(userRef, { balance: publicBalance });
+                                    }
+                                }
+                            } catch (syncError) {
+                                console.warn("Wallet sync check failed:", syncError);
+                            }
+                        }
                     } else {
                         // Profile is missing (could be deleted or new user)
                         setMyProfile(null);
@@ -1828,12 +1848,19 @@ export default function YumDonutApp() {
             const recipientRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', recipientName);
             const recipientDoc = await getDoc(recipientRef);
             if (recipientDoc.exists()) {
-                const currentBal = recipientDoc.data().balance || 0;
-                const currentLifetime = recipientDoc.data().lifetime_received || currentBal;
+                const recipientData = recipientDoc.data();
+                // Update recipient's PUBLIC profile
                 await updateDoc(recipientRef, {
                     balance: increment(amount),
                     lifetime_received: increment(amount)
                 });
+                // Update recipient's PRIVATE profile (wallet) if they have claimed their account
+                if (recipientData.uid && recipientData.claimed) {
+                    const recipientPrivateRef = doc(db, 'artifacts', APP_ID, 'users', recipientData.uid, 'profile', 'data');
+                    await updateDoc(recipientPrivateRef, {
+                        balance: increment(amount)
+                    });
+                }
             } else {
                 await setDoc(recipientRef, {
                     name: recipientName,
