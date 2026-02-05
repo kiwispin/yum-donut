@@ -1428,15 +1428,18 @@ export default function YumDonutApp() {
             if (!publicSnap.exists()) return;
 
             const publicBalance = publicSnap.data().balance || 0;
-            const privateBalance = myProfile.balance || 0;
 
-            if (publicBalance !== privateBalance) {
-                console.log(`[WALLET SYNC] ${myProfile.name}: ${privateBalance} -> ${publicBalance}`);
-                try {
+            // Read ACTUAL private balance from Firestore (not stale state)
+            try {
+                const privateSnap = await getDoc(privateRef);
+                const privateBalance = privateSnap.exists() ? (privateSnap.data().balance || 0) : 0;
+
+                if (publicBalance !== privateBalance) {
+                    console.log(`[WALLET SYNC] ${myProfile.name}: ${privateBalance} -> ${publicBalance}`);
                     await updateDoc(privateRef, { balance: publicBalance });
-                } catch (syncError) {
-                    console.warn("Wallet sync failed:", syncError);
                 }
+            } catch (syncError) {
+                console.warn("Wallet sync failed:", syncError);
             }
         }, (error) => {
             console.warn("Public profile listener error:", error);
