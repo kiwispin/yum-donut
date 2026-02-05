@@ -1382,25 +1382,6 @@ export default function YumDonutApp() {
                     if (docSnap.exists()) {
                         const privateData = docSnap.data();
                         setMyProfile(privateData);
-
-                        // === AUTO-SYNC WALLET ===
-                        // Check if public balance differs from private balance and sync if needed
-                        if (privateData.name) {
-                            try {
-                                const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', privateData.name);
-                                const publicSnap = await getDoc(publicRef);
-                                if (publicSnap.exists()) {
-                                    const publicBalance = publicSnap.data().balance || 0;
-                                    const privateBalance = privateData.balance || 0;
-                                    if (publicBalance !== privateBalance) {
-                                        console.log(`Syncing wallet for ${privateData.name}: ${privateBalance} -> ${publicBalance}`);
-                                        await updateDoc(userRef, { balance: publicBalance });
-                                    }
-                                }
-                            } catch (syncError) {
-                                console.warn("Wallet sync check failed:", syncError);
-                            }
-                        }
                     } else {
                         // Profile is missing (could be deleted or new user)
                         setMyProfile(null);
@@ -1434,6 +1415,35 @@ export default function YumDonutApp() {
             clearTimeout(safetyTimer);
         };
     }, []);
+
+    // === REAL-TIME WALLET SYNC ===
+    // Listen to the user's PUBLIC profile and sync balance changes to private wallet
+    useEffect(() => {
+        if (!user || !myProfile?.name) return;
+
+        const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
+        const privateRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
+
+        const unsubSync = onSnapshot(publicRef, async (publicSnap) => {
+            if (!publicSnap.exists()) return;
+
+            const publicBalance = publicSnap.data().balance || 0;
+            const privateBalance = myProfile.balance || 0;
+
+            if (publicBalance !== privateBalance) {
+                console.log(`[WALLET SYNC] ${myProfile.name}: ${privateBalance} -> ${publicBalance}`);
+                try {
+                    await updateDoc(privateRef, { balance: publicBalance });
+                } catch (syncError) {
+                    console.warn("Wallet sync failed:", syncError);
+                }
+            }
+        }, (error) => {
+            console.warn("Public profile listener error:", error);
+        });
+
+        return () => unsubSync();
+    }, [user, myProfile?.name]);
 
     // --- LIVE STUDIO HEARTBEAT ---
     useEffect(() => {
