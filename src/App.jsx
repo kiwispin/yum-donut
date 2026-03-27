@@ -471,11 +471,12 @@ const INITIAL_ROSTER = [
     "Armani",
     "Tobin",
     "Isaac",
-    "Lia"
+    "Lia",
+    "Linaree"
 ];
 
 const DAILY_LIMIT = 5;
-const GOAL_TARGET = 50;
+const GOAL_TARGET = 500;
 const EMOJI = "🍩";
 const APP_ID = 'yum-donut-school';
 
@@ -1318,7 +1319,7 @@ export default function YumDonutApp() {
     const [transactions, setTransactions] = useState([]);
     const [raffleState, setRaffleState] = useState({ tickets: [], lastWinner: null, lastWinDate: null });
     const [bounties, setBounties] = useState([]);
-    const [goalData, setGoalData] = useState({ current: 0, target: 50, title: "Frosted Friday Goal", contributors: {} });
+    const [goalData, setGoalData] = useState({ current: 0, target: GOAL_TARGET, title: "Frosted Friday Goal", contributors: {} });
     const [myProfile, setMyProfile] = useState(null);
     const [notification, setNotification] = useState(null);
     const [isSandbox, setIsSandbox] = useState(false);
@@ -1630,7 +1631,7 @@ export default function YumDonutApp() {
                 setGoalData(docSnap.data());
             } else {
                 // Default Init if missing
-                setDoc(goalRef, { current: 0, target: 50, title: "Frosted Friday Goal", contributors: {} });
+                setDoc(goalRef, { current: 0, target: GOAL_TARGET, title: "Frosted Friday Goal", contributors: {} });
             }
         }, (e) => console.error("Goal error", e));
 
@@ -2124,8 +2125,8 @@ export default function YumDonutApp() {
         const goalRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'goals', 'active_goal');
         await setDoc(goalRef, {
             current: 0,
-            target: 50,
-            title: "Frosted Friday Goal",
+            target: goalData.target || GOAL_TARGET,
+            title: goalData.title || "Frosted Friday Goal",
             contributors: {},
             isActive: true // Default to true on reset
         });
@@ -2986,6 +2987,10 @@ export default function YumDonutApp() {
                     roster={roster}
                     holidayMode={holidayMode}
                     shopPrices={shopPrices}
+                    goalData={goalData}
+                    onUpdateGoal={handleUpdateGoal}
+                    onResetGoal={handleResetGoal}
+                    onToggleGoalActive={handleToggleGoalActive}
                 />
             )}
 
@@ -4091,12 +4096,210 @@ function PatchNotesModal({ onClose }) {
     );
 }
 
-function AdminSettingsModal({ onClose, roster, holidayMode, shopPrices }) {
-    const [activeTab, setActiveTab] = useState('general'); // general, roster, shop
+function GoalSettingsTab({ goalData, onUpdateGoal, onResetGoal, onToggleGoalActive }) {
+    const target = goalData.target !== undefined ? goalData.target : GOAL_TARGET;
+    const isActive = goalData.isActive !== false;
+    const [editTitle, setEditTitle] = useState(goalData.title || "Team Goal");
+    const [editTarget, setEditTarget] = useState(target);
+    const [saved, setSaved] = useState(false);
+    const [restoring, setRestoring] = useState(false);
+    const [restoreResult, setRestoreResult] = useState(null);
+
+    const current = goalData.current || 0;
+    const percent = target === 0 ? 100 : Math.min(100, (current / target) * 100);
+    const contributors = goalData.contributors || {};
+    const contributorCount = Object.keys(contributors).length;
+    const totalContributed = Object.values(contributors).reduce((sum, v) => sum + v, 0);
+
+    const handleSave = () => {
+        onUpdateGoal(editTitle, editTarget);
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+    };
+
+    const handleRestoreFromHistory = async () => {
+        if (!confirm("This will scan ALL transactions and rebuild the goal's contributor list and total from history. Continue?")) return;
+        setRestoring(true);
+        setRestoreResult(null);
+        try {
+            const txRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions');
+            const txQuery = query(txRef, orderBy('timestamp', 'desc'));
+            const txSnap = await getDocs(txQuery);
+
+            const restoredContributors = {};
+            let restoredTotal = 0;
+
+            txSnap.forEach(d => {
+                const data = d.data();
+                const msg = data.message || '';
+                if (msg.toLowerCase().includes('contributed') && msg.toLowerCase().includes('goal')) {
+                    const amount = data.amount || 1;
+                    const fromName = data.fromName;
+                    if (fromName) {
+                        restoredContributors[fromName] = (restoredContributors[fromName] || 0) + amount;
+                        restoredTotal += amount;
+                    }
+                }
+            });
+
+            const goalRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'goals', 'active_goal');
+            await setDoc(goalRef, {
+                current: restoredTotal,
+                target: parseInt(editTarget) || GOAL_TARGET,
+                title: editTitle || "Frosted Friday Goal",
+                contributors: restoredContributors,
+                isActive: true
+            });
+
+            setRestoreResult({ success: true, total: restoredTotal, count: Object.keys(restoredContributors).length });
+        } catch (e) {
+            console.error("Restore failed:", e);
+            setRestoreResult({ success: false, error: e.message });
+        }
+        setRestoring(false);
+    };
+
+    return (
+        <div className="space-y-6">
+            {/* Goal Status Banner */}
+            <div className={`p-4 rounded-xl border-2 flex items-center justify-between ${isActive ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                <div className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full ${isActive ? 'bg-green-500 animate-pulse' : 'bg-red-400'}`}></div>
+                    <div>
+                        <div className={`font-bold text-sm ${isActive ? 'text-green-800' : 'text-red-800'}`}>
+                            Goal is {isActive ? 'Active' : 'Inactive'}
+                        </div>
+                        <div className={`text-xs ${isActive ? 'text-green-600' : 'text-red-600'}`}>
+                            {isActive ? 'Students can contribute donuts' : 'Goal is hidden from students'}
+                        </div>
+                    </div>
+                </div>
+                <button
+                    onClick={() => onToggleGoalActive(!isActive)}
+                    className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${isActive ? 'bg-green-500' : 'bg-slate-300'}`}
+                >
+                    <span className={`${isActive ? 'translate-x-7' : 'translate-x-1'} inline-block h-6 w-6 transform rounded-full bg-white transition-transform shadow-sm`} />
+                </button>
+            </div>
+
+            {/* Current Progress */}
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <h3 className="font-bold text-slate-800 text-sm mb-3 flex items-center gap-2">
+                    <Target size={16} className="text-indigo-500" /> Current Progress
+                </h3>
+                <div className="bg-slate-100 rounded-full h-6 mb-2 relative overflow-hidden">
+                    <div
+                        className="bg-gradient-to-r from-pink-500 to-purple-500 h-full rounded-full transition-all duration-500 flex items-center justify-end pr-2"
+                        style={{ width: `${Math.max(percent, 2)}%` }}
+                    >
+                        {percent > 10 && <span className="text-white text-[10px] font-bold">{Math.floor(percent)}%</span>}
+                    </div>
+                </div>
+                <div className="flex justify-between text-xs text-slate-500">
+                    <span><strong className="text-slate-700">{current}</strong> / {target} {EMOJI} raised</span>
+                    <span>{contributorCount} contributor{contributorCount !== 1 ? 's' : ''} • {totalContributed} total donated</span>
+                </div>
+            </div>
+
+            {/* Edit Goal */}
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <h3 className="font-bold text-slate-800 text-sm mb-4 flex items-center gap-2">
+                    <Edit2 size={16} className="text-indigo-500" /> Goal Settings
+                </h3>
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Goal Title</label>
+                        <input
+                            className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                            value={editTitle}
+                            onChange={e => setEditTitle(e.target.value)}
+                            placeholder="e.g. Frosted Friday Goal"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Target Amount ({EMOJI})</label>
+                        <input
+                            className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-mono"
+                            type="number"
+                            min="1"
+                            value={editTarget}
+                            onChange={e => setEditTarget(parseInt(e.target.value) || 0)}
+                            placeholder="500"
+                        />
+                        <p className="text-xs text-slate-400 mt-1">How many donuts the class needs to contribute to reach the goal.</p>
+                    </div>
+                    <button
+                        onClick={handleSave}
+                        className={`w-full py-3 rounded-lg font-bold text-sm transition-all ${saved ? 'bg-green-500 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}
+                    >
+                        {saved ? '✓ Saved!' : 'Save Changes'}
+                    </button>
+                </div>
+            </div>
+
+            {/* Restore from History */}
+            <div className="bg-white p-6 rounded-xl border-2 border-amber-100 shadow-sm">
+                <h3 className="font-bold text-amber-700 text-sm mb-2 flex items-center gap-2">
+                    🔄 Restore from Transaction History
+                </h3>
+                <p className="text-xs text-slate-500 mb-4">
+                    Scans all past transactions and rebuilds the contributor list and total. Use this if contributions were lost.
+                </p>
+                {restoreResult && (
+                    <div className={`mb-4 p-3 rounded-lg text-sm font-bold ${restoreResult.success ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                        {restoreResult.success
+                            ? `✅ Restored! Found ${restoreResult.total} donuts from ${restoreResult.count} contributors.`
+                            : `❌ Failed: ${restoreResult.error}`
+                        }
+                    </div>
+                )}
+                <button
+                    onClick={handleRestoreFromHistory}
+                    disabled={restoring}
+                    className="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-sm font-bold transition-colors disabled:opacity-50"
+                >
+                    {restoring ? '⏳ Scanning transactions...' : 'Restore from History'}
+                </button>
+            </div>
+
+            {/* Danger Zone */}
+            <div className="bg-white p-6 rounded-xl border-2 border-red-100 shadow-sm">
+                <h3 className="font-bold text-red-600 text-sm mb-2 flex items-center gap-2">
+                    <RotateCcw size={16} /> Reset Goal
+                </h3>
+                <p className="text-xs text-slate-500 mb-4">
+                    This will clear all progress and contributions back to zero. The goal title and target will be preserved.
+                </p>
+                <button
+                    onClick={onResetGoal}
+                    className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg text-sm font-bold transition-colors"
+                >
+                    Reset Progress to Zero
+                </button>
+            </div>
+        </div>
+    );
+}
+
+function AdminSettingsModal({ onClose, roster, holidayMode, shopPrices, goalData, onUpdateGoal, onResetGoal, onToggleGoalActive }) {
+    const [activeTab, setActiveTab] = useState('general'); // general, roster, shop, goal
     const [newName, setNewName] = useState("");
     const [error, setError] = useState("");
     const [auditUser, setAuditUser] = useState(null);
     const [editingPrices, setEditingPrices] = useState({}); // Local draft for price edits
+    const [resettingPassword, setResettingPassword] = useState(null); // Name currently being reset
+
+    const handleResetPassword = async (name) => {
+        const email = `${name.replace(/\s+/g, '').toLowerCase()}@yumdonut.school`;
+        try {
+            await navigator.clipboard.writeText(email);
+            alert(`Copied "${email}" to clipboard!\n\nNow go to Firebase Console → Authentication → Users, find this email, click ⋮ → Change password.`);
+            window.open('https://console.firebase.google.com/project/yum-donut-school/authentication/users', '_blank');
+        } catch (e) {
+            // Fallback if clipboard fails
+            prompt('Copy this email, then find it in Firebase Console → Authentication → Users → Change password:', email);
+        }
+    };
 
     // Initialize editingPrices when shopPrices changes
     useEffect(() => {
@@ -4240,6 +4443,12 @@ function AdminSettingsModal({ onClose, roster, holidayMode, shopPrices }) {
                     >
                         Shop Sales
                     </button>
+                    <button
+                        onClick={() => setActiveTab('goal')}
+                        className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'goal' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                    >
+                        Goal
+                    </button>
                 </div>
 
                 {/* Content */}
@@ -4324,6 +4533,14 @@ function AdminSettingsModal({ onClose, roster, holidayMode, shopPrices }) {
                                                 title="Audit Activity"
                                             >
                                                 <span className="text-sm">📋</span>
+                                            </button>
+                                            <button
+                                                onClick={() => handleResetPassword(name)}
+                                                className="bg-amber-100 hover:bg-amber-200 text-amber-600 rounded p-1 transition-colors"
+                                                title="Reset Password"
+                                                disabled={resettingPassword === name}
+                                            >
+                                                <span className="text-sm">{resettingPassword === name ? '⏳' : '🔑'}</span>
                                             </button>
                                             <button
                                                 onClick={() => handleRemoveUser(name)}
@@ -4417,6 +4634,16 @@ function AdminSettingsModal({ onClose, roster, holidayMode, shopPrices }) {
                                 })}
                             </div>
                         </div>
+                    )}
+
+                    {/* --- GOAL TAB --- */}
+                    {activeTab === 'goal' && (
+                        <GoalSettingsTab
+                            goalData={goalData}
+                            onUpdateGoal={onUpdateGoal}
+                            onResetGoal={onResetGoal}
+                            onToggleGoalActive={onToggleGoalActive}
+                        />
                     )}
                 </div>
 
