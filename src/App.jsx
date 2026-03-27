@@ -4293,14 +4293,23 @@ function AdminSettingsModal({ onClose, roster, holidayMode, shopPrices, goalData
 
     const handleResetPassword = async (name) => {
         const email = `${name.replace(/\s+/g, '').toLowerCase()}@yumdonut.school`;
-        try {
-            await navigator.clipboard.writeText(email);
-            alert(`Copied "${email}" to clipboard!\n\nNow go to Firebase Console → Authentication → Users, find this email, click ⋮ → Change password.`);
-            window.open('https://console.firebase.google.com/project/yum-donut-school/authentication/users', '_blank');
-        } catch (e) {
-            // Fallback if clipboard fails
-            prompt('Copy this email, then find it in Firebase Console → Authentication → Users → Change password:', email);
+        const newPassword = prompt(`Enter a new password for ${name} (min 6 chars):`);
+        if (!newPassword) return;
+        if (newPassword.length < 6) {
+            alert("Password must be at least 6 characters.");
+            return;
         }
+
+        setResettingPassword(name);
+        try {
+            const resetPassFn = httpsCallable(functions, 'resetStudentPassword');
+            const result = await resetPassFn({ email, newPassword });
+            alert(`✅ Success: ${result.data.message}`);
+        } catch (e) {
+            console.error(e);
+            alert(`❌ Failed to reset password: ${e.message}`);
+        }
+        setResettingPassword(null);
     };
 
     // Initialize editingPrices when shopPrices changes
