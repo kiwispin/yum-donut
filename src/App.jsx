@@ -1507,22 +1507,17 @@ export default function YumDonutApp() {
 
     // Holiday Screen Component (Internal)
     const HolidayScreen = () => (
-        <div className="fixed inset-0 z-[100] bg-gradient-to-b from-sky-900 via-sky-800 to-indigo-900 flex flex-col items-center justify-center text-center p-8 text-white">
+        <div className="fixed inset-0 z-[100] bg-gradient-to-b from-indigo-900 via-slate-900 to-slate-950 flex flex-col items-center justify-center text-center p-8 text-white">
             <div className="animate-in fade-in zoom-in duration-1000 flex flex-col items-center">
-                <div className="text-8xl mb-6 animate-bounce">🏖️</div>
-                <h1 className="text-5xl md:text-7xl font-black mb-4 tracking-tight drop-shadow-lg text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-orange-400">
+                <div className="text-8xl mb-6 animate-bounce">🎉</div>
+                <h1 className="text-5xl md:text-7xl font-black mb-4 tracking-tight drop-shadow-lg text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-pink-400">
                     SCHOOL'S OUT!
                 </h1>
-                <p className="text-2xl md:text-3xl font-light text-sky-200 mb-8 max-w-2xl leading-relaxed">
-                    Have a fantastic summer break! <br />
-                    See you in the New Year.
+                <p className="text-2xl md:text-3xl font-light text-slate-300 mb-8 max-w-2xl leading-relaxed">
+                    Enjoy your break! <br />
+                    See you when we're back.
                 </p>
-                <div className="flex gap-4 items-center justify-center">
-                    <span className="text-4xl">🍦</span>
-                    <span className="text-4xl">🐚</span>
-                    <span className="text-4xl">☀️</span>
-                </div>
-                <div className="mt-12 text-sm text-sky-400/50 font-mono">
+                <div className="mt-12 text-sm text-slate-500 font-mono">
                     Resting mode active • Data preserved
                 </div>
 
@@ -1532,14 +1527,10 @@ export default function YumDonutApp() {
                         <div className="text-sm font-bold text-yellow-300 mb-2">ADMIN DETECTED</div>
                         <button
                             onClick={() => setSimulateHoliday(false)} // For local test
-                            className="bg-white text-indigo-900 font-bold py-2 px-6 rounded-full hover:bg-sky-100 transition shadow-lg"
+                            className="bg-white text-indigo-900 font-bold py-2 px-6 rounded-full hover:bg-slate-100 transition shadow-lg"
                         >
                             Access Dashboard
                         </button>
-                        {/* Note: This button only works for the local simulation. 
-                            For the real remote switch, we'd need a local override state that persists or just temporarily hides it. 
-                            For now, let's assume the simulated toggle is enough for testing. 
-                        */}
                     </div>
                 )}
             </div>
@@ -2838,15 +2829,15 @@ export default function YumDonutApp() {
     const isBypassed = sessionStorage.getItem('holiday_bypass') === 'true';
     if (!loading && (holidayMode || simulateHoliday) && !isBypassed) {
         return (
-            <div className="fixed inset-0 z-[100] bg-gradient-to-b from-sky-900 via-sky-800 to-indigo-900 flex flex-col items-center justify-center text-center p-8 text-white">
+            <div className="fixed inset-0 z-[100] bg-gradient-to-b from-indigo-900 via-slate-900 to-slate-950 flex flex-col items-center justify-center text-center p-8 text-white">
                 <div className="animate-in fade-in zoom-in duration-1000 flex flex-col items-center">
-                    <div className="text-8xl mb-6 animate-bounce">🏖️</div>
-                    <h1 className="text-5xl md:text-7xl font-black mb-4 tracking-tight drop-shadow-lg text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-orange-400">
+                    <div className="text-8xl mb-6 animate-bounce">🎉</div>
+                    <h1 className="text-5xl md:text-7xl font-black mb-4 tracking-tight drop-shadow-lg text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-pink-400">
                         SCHOOL'S OUT!
                     </h1>
-                    <p className="text-2xl md:text-3xl font-light text-sky-200 mb-8 max-w-2xl leading-relaxed">
-                        Have a fantastic summer break! <br />
-                        See you in the New Year.
+                    <p className="text-2xl md:text-3xl font-light text-slate-300 mb-8 max-w-2xl leading-relaxed">
+                        Enjoy your break! <br />
+                        See you when we're back.
                     </p>
 
                     {/* Simulation Toggle for User Testing */}
@@ -2856,7 +2847,7 @@ export default function YumDonutApp() {
                         </div>
                     )}
 
-                    <div className="mt-12 text-sm text-sky-400/50 font-mono">
+                    <div className="mt-12 text-sm text-slate-500 font-mono">
                         Resting mode active • Data preserved
                     </div>
 
@@ -2872,7 +2863,7 @@ export default function YumDonutApp() {
                                         window.location.reload();
                                     }
                                 }}
-                                className="bg-white text-indigo-900 font-bold py-3 px-8 rounded-full hover:bg-sky-100 transition shadow-lg flex items-center gap-2 hover:scale-105 active:scale-95 duration-200"
+                                className="bg-white text-indigo-900 font-bold py-3 px-8 rounded-full hover:bg-slate-100 transition shadow-lg flex items-center gap-2 hover:scale-105 active:scale-95 duration-200"
                             >
                                 <span>🔓</span> Enter Dashboard
                             </button>
@@ -4471,7 +4462,7 @@ function AdminSettingsModal({ onClose, roster, holidayMode, shopPrices, goalData
                                 <div className="flex items-center justify-between mb-4">
                                     <div>
                                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                                            <span>🏖️</span> Holiday Mode
+                                            <span>🎉</span> Holiday Mode
                                         </h3>
                                         <p className="text-sm text-slate-500 mt-1">
                                             Closes the school interface for all students.
