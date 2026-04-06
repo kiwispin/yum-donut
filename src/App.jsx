@@ -68,8 +68,8 @@ function CableCommanderModal({ user, lastPlayed, onWin, onClose }) {
 
     // Dynamic Config
     const getGameConfig = (diff) => {
-        if (diff === 'hard') return { size: 7, time: 90, reward: 2, label: 'Cable Expert', icon: '⚡' };
-        return { size: 5, time: 60, reward: 1, label: 'Cable Manager', icon: '🔌' };
+        if (diff === 'hard') return { size: 11, time: 150, reward: 3, label: 'Cable Expert', icon: '⚡' };
+        return { size: 7, time: 75, reward: 1, label: 'Cable Manager', icon: '🔌' };
     };
 
     const currentConfig = getGameConfig(difficulty || 'easy');
@@ -276,7 +276,7 @@ function CableCommanderModal({ user, lastPlayed, onWin, onClose }) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className={`relative w-full ${difficulty === 'hard' ? 'max-w-2xl' : 'max-w-md'} bg-slate-900 rounded-2xl border-4 border-slate-700 shadow-2xl p-6 flex flex-col items-center transition-all`}>
+            <div className={`relative w-full ${difficulty === 'hard' ? 'max-w-4xl' : 'max-w-xl'} bg-slate-900 rounded-2xl border-4 border-slate-700 shadow-2xl p-6 flex flex-col items-center transition-all`}>
 
                 {/* Header */}
                 <div className="flex justify-between items-center w-full mb-6 relative z-10">
@@ -320,7 +320,7 @@ function CableCommanderModal({ user, lastPlayed, onWin, onClose }) {
                                         key={`${r}-${c}`}
                                         onClick={() => handleRotate(r, c)}
                                         className={`
-                                            w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded transition-all duration-200
+                                            ${GRID_SIZE >= 10 ? 'w-8 h-8' : GRID_SIZE >= 8 ? 'w-9 h-9' : 'w-11 h-11 md:w-12 md:h-12'} flex items-center justify-center rounded transition-all duration-200
                                             ${cell.active ? 'bg-cyan-900/50 shadow-[0_0_10px_rgba(34,211,238,0.3)]' : 'bg-slate-900'}
                                             hover:bg-slate-700
                                             ${(r === START_POS.r && c === START_POS.c) || (r === END_POS.r && c === END_POS.c) ? 'border border-slate-600' : ''}
@@ -370,16 +370,16 @@ function CableCommanderModal({ user, lastPlayed, onWin, onClose }) {
                                 <button onClick={() => initGame('easy')} className="w-full bg-slate-800 hover:bg-slate-700 border border-slate-600 hover:border-cyan-500 p-4 rounded-xl flex items-center justify-between group transition-all">
                                     <div className="text-left">
                                         <div className="font-bold text-white group-hover:text-cyan-400">Standard</div>
-                                        <div className="text-xs text-slate-400">5x5 Grid • 60s</div>
+                                        <div className="text-xs text-slate-400">7x7 Grid • 75s</div>
                                     </div>
                                     <div className="text-xl">🍩</div>
                                 </button>
                                 <button onClick={() => initGame('hard')} className="w-full bg-slate-800 hover:bg-slate-700 border border-slate-600 hover:border-purple-500 p-4 rounded-xl flex items-center justify-between group transition-all">
                                     <div className="text-left">
                                         <div className="font-bold text-white group-hover:text-purple-400">PRO MODE</div>
-                                        <div className="text-xs text-slate-400">7x7 Grid • 90s • One Try</div>
+                                        <div className="text-xs text-slate-400">11x11 Grid • 150s • One Try</div>
                                     </div>
-                                    <div className="text-xl">🍩🍩</div>
+                                    <div className="text-xl">🍩🍩🍩</div>
                                 </button>
                             </div>
                         )}
@@ -1066,23 +1066,69 @@ function ClawMachine({ user, onWin, lastPlayed }) {
         }, 5500);
     };
 
+    // Compute claw Y offset based on state
+    // Container is h-64 = 256px. Prizes are at bottom ~64px. Claw head starts at ~0px top.
+    // Drop to ~165px from top so claw reaches into the prize pile.
+    const clawY = clawState === 'dropping' ? 160
+        : clawState === 'grabbing' ? 160
+        : clawState === 'rising' ? 0
+        : 0; // idle
+
+    const cableHeight = 40; // Fixed cable length — claw assembly slides up/down as a unit
+
     return (
         <div className="w-full max-w-xs mx-auto">
             <div className="bg-slate-800 rounded-t-3xl p-4 border-4 border-slate-700 relative overflow-hidden h-64 shadow-inner">
                 {/* Glass Reflection */}
                 <div className="absolute top-0 right-0 w-2/3 h-full bg-gradient-to-l from-white/5 to-transparent pointer-events-none z-20"></div>
 
-                {/* Claw Mechanism */}
+                {/* Claw Rail (top track bar) */}
+                <div className="absolute top-0 left-0 right-0 h-3 bg-slate-600 z-10"></div>
+
+                {/* Claw Assembly — moves up/down as a group */}
                 <div
-                    className={`absolute top-0 left-1/2 -translate-x-1/2 w-2 h-full bg-slate-400 transition-all duration-[2500ms] ease-in-out z-10 ${clawState === 'dropping' ? 'h-[80%]' : clawState === 'rising' ? 'h-[10%]' : 'h-[10%]'}`}
+                    className="absolute left-1/2 -translate-x-1/2 z-10 flex flex-col items-center"
+                    style={{
+                        top: 12, // sits just below the rail
+                        transform: `translateX(-50%) translateY(${clawY}px)`,
+                        transition: clawState === 'dropping'
+                            ? 'transform 2.2s ease-in-out'
+                            : clawState === 'rising'
+                            ? 'transform 2.0s ease-in-out'
+                            : 'transform 0.3s ease-out',
+                    }}
                 >
-                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-8 bg-slate-300 rounded-full shadow-lg flex items-center justify-center">
-                        <div className={`transition-all duration-500 ${clawState === 'grabbing' ? 'scale-75' : 'scale-100'}`}>
-                            ⚙️
+                    {/* Cable */}
+                    <div
+                        className="w-1 bg-slate-400 rounded-b"
+                        style={{ height: cableHeight }}
+                    />
+                    {/* Claw Head */}
+                    <div className="w-10 h-10 bg-slate-300 rounded-full shadow-lg flex items-center justify-center relative">
+                        {/* Claw prongs */}
+                        <div
+                            className="absolute -bottom-3 left-0 right-0 flex justify-around px-1"
+                            style={{ transition: 'all 0.4s ease' }}
+                        >
+                            <div className={`w-0.5 bg-slate-400 rounded-b ${
+                                clawState === 'grabbing' ? 'h-4 rotate-[-20deg]' : 'h-3 rotate-[-35deg]'
+                            } transition-all duration-400 origin-top`} />
+                            <div className={`w-0.5 bg-slate-400 rounded-b ${
+                                clawState === 'grabbing' ? 'h-4' : 'h-3'
+                            } transition-all duration-400`} />
+                            <div className={`w-0.5 bg-slate-400 rounded-b ${
+                                clawState === 'grabbing' ? 'h-4 rotate-[20deg]' : 'h-3 rotate-[35deg]'
+                            } transition-all duration-400 origin-top`} />
                         </div>
-                        {/* Prize in Claw */}
-                        {prize && clawState !== 'dropping' && clawState !== 'grabbing' && (
-                            <div className="absolute top-6 left-1/2 -translate-x-1/2 text-2xl animate-bounce">
+
+                        {/* Prize held in claw */}
+                        {prize && clawState === 'rising' && (
+                            <div className="absolute top-10 left-1/2 -translate-x-1/2 text-2xl animate-bounce">
+                                {prize.icon}
+                            </div>
+                        )}
+                        {prize && clawState === 'idle' && (
+                            <div className="absolute top-10 left-1/2 -translate-x-1/2 text-2xl animate-bounce">
                                 {prize.icon}
                             </div>
                         )}
@@ -2116,14 +2162,22 @@ export default function YumDonutApp() {
         if (!confirm("Are you sure you want to reset the goal? This will clear all contributions.")) return;
 
         const goalRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'goals', 'active_goal');
-        await setDoc(goalRef, {
-            current: 0,
-            target: goalData.target || GOAL_TARGET,
-            title: goalData.title || "Frosted Friday Goal",
-            contributors: {},
-            isActive: true // Default to true on reset
-        });
-        showNotification("Goal has been reset!");
+        try {
+            // Use setDoc WITHOUT merge to fully replace the document.
+            // This guarantees the contributors map is wiped — even entries
+            // that were written using dot-notation (e.g. contributors.Alice).
+            await setDoc(goalRef, {
+                current: 0,
+                target: goalData.target || GOAL_TARGET,
+                title: goalData.title || "Frosted Friday Goal",
+                contributors: {},
+                isActive: true
+            }); // No { merge: true } — we want a full replace
+            showNotification("Goal has been reset!");
+        } catch (e) {
+            console.error("Failed to reset goal:", e);
+            showNotification("Reset failed! Check console for details.", "error");
+        }
     };
 
     const handleToggleGoalActive = async (isActive) => {
@@ -5370,7 +5424,7 @@ function GoalView({ goalData, userBalance, onContribute, currentUserName, onActi
                                         🚨 Activate Reward! 🚨
                                     </Button>
                                     <button onClick={onResetGoal} className="text-xs text-slate-400 hover:text-red-500 flex items-center justify-center gap-1">
-                                        <RotateCcw size={12} /> Reset Goal Manually
+                                        <RotateCcw size={12} /> Start New Goal (clears contributors)
                                     </button>
                                 </div>
                             ) : (
