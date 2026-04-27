@@ -6,7 +6,7 @@ import {
     runTransaction, arrayUnion, arrayRemove, deleteDoc, Timestamp, increment
 } from 'firebase/firestore';
 import {
-    getAuth, onAuthStateChanged, signInWithCustomToken,
+    getAuth, onAuthStateChanged,
     signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInAnonymously, updateProfile
 } from 'firebase/auth';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -2387,6 +2387,8 @@ export default function YumDonutApp() {
     // --- CREATE BOUNTY (Time Limit = Minutes from Now) ---
     // --- CREATE BOUNTY (Time Limit = Date Picker) ---
     const handleCreateBounty = async (title, reward, quantity, expiresAtString, scheduledFor = null) => {
+        if (!isAdmin) return;
+
         const qty = parseInt(quantity) || 1;
 
         // If scheduledFor is provided, use it as the start time, otherwise use now
@@ -2441,6 +2443,8 @@ export default function YumDonutApp() {
     };
 
     const handleDeleteBounty = async (bountyId) => {
+        if (!isAdmin) return;
+
         try {
             const bountyRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'bounties', bountyId);
             await deleteDoc(bountyRef);
@@ -2492,12 +2496,16 @@ export default function YumDonutApp() {
     };
 
     const handleRejectWork = async (bountyId) => {
+        if (!isAdmin) return;
+
         const bountyRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'bounties', bountyId);
         await updateDoc(bountyRef, { status: 'claimed' });
         showNotification("Work rejected. Student must redo.");
     };
 
     const handlePayBounty = async (bountyId, claimantName, reward) => {
+        if (!isAdmin) return;
+
         try {
             const recipientRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', claimantName);
             const recipientDoc = await getDoc(recipientRef);
@@ -6039,18 +6047,6 @@ function TypingStatsModal({ onClose }) {
                     )}
                 </div>
             </div>
-            {/* Admin Holiday Test Toggle */}
-            {isAdmin && !loading && (
-                <div className="fixed bottom-4 right-20 z-50">
-                    <button
-                        onClick={() => setSimulateHoliday(prev => !prev)}
-                        className="bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white px-2 py-1 rounded text-xs font-mono border border-purple-500/50 backdrop-blur"
-                        title="Simulate Holiday Mode"
-                    >
-                        🏖️ TEST
-                    </button>
-                </div>
-            )}
         </div>
     );
 }
