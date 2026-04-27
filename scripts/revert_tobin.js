@@ -1,6 +1,6 @@
 
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, query, where, getDocs, doc, getDoc, updateDoc, deleteDoc, increment, runTransaction } from 'firebase/firestore';
+import { getFirestore, collection, query, where, getDocs, doc, getDoc, updateDoc, deleteDoc, increment } from 'firebase/firestore';
 
 const firebaseConfig = {
     apiKey: "AIzaSyAnjuK_F8ZO3WqTfCEeXEF5J84CG8Irjq4",
@@ -21,7 +21,6 @@ async function revertTobin() {
 
     try {
         // 1. Find Tobin's User ID
-        const publicUsersRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'users');
         // We know his name is "Tobin", but we need his UID for the private profile update.
         // However, the public profile is keyed by name "Tobin".
         // We can update the public profile directly.
@@ -45,7 +44,6 @@ async function revertTobin() {
         // This is inefficient but necessary if we don't have the UID.
 
         console.log("Searching for Tobin's UID...");
-        const usersRef = collection(db, 'artifacts', APP_ID, 'users');
         // We can't list all collections easily in client SDK.
         // Actually, we can't query root 'users' collection easily if we don't know the UIDs.
         // Wait, `users` is a collection. We can query it?
@@ -135,8 +133,6 @@ async function revertTobin() {
 
         let fraudAmount = 0;
         let fraudCount = 0;
-        const batch = []; // We can't use batch for everything if it's too big, but 48 is fine.
-
         // Firestore batch limit is 500.
 
         const docsToDelete = [];

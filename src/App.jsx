@@ -748,13 +748,13 @@ const Button = ({ onClick, disabled, children, variant = "primary", className = 
     );
 };
 
-const NavBtn = ({ icon: Icon, label, active, onClick, badge }) => (
+const NavBtn = ({ icon, label, active, onClick, badge }) => (
     <button
         onClick={onClick}
         className={`flex flex-col items-center gap-1 w-16 transition-colors relative ${active ? 'text-pink-500' : 'text-slate-400 hover:text-slate-600'}`}
     >
         <div className="relative">
-            <Icon size={24} strokeWidth={active ? 2.5 : 2} />
+            {React.createElement(icon, { size: 24, strokeWidth: active ? 2.5 : 2 })}
             {badge > 0 && (
                 <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold h-4 w-4 flex items-center justify-center rounded-full shadow-sm">
                     {badge}
@@ -768,7 +768,7 @@ const NavBtn = ({ icon: Icon, label, active, onClick, badge }) => (
 // --- LIVE STUDIO COMPONENTS ---
 
 
-const LiveDock = ({ users, currentUser, onEditProfile, onEditPixels }) => {
+const LiveDock = ({ users, currentUser, onEditPixels }) => {
     if (!ENABLE_LIVE_STUDIO) return null;
 
     // Filter for ONLINE users only (active in last 5 mins)
@@ -1261,7 +1261,7 @@ function ClawMachineModal({ user, lastPlayed, onWin, onClose }) {
     );
 }
 
-function ArcadeView({ user, profile, allUsers, onWinBonus }) {
+function ArcadeView({ user, profile, onWinBonus }) {
     const [showClawMachine, setShowClawMachine] = useState(false);
     const [showTypingDefence, setShowTypingDefence] = useState(false);
     const [showDailyRushes, setShowDailyRushes] = useState(false);
@@ -1596,31 +1596,6 @@ export default function YumDonutApp() {
     //   Pass a 'onBypass' prop if admin?
 
     // Let's refine the render block below instead of a separate return here to keep state accessible.
-
-
-    const handleSaveProfile = async (color, icon) => {
-        if (!user || !myProfile) return;
-        try {
-            const userRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
-            const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
-
-            const updates = {
-                live_avatar_color: color,
-                live_avatar_icon: icon
-            };
-
-            await updateDoc(userRef, updates);
-            await updateDoc(publicRef, updates);
-
-            // Optimistic update
-            setMyProfile(prev => ({ ...prev, ...updates }));
-            setIsDressingRoomOpen(false);
-            showNotification("Profile Updated! Looking fresh. ✨");
-        } catch (e) {
-            console.error("Profile update failed:", e);
-            showNotification("Could not update profile.", "error");
-        }
-    };
 
     // 2. Featured Items Listener (Gold Card)
     useEffect(() => {
@@ -2591,8 +2566,6 @@ export default function YumDonutApp() {
 
             await runTransaction(db, async (transaction) => {
                 const userDoc = await transaction.get(userRef);
-                const publicDoc = await transaction.get(publicRef);
-
                 const currentWallet = userDoc.data().balance || 0;
                 const currentBank = userDoc.data().bank_balance || 0;
 
@@ -2801,7 +2774,7 @@ export default function YumDonutApp() {
                 transaction.set(feedRef, {
                     fromName: "Typing Dojo",
                     toName: myProfile.name,
-                    message: `Earned ${finalReward} donut(s) in ${mode === 'sudden_death' ? 'Sudden Death' : mode === 'shortcut_ninja' ? 'Ninja Mode' : 'Training'}! (${mode === 'shortcut_ninja' ? `Streak: ${maxNinjaCombo}` : `${wpm} WPM`})`,
+                    message: `Earned ${finalReward} donut(s) in ${mode === 'sudden_death' ? 'Sudden Death' : mode === 'shortcut_ninja' ? 'Ninja Mode' : 'Training'}! (${mode === 'shortcut_ninja' ? `Streak: ${ninjaCombo}` : `${wpm} WPM`})`,
                     timestamp: serverTimestamp(),
                     emoji: mode === 'sudden_death' ? "💀" : mode === 'shortcut_ninja' ? "⚡" : "🥋",
                     amount: finalReward,
@@ -2950,7 +2923,7 @@ export default function YumDonutApp() {
     }
 
     if (!user || !myProfile) {
-        return <LoginScreen onLogin={handleLoginOrRegister} existingUsers={users} roster={roster} />;
+        return <LoginScreen onLogin={handleLoginOrRegister} roster={roster} />;
     }
 
     return (
@@ -3214,8 +3187,6 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense, onLogAttempt 
 
     // Common State
     const [startTime, setStartTime] = useState(null);
-    const [endTime, setEndTime] = useState(null);
-
     // Typing Dojo State
     const [currentQuote, setCurrentQuote] = useState("");
     const [targetQuoteObject, setTargetQuoteObject] = useState(null);
@@ -3343,7 +3314,7 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense, onLogAttempt 
         nextShortcut(ninjaCombo + 1);
     };
 
-    const handleNinjaWrong = (isTimeout = false) => {
+    const handleNinjaWrong = () => {
         // Visual Feedback
         setFeedbackState('wrong');
         setTimeout(() => setFeedbackState(null), 200);
@@ -3406,7 +3377,6 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense, onLogAttempt 
         setUserInput("");
         setGameState('playing');
         setStartTime(Date.now());
-        setEndTime(null);
         setTimeout(() => inputRef.current?.focus(), 100);
     };
 
@@ -3432,7 +3402,6 @@ function TrainingView({ user, onReward, allUsers, onUpdateLicense, onLogAttempt 
 
     const endGame = (finalInput) => {
         const end = Date.now();
-        setEndTime(end);
         setGameState('finished');
 
         const timeInMinutes = (end - startTime) / 60000;
@@ -3980,7 +3949,7 @@ function PixelStudioModal({ onClose, currentPixels, currentGridSize, onSave }) {
     );
 }
 
-function LoginScreen({ onLogin, existingUsers, roster }) {
+function LoginScreen({ onLogin, roster }) {
     const [search, setSearch] = useState("");
     const [selectedName, setSelectedName] = useState(null);
     const [password, setPassword] = useState("");
@@ -4882,7 +4851,7 @@ function UserAuditModal({ userToCheck, onClose }) {
     );
 }
 
-function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleState, onDrawRaffle, onRestoreRaffle, featuredItemIds, onToggleFeatured }) {
+function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleState, onDrawRaffle, featuredItemIds, onToggleFeatured }) {
     const isAdmin = currentUserPublic?.name === "Mr Rayner";
 
     return (
@@ -5049,9 +5018,6 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
         const interval = setInterval(() => setTick(t => t + 1), 60000);
         return () => clearInterval(interval);
     }, []);
-
-    // Calculate preview time for new job
-    const previewTime = newExpiresAt ? formatTime(new Date(newExpiresAt).getTime()) : "";
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -5782,7 +5748,6 @@ function FeedView({ transactions, onReact, coreValues, onDelete, currentUser, us
                 </div>
             ) : (
                 transactions.map(tx => {
-                    const count = tx.amount || 1;
                     const isMunch = tx.fromName === "The Donut Muncher";
                     const valueData = tx.value && coreValues ? coreValues[tx.value] : null;
 
@@ -6248,6 +6213,7 @@ function TypingDefenceModal({ onClose, onReward, lastPlayed }) {
                 {/* Header UI */}
                 <div className="absolute top-0 left-0 right-0 p-4 flex justify-between text-green-400 z-10 pointer-events-none bg-gradient-to-b from-black/80 to-transparent">
                     <div className="text-xl font-bold">SCORE: {score}</div>
+                    <div className="text-xl font-bold">LEVEL: {level}</div>
                     <div className="text-xl font-bold">LIVES: {"❤️".repeat(Math.max(0, lives))}</div>
                 </div>
 
