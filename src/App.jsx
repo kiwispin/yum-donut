@@ -1669,8 +1669,7 @@ export default function YumDonutApp() {
             if (docSnap.exists()) {
                 setGoalData(docSnap.data());
             } else {
-                // Default Init if missing
-                setDoc(goalRef, { current: 0, target: GOAL_TARGET, title: "Frosted Friday Goal", contributors: {} });
+                console.warn("Goal document not found; leaving current goal state unchanged.");
             }
         }, (e) => console.error("Goal error", e));
 
