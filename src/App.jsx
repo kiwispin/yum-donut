@@ -2214,7 +2214,13 @@ export default function YumDonutApp() {
     const handleActivateFrostedFriday = async () => {
         try {
             const goalRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'goals', 'active_goal');
-            await updateDoc(goalRef, { current: 0 });
+            await setDoc(goalRef, {
+                current: 0,
+                target: goalData.target || GOAL_TARGET,
+                title: goalData.title || "Frosted Friday Goal",
+                contributors: {},
+                isActive: true
+            });
             await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), { fromName: "Mr Rayner", toName: "EVERYONE", message: "🚨 FROSTED FRIDAY IS ON! The goal was met! 🍩🎉", timestamp: serverTimestamp(), emoji: "🚨", likes: [] });
             showNotification("Activated! Goal reset.");
             triggerConfetti();
@@ -4165,7 +4171,7 @@ function GoalSettingsTab({ goalData, onUpdateGoal, onResetGoal, onToggleGoalActi
     };
 
     const handleRestoreFromHistory = async () => {
-        if (!confirm("This will scan ALL transactions and rebuild the goal's contributor list and total from history. Continue?")) return;
+        if (!confirm("This will scan transactions since the last reward activation and rebuild the goal's contributor list and total. Continue?")) return;
         setRestoring(true);
         setRestoreResult(null);
         try {
@@ -4173,13 +4179,22 @@ function GoalSettingsTab({ goalData, onUpdateGoal, onResetGoal, onToggleGoalActi
             const txQuery = query(txRef, orderBy('timestamp', 'desc'));
             const txSnap = await getDocs(txQuery);
 
+            const transactions = txSnap.docs.map(d => d.data());
+            const latestActivation = transactions.find(data => {
+                const msg = data.message || '';
+                return msg.toLowerCase().includes('frosted friday is on') || msg.toLowerCase().includes('activated');
+            });
+            const latestActivationTime = latestActivation?.timestamp?.toMillis?.() || 0;
+
             const restoredContributors = {};
             let restoredTotal = 0;
 
-            txSnap.forEach(d => {
-                const data = d.data();
+            transactions.forEach(data => {
                 const msg = data.message || '';
-                if (msg.toLowerCase().includes('contributed') && msg.toLowerCase().includes('goal')) {
+                const timestamp = data.timestamp?.toMillis?.() || 0;
+                const isContribution = msg.toLowerCase().includes('contributed') && msg.toLowerCase().includes('goal');
+
+                if (isContribution && timestamp > latestActivationTime) {
                     const amount = data.amount || 1;
                     const fromName = data.fromName;
                     if (fromName) {
@@ -4290,7 +4305,7 @@ function GoalSettingsTab({ goalData, onUpdateGoal, onResetGoal, onToggleGoalActi
                     🔄 Restore from Transaction History
                 </h3>
                 <p className="text-xs text-slate-500 mb-4">
-                    Scans all past transactions and rebuilds the contributor list and total. Use this if contributions were lost.
+                    Scans transactions since the last reward activation and rebuilds the contributor list and total. Use this if contributions were lost.
                 </p>
                 {restoreResult && (
                     <div className={`mb-4 p-3 rounded-lg text-sm font-bold ${restoreResult.success ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
