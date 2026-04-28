@@ -1,0 +1,26 @@
+{
+  "name": "yum-donut-functions",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Optional Teams integration backend for Yum Donut.",
+  "main": "index.js",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "test": "node --test",
+    "serve": "firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions:teams"
+  },
+  "dependencies": {
+    "botbuilder": "^4.23.3",
+    "firebase-admin": "^13.6.0",
+    "firebase-functions": "^7.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "eslint": "^9.39.1",
+    "globals": "^16.5.0"
+  }
+}

@@ -1,16 +1,29 @@
-# React + Vite
+# Yum Donut
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Yum Donut is a Vite/React classroom recognition app backed by Firestore.
 
-Currently, two official plugins are available:
+## Web App
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+The core Yum Donut app is still a standalone GitHub Pages site.
 
-## React Compiler
+```bash
+npm install
+npm run dev
+npm run lint
+npm run build
+npm run deploy
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+The webpage does not require Microsoft Teams or Firebase Functions to run.
 
-## Expanding the ESLint configuration
+## Optional Teams Integration
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+The `functions/` folder contains an optional Firebase Functions backend for Microsoft Teams. It lets users give donuts from Teams with messages like:
+
+```text
+@YumDonut @Alice @Bob 🍩🍩 great teamwork
+```
+
+Teams writes into the same Firestore users and transactions used by the web app, so the existing feed, balances, and leaderboard update live.
+
+See [functions/README.md](functions/README.md) for bot setup, mapping, and deployment notes.
