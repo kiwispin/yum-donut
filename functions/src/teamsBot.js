@@ -1,6 +1,7 @@
 const { parseTeamsDonutActivity } = require('./teamsParser');
 const { giveDonutsFromTeams } = require('./donutService');
 const { successReply, failureReply } = require('./replies');
+const { recordPendingTeamsUsers } = require('./pendingMappings');
 
 async function handleTeamsTurn(context, deps) {
   const activity = context.activity;
@@ -11,9 +12,22 @@ async function handleTeamsTurn(context, deps) {
 
   const firstParseError = parsed.errors.find((error) => error !== 'BOT_NOT_MENTIONED');
   if (firstParseError) {
+    await recordPendingTeamsUsers({
+      db: deps.db,
+      FieldValue: deps.FieldValue,
+      teamsUsers: [activity.from, ...parsed.recipientTeamsUsers],
+      source: 'parse_error',
+    });
     await context.sendActivity(failureReply(firstParseError));
     return;
   }
+
+  await recordPendingTeamsUsers({
+    db: deps.db,
+    FieldValue: deps.FieldValue,
+    teamsUsers: [activity.from, ...parsed.recipientTeamsUsers],
+    source: 'donut_message',
+  });
 
   const result = await giveDonutsFromTeams({
     db: deps.db,

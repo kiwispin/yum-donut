@@ -20,7 +20,13 @@ The function:
 
 ## Teams Mapping
 
-Create mapping documents in:
+When users mention the bot, the function records seen Teams users in:
+
+```text
+artifacts/yum-donut-school/public/data/integrations/teams/pendingMappings/{mappingKey}
+```
+
+Use those pending records to create confirmed mapping documents in:
 
 ```text
 artifacts/yum-donut-school/public/data/integrations/teams/mappings/{mappingKey}
@@ -41,6 +47,12 @@ Example document:
 ```
 
 Map Mr Rayner with `"yumName": "Mr Rayner"` to inherit the admin unlimited-giving behaviour.
+
+You can also calculate a mapping key locally:
+
+```bash
+node functions/scripts/mappingKey.js "<teams-user-id-or-aad-object-id>"
+```
 
 ## Required Environment
 

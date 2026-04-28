@@ -27,3 +27,5 @@ The `functions/` folder contains an optional Firebase Functions backend for Micr
 Teams writes into the same Firestore users and transactions used by the web app, so the existing feed, balances, and leaderboard update live.
 
 See [functions/README.md](functions/README.md) for bot setup, mapping, and deployment notes.
+
+The Teams app manifest template lives in [teams-app-manifest](teams-app-manifest).

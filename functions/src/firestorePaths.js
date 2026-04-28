@@ -42,6 +42,7 @@ module.exports = {
   usersCollection,
   transactionsCollection,
   rosterDoc,
+  teamsIntegrationDoc,
   teamsMappingsCollection,
   teamsDailyCollection,
   teamsProcessedCollection,
