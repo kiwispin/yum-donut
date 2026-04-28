@@ -1373,25 +1373,26 @@ export default function YumDonutApp() {
     const [isSandbox, setIsSandbox] = useState(false);
     const [showPatchNotes, setShowPatchNotes] = useState(false);
     const [featuredItemIds, setFeaturedItemIds] = useState([]);
-    const [roster, setRoster] = useState(INITIAL_ROSTER);
+    const [roster, setRoster] = useState([]);
     const [isAdminSettingsOpen, setIsAdminSettingsOpen] = useState(false);
 
-    // Roster Listener & Migration
+    // Roster Listener
     useEffect(() => {
         const rosterRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'roster');
         const unsubscribe = onSnapshot(rosterRef, (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 if (data.names && Array.isArray(data.names)) {
-                    setRoster(data.names);
+                    const removedNames = new Set(Array.isArray(data.removed_names) ? data.removed_names : []);
+                    setRoster(data.names.filter(name => !removedNames.has(name)));
                 } else {
-                    // Document exists but names missing/invalid
-                    setDoc(rosterRef, { names: INITIAL_ROSTER }, { merge: true });
+                    console.warn("Roster document is missing a valid names array.");
                 }
             } else {
-                // Migration: Create roster if missing
-                setDoc(rosterRef, { names: INITIAL_ROSTER }, { merge: true });
+                console.warn("Roster document is missing; preserving current roster state.");
             }
+        }, (error) => {
+            console.error("Roster snapshot error", error);
         });
         return () => unsubscribe();
     }, []);
@@ -4362,7 +4363,10 @@ function AdminSettingsModal({ onClose, roster, holidayMode, shopPrices, goalData
         }
         try {
             const rosterRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'roster');
-            await setDoc(rosterRef, { names: arrayUnion(name) }, { merge: true });
+            await setDoc(rosterRef, {
+                names: arrayUnion(name),
+                removed_names: arrayRemove(name)
+            }, { merge: true });
             setNewName("");
             setError("");
         } catch (e) {
@@ -4375,7 +4379,10 @@ function AdminSettingsModal({ onClose, roster, holidayMode, shopPrices, goalData
         if (!confirm(`Remove ${name} from the roster?`)) return;
         try {
             const rosterRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'roster');
-            await setDoc(rosterRef, { names: arrayRemove(name) }, { merge: true });
+            await setDoc(rosterRef, {
+                names: arrayRemove(name),
+                removed_names: arrayUnion(name)
+            }, { merge: true });
         } catch (e) {
             console.error(e);
             setError("Failed to remove user.");
@@ -4554,10 +4561,10 @@ function AdminSettingsModal({ onClose, roster, holidayMode, shopPrices, goalData
                                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Students ({roster.length})</span>
                                 <button
                                     onClick={async () => {
-                                        if (confirm("Reset roster to default list? This will remove custom additions.")) {
+                                        if (confirm("Reset roster to default list? This will remove custom additions and restore removed default students.")) {
                                             try {
                                                 const rosterRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'roster');
-                                                await setDoc(rosterRef, { names: INITIAL_ROSTER }, { merge: true });
+                                                await setDoc(rosterRef, { names: INITIAL_ROSTER, removed_names: [] }, { merge: true });
                                             } catch (e) {
                                                 console.error(e);
                                             }
