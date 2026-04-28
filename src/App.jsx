@@ -1066,116 +1066,72 @@ function ClawMachine({ user, onWin, lastPlayed }) {
         }, 5500);
     };
 
-    // Compute claw Y offset based on state
-    // Container is h-64 = 256px. Prizes are at bottom ~64px. Claw head starts at ~0px top.
-    // Drop to ~165px from top so claw reaches into the prize pile.
-    const clawY = clawState === 'dropping' ? 160
-        : clawState === 'grabbing' ? 160
-        : clawState === 'rising' ? 0
-        : 0; // idle
-
-    const cableHeight = 40; // Fixed cable length — claw assembly slides up/down as a unit
-
     return (
-        <div className="w-full max-w-xs mx-auto">
-            <div className="bg-slate-800 rounded-t-3xl p-4 border-4 border-slate-700 relative overflow-hidden h-64 shadow-inner">
-                {/* Glass Reflection */}
-                <div className="absolute top-0 right-0 w-2/3 h-full bg-gradient-to-l from-white/5 to-transparent pointer-events-none z-20"></div>
+        <div className="flex flex-col items-center justify-center p-4 animate-in fade-in zoom-in duration-500">
+            <div className="relative w-full max-w-sm bg-slate-900 rounded-t-3xl rounded-b-xl p-2 shadow-2xl border-4 border-slate-800 ring-4 ring-pink-500/30">
+                <div className="bg-pink-500 text-white text-center py-2 rounded-t-xl font-black tracking-widest uppercase text-sm mb-2 shadow-lg border-b-4 border-pink-700 relative overflow-hidden">
+                    <span className="relative z-10 drop-shadow-md">Daily Claw</span>
+                    <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
+                </div>
 
-                {/* Claw Rail (top track bar) */}
-                <div className="absolute top-0 left-0 right-0 h-3 bg-slate-600 z-10"></div>
+                <div className="claw-machine-glass h-64 w-full bg-slate-800 rounded-lg border-4 border-slate-700 relative overflow-hidden">
+                    <div className="absolute inset-0 arcade-grid-bg opacity-30"></div>
 
-                {/* Claw Assembly — moves up/down as a group */}
-                <div
-                    className="absolute left-1/2 -translate-x-1/2 z-10 flex flex-col items-center"
-                    style={{
-                        top: 12, // sits just below the rail
-                        transform: `translateX(-50%) translateY(${clawY}px)`,
-                        transition: clawState === 'dropping'
-                            ? 'transform 2.2s ease-in-out'
-                            : clawState === 'rising'
-                            ? 'transform 2.0s ease-in-out'
-                            : 'transform 0.3s ease-out',
-                    }}
-                >
-                    {/* Cable */}
+                    <div className={`claw-cable z-20 ${clawState === 'dropping' ? 'h-[140px]' : clawState === 'rising' ? 'h-[20px]' : 'h-[20px]'}`}></div>
                     <div
-                        className="w-1 bg-slate-400 rounded-b"
-                        style={{ height: cableHeight }}
-                    />
-                    {/* Claw Head */}
-                    <div className="w-10 h-10 bg-slate-300 rounded-full shadow-lg flex items-center justify-center relative">
-                        {/* Claw prongs */}
-                        <div
-                            className="absolute -bottom-3 left-0 right-0 flex justify-around px-1"
-                            style={{ transition: 'all 0.4s ease' }}
-                        >
-                            <div className={`w-0.5 bg-slate-400 rounded-b ${
-                                clawState === 'grabbing' ? 'h-4 rotate-[-20deg]' : 'h-3 rotate-[-35deg]'
-                            } transition-all duration-400 origin-top`} />
-                            <div className={`w-0.5 bg-slate-400 rounded-b ${
-                                clawState === 'grabbing' ? 'h-4' : 'h-3'
-                            } transition-all duration-400`} />
-                            <div className={`w-0.5 bg-slate-400 rounded-b ${
-                                clawState === 'grabbing' ? 'h-4 rotate-[20deg]' : 'h-3 rotate-[35deg]'
-                            } transition-all duration-400 origin-top`} />
+                        className={`absolute left-1/2 -translate-x-1/2 z-20 transition-all duration-[2500ms] ease-in-out ${clawState === 'dropping' ? 'top-[140px]' : 'top-[20px]'}`}
+                    >
+                        <div className={`text-4xl filter drop-shadow-lg ${clawState === 'grabbing' || clawState === 'rising' ? '' : 'animate-claw-shake'}`}>
+                            {clawState === 'grabbing' || clawState === 'rising' ? '✊' : '🖐️'}
                         </div>
 
-                        {/* Prize held in claw */}
                         {prize && clawState === 'rising' && (
-                            <div className="absolute top-10 left-1/2 -translate-x-1/2 text-2xl animate-bounce">
-                                {prize.icon}
-                            </div>
-                        )}
-                        {prize && clawState === 'idle' && (
-                            <div className="absolute top-10 left-1/2 -translate-x-1/2 text-2xl animate-bounce">
+                            <div className="absolute top-6 left-1/2 -translate-x-1/2 text-2xl animate-bounce">
                                 {prize.icon}
                             </div>
                         )}
                     </div>
+
+                    <div className="absolute bottom-0 left-0 right-0 h-16 flex items-end justify-center gap-1 overflow-hidden opacity-80">
+                        {Array.from({ length: 12 }).map((_, i) => (
+                            <div key={i} className="text-2xl transform translate-y-2" style={{ animationDelay: `${i * 0.1}s` }}>
+                                {['🍩', '🍪', '🎁', '🎫'][i % 4]}
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
-                {/* Pile of Donuts (Bottom) */}
-                <div className="absolute bottom-0 left-0 right-0 h-16 flex items-end justify-center gap-1 overflow-hidden opacity-80">
-                    {Array.from({ length: 12 }).map((_, i) => (
-                        <div key={i} className="text-2xl transform translate-y-2" style={{ animationDelay: `${i * 0.1}s` }}>
-                            {['🍩', '🍪', '🎁', '🎫'][i % 4]}
+                <div className="bg-slate-800 p-4 rounded-b-lg mt-2 flex flex-col items-center gap-3 border-t-2 border-slate-700">
+                    {hasPlayedToday ? (
+                        <div className="text-center">
+                            <div className="text-slate-400 text-xs font-bold uppercase mb-1">Daily Limit Reached</div>
+                            <div className="bg-slate-900 text-slate-500 font-mono text-sm px-4 py-2 rounded border border-slate-700 shadow-inner">
+                                Come back tomorrow!
+                            </div>
                         </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Controls */}
-            <div className="bg-slate-800 p-4 rounded-b-lg mt-2 flex flex-col items-center gap-3 border-t-2 border-slate-700">
-                {hasPlayedToday ? (
-                    <div className="text-center">
-                        <div className="text-slate-400 text-xs font-bold uppercase mb-1">Daily Limit Reached</div>
-                        <div className="bg-slate-900 text-slate-500 font-mono text-sm px-4 py-2 rounded border border-slate-700 shadow-inner">
-                            Come back tomorrow!
+                    ) : (
+                        <div className="text-green-400 text-xs font-bold uppercase animate-pulse">
+                            READY TO PLAY!
                         </div>
-                    </div>
-                ) : (
-                    <div className="text-green-400 text-xs font-bold uppercase animate-pulse">
-                        READY TO PLAY!
-                    </div>
-                )}
+                    )}
 
-                <button
-                    onClick={handlePlay}
-                    disabled={isPlaying || hasPlayedToday}
-                    className={`
-                        w-full py-4 rounded-xl font-black text-lg tracking-wider uppercase transition-all transform
-                        ${isPlaying || hasPlayedToday
-                            ? 'bg-slate-700 text-slate-500 cursor-not-allowed border-b-4 border-slate-900'
-                            : 'bg-pink-500 hover:bg-pink-400 text-white shadow-lg border-b-4 border-pink-700 active:border-b-0 active:translate-y-1 pixel-btn'
-                        }
-                    `}
-                >
-                    {isPlaying ? "Good Luck..." : "GRAB!"}
-                </button>
+                    <button
+                        onClick={handlePlay}
+                        disabled={isPlaying || hasPlayedToday}
+                        className={`
+                            w-full py-4 rounded-xl font-black text-lg tracking-wider uppercase transition-all transform
+                            ${isPlaying || hasPlayedToday
+                                ? 'bg-slate-700 text-slate-500 cursor-not-allowed border-b-4 border-slate-900'
+                                : 'bg-pink-500 hover:bg-pink-400 text-white shadow-lg border-b-4 border-pink-700 active:border-b-0 active:translate-y-1 pixel-btn'
+                            }
+                        `}
+                    >
+                        {isPlaying ? "Good Luck..." : "GRAB!"}
+                    </button>
 
-                <div className="text-[10px] text-slate-500 font-mono text-center">
-                    100% WIN RATE • 1 PLAY / DAY
+                    <div className="text-[10px] text-slate-500 font-mono text-center">
+                        100% WIN RATE • 1 PLAY / DAY
+                    </div>
                 </div>
             </div>
 
