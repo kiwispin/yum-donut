@@ -39,6 +39,29 @@ function normalizeTeamsDonutEmoji(text) {
     .replace(DONUT_EMOJI_TAG_PATTERN, DONUT_EMOJI);
 }
 
+function attachmentSearchText(attachments = []) {
+  return attachments.map((attachment) => {
+    const content = typeof attachment.content === 'string'
+      ? attachment.content
+      : JSON.stringify(attachment.content || '');
+    return [
+      attachment.name,
+      attachment.contentType,
+      attachment.contentUrl,
+      attachment.thumbnailUrl,
+      content,
+    ].filter(Boolean).join(' ');
+  }).join(' ');
+}
+
+function teamsEmojiImageFallbackCount(attachments = []) {
+  const contentTypes = attachments.map((attachment) => String(attachment.contentType || '').toLowerCase());
+  const hasHtmlAttachment = contentTypes.includes('text/html');
+  if (!hasHtmlAttachment) return 0;
+
+  return contentTypes.filter((contentType) => contentType === 'image/*').length;
+}
+
 function isBotMention(mention, activity) {
   const mentioned = mention?.mentioned || {};
   const recipient = activity?.recipient || {};
@@ -51,6 +74,8 @@ function isBotMention(mention, activity) {
 
 function parseTeamsDonutActivity(activity) {
   const text = normalizeTeamsDonutEmoji(activity?.text || '');
+  const attachmentText = normalizeTeamsDonutEmoji(attachmentSearchText(activity?.attachments || []));
+  const searchableText = `${text} ${attachmentText}`;
   const mentions = (activity?.entities || []).filter((entity) => entity.type === 'mention');
   const botWasMentioned = mentions.some((mention) => isBotMention(mention, activity));
   const recipientTeamsUsers = mentions
@@ -58,7 +83,8 @@ function parseTeamsDonutActivity(activity) {
     .map((mention) => mention.mentioned)
     .filter(Boolean);
 
-  const donutCount = [...text.matchAll(DONUT_LITERAL_PATTERN)].length;
+  const literalDonutCount = [...searchableText.matchAll(DONUT_LITERAL_PATTERN)].length;
+  const donutCount = literalDonutCount || teamsEmojiImageFallbackCount(activity?.attachments || []);
   const message = stripHtml(text.replace(DONUT_LITERAL_PATTERN, ''));
 
   const errors = [];
@@ -76,7 +102,9 @@ function parseTeamsDonutActivity(activity) {
 }
 
 module.exports = {
+  attachmentSearchText,
   parseTeamsDonutActivity,
   normalizeTeamsDonutEmoji,
   stripHtml,
+  teamsEmojiImageFallbackCount,
 };

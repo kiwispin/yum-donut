@@ -56,6 +56,46 @@ test('parses Teams emoji markup and shortcodes as donuts', () => {
   assert.deepEqual(parsed.errors, []);
 });
 
+test('counts Teams emoji attachments as donuts when text omits the emoji', () => {
+  const activity = {
+    text: '<at>YumDonut</at> <at>Alice</at> Test!',
+    recipient: { id: 'bot-id', name: 'YumDonut' },
+    entities: [
+      { type: 'mention', mentioned: { id: 'bot-id', name: 'YumDonut' } },
+      { type: 'mention', mentioned: { id: 'alice-id', name: 'Alice' } },
+    ],
+    attachments: [
+      { contentType: 'image/*', contentUrl: 'https://example.test/emoji.png' },
+      { contentType: 'text/html', content: '<span itemid="1f369" itemtype="http://schema.skype.com/Emoji"></span>' },
+    ],
+  };
+
+  const parsed = parseTeamsDonutActivity(activity);
+  assert.equal(parsed.donutCount, 1);
+  assert.equal(parsed.message, 'Test!');
+  assert.deepEqual(parsed.errors, []);
+});
+
+test('falls back to Teams emoji image attachments when HTML has no readable label', () => {
+  const activity = {
+    text: '<at>YumDonut</at> <at>Alice</at> Test!',
+    recipient: { id: 'bot-id', name: 'YumDonut' },
+    entities: [
+      { type: 'mention', mentioned: { id: 'bot-id', name: 'YumDonut' } },
+      { type: 'mention', mentioned: { id: 'alice-id', name: 'Alice' } },
+    ],
+    attachments: [
+      { contentType: 'image/*' },
+      { contentType: 'text/html', content: '<p></p>' },
+    ],
+  };
+
+  const parsed = parseTeamsDonutActivity(activity);
+  assert.equal(parsed.donutCount, 1);
+  assert.equal(parsed.message, 'Test!');
+  assert.deepEqual(parsed.errors, []);
+});
+
 test('normalizes Teams mention HTML and entities', () => {
   assert.equal(stripHtml('<at>Alice</at>&nbsp;🍩 &amp; thanks'), '🍩 & thanks');
 });
