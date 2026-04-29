@@ -5,7 +5,7 @@
   "description": "Optional Teams integration backend for Yum Donut.",
   "main": "index.js",
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "scripts": {
     "lint": "eslint .",
