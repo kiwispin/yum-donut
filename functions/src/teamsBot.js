@@ -3,6 +3,14 @@ const { giveDonutsFromTeams } = require('./donutService');
 const { successReply, failureReply } = require('./replies');
 const { recordPendingTeamsUsers } = require('./pendingMappings');
 
+function redactMentionText(text) {
+  return String(text || '').replace(/<at>.*?<\/at>/gi, '<at>@</at>');
+}
+
+function diagnosticCodePoints(text) {
+  return Array.from(String(text || '').slice(0, 200)).map((char) => char.codePointAt(0).toString(16));
+}
+
 async function handleTeamsTurn(context, deps) {
   const activity = context.activity;
   if (activity.type !== 'message') return;
@@ -12,6 +20,13 @@ async function handleTeamsTurn(context, deps) {
 
   const firstParseError = parsed.errors.find((error) => error !== 'BOT_NOT_MENTIONED');
   if (firstParseError) {
+    console.warn('Teams donut parse miss:', {
+      error: firstParseError,
+      text: redactMentionText(activity.text).slice(0, 500),
+      textCodePoints: diagnosticCodePoints(activity.text),
+      attachmentContentTypes: (activity.attachments || []).map((attachment) => attachment.contentType),
+      entityTypes: (activity.entities || []).map((entity) => entity.type),
+    });
     await recordPendingTeamsUsers({
       db: deps.db,
       FieldValue: deps.FieldValue,

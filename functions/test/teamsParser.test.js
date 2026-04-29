@@ -44,13 +44,14 @@ test('parses Teams emoji markup and shortcodes as donuts', () => {
   };
 
   assert.equal(normalizeTeamsDonutEmoji('<img alt="&#x1F369;" src="x">'), '🍩');
+  assert.equal(normalizeTeamsDonutEmoji('<span itemid="1f369" itemtype="http://schema.skype.com/Emoji"></span>'), '🍩');
 
   const parsed = parseTeamsDonutActivity({
     ...baseActivity,
-    text: '<at>YumDonut</at> <at>Alice</at> <img alt="&#x1F369;" src="x"> :doughnut: Test!',
+    text: '<at>YumDonut</at> <at>Alice</at> <img alt="&#x1F369;" src="x"> <span itemid="1f369" itemtype="http://schema.skype.com/Emoji"></span> :doughnut: Test!',
   });
 
-  assert.equal(parsed.donutCount, 2);
+  assert.equal(parsed.donutCount, 3);
   assert.equal(parsed.message, 'Test!');
   assert.deepEqual(parsed.errors, []);
 });

@@ -2,9 +2,13 @@ const { DONUT_EMOJI } = require('./config');
 
 const DONUT_LITERAL_PATTERN = /\u{1F369}\uFE0F?/gu;
 const DONUT_SHORTCODE_PATTERN = /:(?:donut|doughnut):/giu;
-const DONUT_LABEL_PATTERN = '(?:\\u{1F369}\\uFE0F?|:(?:donut|doughnut):|donut|doughnut)';
+const DONUT_LABEL_PATTERN = '(?:\\u{1F369}\\uFE0F?|1f369|u1f369|:(?:donut|doughnut):|donut|doughnut)';
 const DONUT_ALT_TAG_PATTERN = new RegExp(
-  `<(?:img|emoji)\\b[^>]*(?:alt|title|aria-label)=["']\\s*${DONUT_LABEL_PATTERN}\\s*["'][^>]*(?:>.*?<\\/emoji>|\\/?>)`,
+  `<[^>]*(?:alt|title|aria-label|itemid|data-tid|data-emoji-id)=["']\\s*${DONUT_LABEL_PATTERN}\\s*["'][^>]*(?:>\\s*<\\/[^>]+>|\\/?>|>)`,
+  'giu'
+);
+const DONUT_EMOJI_TAG_PATTERN = new RegExp(
+  `<[^>]*(?:emoji|emoticon)[^>]*(?:donut|doughnut|1f369)[^>]*(?:>\\s*<\\/[^>]+>|\\/?>|>)`,
   'giu'
 );
 
@@ -30,8 +34,9 @@ function stripHtml(text) {
 
 function normalizeTeamsDonutEmoji(text) {
   return decodeHtmlEntities(text)
+    .replace(DONUT_SHORTCODE_PATTERN, DONUT_EMOJI)
     .replace(DONUT_ALT_TAG_PATTERN, DONUT_EMOJI)
-    .replace(DONUT_SHORTCODE_PATTERN, DONUT_EMOJI);
+    .replace(DONUT_EMOJI_TAG_PATTERN, DONUT_EMOJI);
 }
 
 function isBotMention(mention, activity) {
