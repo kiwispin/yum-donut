@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { parseTeamsDonutActivity, stripHtml } = require('../src/teamsParser');
+const { parseTeamsDonutActivity, normalizeTeamsDonutEmoji, stripHtml } = require('../src/teamsParser');
 const { mappingKeyForTeamsUser } = require('../src/identity');
 const { localDateKey, localDateLabel } = require('../src/dateKeys');
 const { successReply, failureReply } = require('../src/replies');
@@ -32,6 +32,27 @@ test('requires bot mention, recipient, and donut emoji', () => {
   });
 
   assert.deepEqual(parsed.errors, ['BOT_NOT_MENTIONED', 'NO_RECIPIENTS', 'NO_DONUTS']);
+});
+
+test('parses Teams emoji markup and shortcodes as donuts', () => {
+  const baseActivity = {
+    recipient: { id: 'bot-id', name: 'YumDonut' },
+    entities: [
+      { type: 'mention', mentioned: { id: 'bot-id', name: 'YumDonut' } },
+      { type: 'mention', mentioned: { id: 'alice-id', name: 'Alice' } },
+    ],
+  };
+
+  assert.equal(normalizeTeamsDonutEmoji('<img alt="&#x1F369;" src="x">'), '🍩');
+
+  const parsed = parseTeamsDonutActivity({
+    ...baseActivity,
+    text: '<at>YumDonut</at> <at>Alice</at> <img alt="&#x1F369;" src="x"> :doughnut: Test!',
+  });
+
+  assert.equal(parsed.donutCount, 2);
+  assert.equal(parsed.message, 'Test!');
+  assert.deepEqual(parsed.errors, []);
 });
 
 test('normalizes Teams mention HTML and entities', () => {
