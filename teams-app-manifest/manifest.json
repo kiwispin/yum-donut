@@ -1,0 +1,40 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.22/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.22",
+  "version": "0.1.0",
+  "id": "e685d1a7-69c3-46ba-9671-5b1942632953",
+  "developer": {
+    "name": "Yum Donut",
+    "websiteUrl": "https://kiwispin.github.io/yum-donut",
+    "privacyUrl": "https://kiwispin.github.io/yum-donut",
+    "termsOfUseUrl": "https://kiwispin.github.io/yum-donut"
+  },
+  "name": {
+    "short": "YumDonut",
+    "full": "Yum Donut Recognition"
+  },
+  "description": {
+    "short": "Give Yum Donut recognition from Teams.",
+    "full": "Mention YumDonut, tag classmates, and add donut emojis to send Yum Donut recognition from Microsoft Teams."
+  },
+  "icons": {
+    "outline": "outline.png",
+    "color": "color.png"
+  },
+  "accentColor": "#ec4899",
+  "bots": [
+    {
+      "botId": "e685d1a7-69c3-46ba-9671-5b1942632953",
+      "scopes": ["team"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "validDomains": [
+    "teamsbot-unzfcx6cxq-uc.a.run.app"
+  ],
+  "webApplicationInfo": {
+    "id": "e685d1a7-69c3-46ba-9671-5b1942632953",
+    "resource": "api://botid-e685d1a7-69c3-46ba-9671-5b1942632953"
+  }
+}
