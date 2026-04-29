@@ -1,7 +1,7 @@
 {
   "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.22/MicrosoftTeams.schema.json",
   "manifestVersion": "1.22",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "id": "e685d1a7-69c3-46ba-9671-5b1942632953",
   "developer": {
     "name": "Yum Donut",
@@ -25,7 +25,9 @@
   "bots": [
     {
       "botId": "e685d1a7-69c3-46ba-9671-5b1942632953",
-      "scopes": ["team"],
+      "scopes": [
+        "team"
+      ],
       "supportsFiles": false,
       "isNotificationOnly": false
     }
