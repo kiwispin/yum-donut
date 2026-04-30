@@ -62,6 +62,10 @@ function teamsEmojiImageFallbackCount(attachments = []) {
   return contentTypes.filter((contentType) => contentType === 'image/*').length;
 }
 
+function countDonutLiterals(text) {
+  return [...String(text || '').matchAll(DONUT_LITERAL_PATTERN)].length;
+}
+
 function isBotMention(mention, activity) {
   const mentioned = mention?.mentioned || {};
   const recipient = activity?.recipient || {};
@@ -75,7 +79,6 @@ function isBotMention(mention, activity) {
 function parseTeamsDonutActivity(activity) {
   const text = normalizeTeamsDonutEmoji(activity?.text || '');
   const attachmentText = normalizeTeamsDonutEmoji(attachmentSearchText(activity?.attachments || []));
-  const searchableText = `${text} ${attachmentText}`;
   const mentions = (activity?.entities || []).filter((entity) => entity.type === 'mention');
   const botWasMentioned = mentions.some((mention) => isBotMention(mention, activity));
   const recipientTeamsUsers = mentions
@@ -83,8 +86,10 @@ function parseTeamsDonutActivity(activity) {
     .map((mention) => mention.mentioned)
     .filter(Boolean);
 
-  const literalDonutCount = [...searchableText.matchAll(DONUT_LITERAL_PATTERN)].length;
-  const donutCount = literalDonutCount || teamsEmojiImageFallbackCount(activity?.attachments || []);
+  const textDonutCount = countDonutLiterals(text);
+  const attachmentImageDonutCount = teamsEmojiImageFallbackCount(activity?.attachments || []);
+  const attachmentMetadataDonutCount = countDonutLiterals(attachmentText);
+  const donutCount = textDonutCount || attachmentImageDonutCount || attachmentMetadataDonutCount;
   const message = stripHtml(text.replace(DONUT_LITERAL_PATTERN, ''));
 
   const errors = [];
@@ -103,6 +108,7 @@ function parseTeamsDonutActivity(activity) {
 
 module.exports = {
   attachmentSearchText,
+  countDonutLiterals,
   parseTeamsDonutActivity,
   normalizeTeamsDonutEmoji,
   stripHtml,

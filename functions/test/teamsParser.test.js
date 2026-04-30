@@ -66,13 +66,39 @@ test('counts Teams emoji attachments as donuts when text omits the emoji', () =>
     ],
     attachments: [
       { contentType: 'image/*', contentUrl: 'https://example.test/emoji.png' },
-      { contentType: 'text/html', content: '<span itemid="1f369" itemtype="http://schema.skype.com/Emoji"></span>' },
+      {
+        contentType: 'text/html',
+        content: '<img alt="&#x1F369;" src="x"><span itemid="1f369" itemtype="http://schema.skype.com/Emoji"></span>',
+      },
     ],
   };
 
   const parsed = parseTeamsDonutActivity(activity);
   assert.equal(parsed.donutCount, 1);
   assert.equal(parsed.message, 'Test!');
+  assert.deepEqual(parsed.errors, []);
+});
+
+test('counts multiple Teams emoji image attachments without double-counting metadata', () => {
+  const activity = {
+    text: '<at>YumDonut</at> <at>Alice</at> Test!',
+    recipient: { id: 'bot-id', name: 'YumDonut' },
+    entities: [
+      { type: 'mention', mentioned: { id: 'bot-id', name: 'YumDonut' } },
+      { type: 'mention', mentioned: { id: 'alice-id', name: 'Alice' } },
+    ],
+    attachments: [
+      { contentType: 'image/*' },
+      { contentType: 'image/*' },
+      {
+        contentType: 'text/html',
+        content: '<img alt="&#x1F369;" src="x"><span itemid="1f369" itemtype="http://schema.skype.com/Emoji"></span>',
+      },
+    ],
+  };
+
+  const parsed = parseTeamsDonutActivity(activity);
+  assert.equal(parsed.donutCount, 2);
   assert.deepEqual(parsed.errors, []);
 });
 
