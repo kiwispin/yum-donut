@@ -1066,6 +1066,14 @@ function ClawMachine({ user, onWin, lastPlayed }) {
         }, 5500);
     };
 
+    const clawY = clawState === 'dropping' || clawState === 'grabbing' ? 158 : 0;
+    const clawTransition = clawState === 'dropping'
+        ? 'transform 2.2s ease-in-out'
+        : clawState === 'rising'
+            ? 'transform 2s ease-in-out'
+            : 'transform 0.3s ease-out';
+    const isClawClosed = clawState === 'grabbing' || clawState === 'rising';
+
     return (
         <div className="flex flex-col items-center justify-center p-4 animate-in fade-in zoom-in duration-500">
             <div className="relative w-full max-w-sm bg-slate-900 rounded-t-3xl rounded-b-xl p-2 shadow-2xl border-4 border-slate-800 ring-4 ring-pink-500/30">
@@ -1076,17 +1084,45 @@ function ClawMachine({ user, onWin, lastPlayed }) {
 
                 <div className="claw-machine-glass h-64 w-full bg-slate-800 rounded-lg border-4 border-slate-700 relative overflow-hidden">
                     <div className="absolute inset-0 arcade-grid-bg opacity-30"></div>
+                    <div className="absolute top-0 left-0 right-0 h-4 bg-slate-600 z-10 border-b border-slate-500"></div>
+                    <div className="absolute top-1 left-1/2 -translate-x-1/2 w-24 h-2 bg-slate-500 rounded-full z-10 shadow-inner"></div>
 
-                    <div className={`claw-cable z-20 ${clawState === 'dropping' ? 'h-[140px]' : clawState === 'rising' ? 'h-[20px]' : 'h-[20px]'}`}></div>
                     <div
-                        className={`absolute left-1/2 -translate-x-1/2 z-20 transition-all duration-[2500ms] ease-in-out ${clawState === 'dropping' ? 'top-[140px]' : 'top-[20px]'}`}
+                        className="absolute left-1/2 z-20 flex flex-col items-center"
+                        style={{
+                            top: 10,
+                            transform: `translateX(-50%) translateY(${clawY}px)`,
+                            transition: clawTransition,
+                        }}
                     >
-                        <div className={`text-4xl filter drop-shadow-lg ${clawState === 'grabbing' || clawState === 'rising' ? '' : 'animate-claw-shake'}`}>
-                            {clawState === 'grabbing' || clawState === 'rising' ? '✊' : '🖐️'}
+                        <div className="w-1 bg-slate-300 rounded-b shadow-sm h-10"></div>
+                        <div className="relative w-12 h-10 flex items-start justify-center drop-shadow-lg">
+                            <div className="absolute top-0 w-10 h-7 bg-slate-300 border-2 border-slate-400 rounded-b-full rounded-t-md shadow-lg"></div>
+                            <div className="absolute top-1 w-4 h-3 bg-slate-500/30 rounded-full"></div>
+                            <div
+                                className={`absolute top-6 left-2 w-1.5 h-9 bg-slate-300 border border-slate-400 rounded-full origin-top transition-transform duration-300 ${
+                                    isClawClosed ? 'rotate-[18deg]' : 'rotate-[42deg]'
+                                }`}
+                            ></div>
+                            <div
+                                className={`absolute top-[58px] left-[18px] w-4 h-1.5 bg-slate-300 border border-slate-400 rounded-full origin-left transition-transform duration-300 ${
+                                    isClawClosed ? 'rotate-[-44deg]' : 'rotate-[-18deg]'
+                                }`}
+                            ></div>
+                            <div
+                                className={`absolute top-6 right-2 w-1.5 h-9 bg-slate-300 border border-slate-400 rounded-full origin-top transition-transform duration-300 ${
+                                    isClawClosed ? 'rotate-[-18deg]' : 'rotate-[-42deg]'
+                                }`}
+                            ></div>
+                            <div
+                                className={`absolute top-[58px] right-[18px] w-4 h-1.5 bg-slate-300 border border-slate-400 rounded-full origin-right transition-transform duration-300 ${
+                                    isClawClosed ? 'rotate-[44deg]' : 'rotate-[18deg]'
+                                }`}
+                            ></div>
                         </div>
 
                         {prize && clawState === 'rising' && (
-                            <div className="absolute top-6 left-1/2 -translate-x-1/2 text-2xl animate-bounce">
+                            <div className="absolute top-[88px] left-1/2 -translate-x-1/2 text-2xl animate-bounce">
                                 {prize.icon}
                             </div>
                         )}
