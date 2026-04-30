@@ -24,6 +24,23 @@ test('parses a bot-mentioned multi-recipient donut message', () => {
   assert.deepEqual(parsed.errors, []);
 });
 
+test('preserves recipient mentions in free-text recognition messages', () => {
+  const activity = {
+    text: '<at>YumDonut</at> Thanks so much to <at>Alison</at> for all of your hard work! 🍩🍩',
+    recipient: { id: 'bot-id', name: 'YumDonut' },
+    entities: [
+      { type: 'mention', mentioned: { id: 'bot-id', name: 'YumDonut' } },
+      { type: 'mention', mentioned: { id: 'alice-id', name: 'Alison' } },
+    ],
+  };
+
+  const parsed = parseTeamsDonutActivity(activity);
+  assert.equal(parsed.donutCount, 2);
+  assert.deepEqual(parsed.recipientTeamsUsers.map((user) => user.name), ['Alison']);
+  assert.equal(parsed.message, 'Thanks so much to Alison for all of your hard work!');
+  assert.deepEqual(parsed.errors, []);
+});
+
 test('requires bot mention, recipient, and donut emoji', () => {
   const parsed = parseTeamsDonutActivity({
     text: 'hello',

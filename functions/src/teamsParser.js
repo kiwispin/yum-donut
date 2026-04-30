@@ -32,6 +32,25 @@ function stripHtml(text) {
     .trim();
 }
 
+function formatMentionForMessage(mention, activity, preserveRecipientMention = false) {
+  if (isBotMention(mention, activity) || !preserveRecipientMention) return ' ';
+  return ` ${mention?.mentioned?.name || mention?.mentioned?.givenName || mention?.mentioned?.userPrincipalName || ''} `;
+}
+
+function replaceMentionTagsForMessage(text, mentions, activity) {
+  let mentionIndex = 0;
+  let lastMentionEnd = 0;
+  let hasMessageTextBeforeMention = false;
+  return String(text || '').replace(/<at>.*?<\/at>/gi, (tag, offset) => {
+    const textSinceLastMention = String(text || '').slice(lastMentionEnd, offset);
+    if (textSinceLastMention.trim()) hasMessageTextBeforeMention = true;
+    const replacement = formatMentionForMessage(mentions[mentionIndex], activity, hasMessageTextBeforeMention);
+    mentionIndex += 1;
+    lastMentionEnd = offset + tag.length;
+    return replacement;
+  });
+}
+
 function normalizeTeamsDonutEmoji(text) {
   return decodeHtmlEntities(text)
     .replace(DONUT_SHORTCODE_PATTERN, DONUT_EMOJI)
@@ -90,7 +109,8 @@ function parseTeamsDonutActivity(activity) {
   const attachmentImageDonutCount = teamsEmojiImageFallbackCount(activity?.attachments || []);
   const attachmentMetadataDonutCount = countDonutLiterals(attachmentText);
   const donutCount = textDonutCount || attachmentImageDonutCount || attachmentMetadataDonutCount;
-  const message = stripHtml(text.replace(DONUT_LITERAL_PATTERN, ''));
+  const messageText = replaceMentionTagsForMessage(text, mentions, activity);
+  const message = stripHtml(messageText.replace(DONUT_LITERAL_PATTERN, ''));
 
   const errors = [];
   if (!botWasMentioned) errors.push('BOT_NOT_MENTIONED');
@@ -111,6 +131,7 @@ module.exports = {
   countDonutLiterals,
   parseTeamsDonutActivity,
   normalizeTeamsDonutEmoji,
+  replaceMentionTagsForMessage,
   stripHtml,
   teamsEmojiImageFallbackCount,
 };
