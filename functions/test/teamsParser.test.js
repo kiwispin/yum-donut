@@ -137,6 +137,6 @@ test('formats Auckland date keys', () => {
 });
 
 test('formats bot replies', () => {
-  assert.equal(successReply({ recipients: ['Alice', 'Bob'], amountEach: 2 }), '🍩 Sent 2 donuts each to Alice and Bob. Nice recognition!');
+  assert.equal(successReply({ recipients: ['Alice', 'Bob'], amountEach: 2 }), '🍩 Sent 2 donuts each to Alice and Bob. Sweet shout-out!');
   assert.equal(failureReply('DAILY_LIMIT', { remaining: 1, requested: 4 }), 'You have 1 donut left today, but this would send 4.');
 });

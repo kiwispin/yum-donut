@@ -8,9 +8,9 @@ function successReply(result) {
   const recipientText = formatNames(result.recipients);
   const donutWord = result.amountEach === 1 ? 'donut' : 'donuts';
   if (result.recipients.length === 1) {
-    return `🍩 Sent ${result.amountEach} ${donutWord} to ${recipientText}. Nice recognition!`;
+    return `🍩 Sent ${result.amountEach} ${donutWord} to ${recipientText}. Sweet shout-out!`;
   }
-  return `🍩 Sent ${result.amountEach} ${donutWord} each to ${recipientText}. Nice recognition!`;
+  return `🍩 Sent ${result.amountEach} ${donutWord} each to ${recipientText}. Sweet shout-out!`;
 }
 
 function failureReply(code, details = {}) {
