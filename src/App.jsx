@@ -1073,6 +1073,7 @@ function ClawMachine({ user, onWin, lastPlayed }) {
             ? 'transform 2s ease-in-out'
             : 'transform 0.3s ease-out';
     const isClawClosed = clawState === 'grabbing' || clawState === 'rising';
+    const clawCableHeight = 40 + clawY;
 
     return (
         <div className="flex flex-col items-center justify-center p-4 animate-in fade-in zoom-in duration-500">
@@ -1088,17 +1089,23 @@ function ClawMachine({ user, onWin, lastPlayed }) {
                     <div className="absolute top-1 left-1/2 -translate-x-1/2 w-24 h-2 bg-slate-500 rounded-full z-10 shadow-inner"></div>
 
                     <div
-                        className="absolute left-1/2 z-20 flex flex-col items-center"
+                        className="absolute left-1/2 top-[10px] z-20 w-1 -translate-x-1/2 rounded-b bg-slate-300 shadow-sm"
                         style={{
-                            top: 10,
+                            height: `${clawCableHeight}px`,
+                            transition: clawTransition.replace('transform', 'height'),
+                        }}
+                    ></div>
+
+                    <div
+                        className="absolute left-1/2 z-30 flex flex-col items-center"
+                        style={{
+                            top: 50,
                             transform: `translateX(-50%) translateY(${clawY}px)`,
                             transition: clawTransition,
                         }}
                     >
-                        <div className="w-1 bg-slate-300 rounded-b shadow-sm h-10"></div>
                         <div className="relative w-12 h-10 flex items-start justify-center drop-shadow-lg">
                             <div className="absolute top-0 w-10 h-7 bg-slate-300 border-2 border-slate-400 rounded-b-full rounded-t-md shadow-lg"></div>
-                            <div className="absolute top-1 w-4 h-3 bg-slate-500/30 rounded-full"></div>
                             <div
                                 className={`absolute top-6 left-2 w-1.5 h-9 bg-slate-300 border border-slate-400 rounded-full origin-top transition-transform duration-300 ${
                                     isClawClosed ? 'rotate-[18deg]' : 'rotate-[42deg]'

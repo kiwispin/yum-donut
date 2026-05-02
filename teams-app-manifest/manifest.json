@@ -1,8 +1,9 @@
 {
-  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.22/MicrosoftTeams.schema.json",
-  "manifestVersion": "1.22",
-  "version": "1.0.1",
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.25/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.25",
+  "version": "1.0.3",
   "id": "e685d1a7-69c3-46ba-9671-5b1942632953",
+  "supportsChannelFeatures": "tier1",
   "developer": {
     "name": "Yum Donut",
     "websiteUrl": "https://kiwispin.github.io/yum-donut",
