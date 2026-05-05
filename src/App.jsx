@@ -1074,6 +1074,8 @@ function ClawMachine({ user, onWin, lastPlayed }) {
             : 'transform 0.3s ease-out';
     const isClawClosed = clawState === 'grabbing' || clawState === 'rising';
     const clawCableHeight = 40 + clawY;
+    const leftPincerTransform = isClawClosed ? 'rotate(9 48 20)' : 'rotate(-17 48 20)';
+    const rightPincerTransform = isClawClosed ? 'rotate(-9 48 20)' : 'rotate(17 48 20)';
 
     return (
         <div className="flex flex-col items-center justify-center p-4 animate-in fade-in zoom-in duration-500">
@@ -1104,31 +1106,65 @@ function ClawMachine({ user, onWin, lastPlayed }) {
                             transition: clawTransition,
                         }}
                     >
-                        <div className="relative w-12 h-10 flex items-start justify-center drop-shadow-lg">
-                            <div
-                                className={`absolute top-3 left-2 w-1.5 h-12 bg-slate-300 border border-slate-400 rounded-full origin-top transition-transform duration-300 ${
-                                    isClawClosed ? 'rotate-[18deg]' : 'rotate-[42deg]'
-                                }`}
-                            ></div>
-                            <div
-                                className={`absolute top-[60px] left-[18px] w-4 h-1.5 bg-slate-300 border border-slate-400 rounded-full origin-left transition-transform duration-300 ${
-                                    isClawClosed ? 'rotate-[-44deg]' : 'rotate-[-18deg]'
-                                }`}
-                            ></div>
-                            <div
-                                className={`absolute top-3 right-2 w-1.5 h-12 bg-slate-300 border border-slate-400 rounded-full origin-top transition-transform duration-300 ${
-                                    isClawClosed ? 'rotate-[-18deg]' : 'rotate-[-42deg]'
-                                }`}
-                            ></div>
-                            <div
-                                className={`absolute top-[60px] right-[18px] w-4 h-1.5 bg-slate-300 border border-slate-400 rounded-full origin-right transition-transform duration-300 ${
-                                    isClawClosed ? 'rotate-[44deg]' : 'rotate-[18deg]'
-                                }`}
-                            ></div>
-                        </div>
+                        <svg
+                            className="h-24 w-28 overflow-visible drop-shadow-lg"
+                            viewBox="0 0 96 96"
+                            aria-hidden="true"
+                        >
+                            <rect x="36" y="4" width="24" height="16" rx="4" className="fill-slate-300 stroke-slate-500" strokeWidth="2" />
+                            <circle cx="48" cy="20" r="5" className="fill-slate-400 stroke-slate-600" strokeWidth="2" />
+                            <g
+                                transform={leftPincerTransform}
+                                className="transition-transform duration-300"
+                                style={{ transformBox: 'fill-box', transformOrigin: '48px 20px' }}
+                            >
+                                <path
+                                    d="M46 20 C38 30 29 42 22 58"
+                                    className="fill-none stroke-slate-300"
+                                    strokeWidth="7"
+                                    strokeLinecap="round"
+                                />
+                                <path
+                                    d="M22 58 C14 68 13 78 20 82 C26 85 34 75 38 66"
+                                    className="fill-none stroke-slate-300"
+                                    strokeWidth="7"
+                                    strokeLinecap="round"
+                                />
+                                <path
+                                    d="M46 20 C38 30 29 42 22 58 M22 58 C14 68 13 78 20 82 C26 85 34 75 38 66"
+                                    className="fill-none stroke-slate-500/70"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                />
+                            </g>
+                            <g
+                                transform={rightPincerTransform}
+                                className="transition-transform duration-300"
+                                style={{ transformBox: 'fill-box', transformOrigin: '48px 20px' }}
+                            >
+                                <path
+                                    d="M50 20 C58 30 67 42 74 58"
+                                    className="fill-none stroke-slate-300"
+                                    strokeWidth="7"
+                                    strokeLinecap="round"
+                                />
+                                <path
+                                    d="M74 58 C82 68 83 78 76 82 C70 85 62 75 58 66"
+                                    className="fill-none stroke-slate-300"
+                                    strokeWidth="7"
+                                    strokeLinecap="round"
+                                />
+                                <path
+                                    d="M50 20 C58 30 67 42 74 58 M74 58 C82 68 83 78 76 82 C70 85 62 75 58 66"
+                                    className="fill-none stroke-slate-500/70"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                />
+                            </g>
+                        </svg>
 
                         {prize && clawState === 'rising' && (
-                            <div className="absolute top-[88px] left-1/2 -translate-x-1/2 text-2xl animate-bounce">
+                            <div className="absolute top-[76px] left-1/2 -translate-x-1/2 text-2xl animate-bounce">
                                 {prize.icon}
                             </div>
                         )}
