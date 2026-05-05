@@ -1105,24 +1105,24 @@ function ClawMachine({ user, onWin, lastPlayed }) {
                         }}
                     >
                         <div className="relative w-12 h-10 flex items-start justify-center drop-shadow-lg">
-                            <div className="absolute top-0 w-10 h-7 bg-slate-300 border-2 border-slate-400 rounded-b-full rounded-t-md shadow-lg"></div>
+                            <div className="absolute -top-1 w-7 h-4 bg-slate-300 border-2 border-slate-400 rounded-t-md rounded-b-sm shadow-lg"></div>
                             <div
-                                className={`absolute top-6 left-2 w-1.5 h-9 bg-slate-300 border border-slate-400 rounded-full origin-top transition-transform duration-300 ${
+                                className={`absolute top-3 left-2 w-1.5 h-12 bg-slate-300 border border-slate-400 rounded-full origin-top transition-transform duration-300 ${
                                     isClawClosed ? 'rotate-[18deg]' : 'rotate-[42deg]'
                                 }`}
                             ></div>
                             <div
-                                className={`absolute top-[58px] left-[18px] w-4 h-1.5 bg-slate-300 border border-slate-400 rounded-full origin-left transition-transform duration-300 ${
+                                className={`absolute top-[60px] left-[18px] w-4 h-1.5 bg-slate-300 border border-slate-400 rounded-full origin-left transition-transform duration-300 ${
                                     isClawClosed ? 'rotate-[-44deg]' : 'rotate-[-18deg]'
                                 }`}
                             ></div>
                             <div
-                                className={`absolute top-6 right-2 w-1.5 h-9 bg-slate-300 border border-slate-400 rounded-full origin-top transition-transform duration-300 ${
+                                className={`absolute top-3 right-2 w-1.5 h-12 bg-slate-300 border border-slate-400 rounded-full origin-top transition-transform duration-300 ${
                                     isClawClosed ? 'rotate-[-18deg]' : 'rotate-[-42deg]'
                                 }`}
                             ></div>
                             <div
-                                className={`absolute top-[58px] right-[18px] w-4 h-1.5 bg-slate-300 border border-slate-400 rounded-full origin-right transition-transform duration-300 ${
+                                className={`absolute top-[60px] right-[18px] w-4 h-1.5 bg-slate-300 border border-slate-400 rounded-full origin-right transition-transform duration-300 ${
                                     isClawClosed ? 'rotate-[44deg]' : 'rotate-[18deg]'
                                 }`}
                             ></div>
