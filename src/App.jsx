@@ -1105,7 +1105,6 @@ function ClawMachine({ user, onWin, lastPlayed }) {
                         }}
                     >
                         <div className="relative w-12 h-10 flex items-start justify-center drop-shadow-lg">
-                            <div className="absolute -top-1 w-7 h-4 bg-slate-300 border-2 border-slate-400 rounded-t-md rounded-b-sm shadow-lg"></div>
                             <div
                                 className={`absolute top-3 left-2 w-1.5 h-12 bg-slate-300 border border-slate-400 rounded-full origin-top transition-transform duration-300 ${
                                     isClawClosed ? 'rotate-[18deg]' : 'rotate-[42deg]'
