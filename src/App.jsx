@@ -1074,8 +1074,12 @@ function ClawMachine({ user, onWin, lastPlayed }) {
             : 'transform 0.3s ease-out';
     const isClawClosed = clawState === 'grabbing' || clawState === 'rising';
     const clawCableHeight = 40 + clawY;
-    const leftPincerTransform = isClawClosed ? 'rotate(9 48 20)' : 'rotate(-17 48 20)';
-    const rightPincerTransform = isClawClosed ? 'rotate(-9 48 20)' : 'rotate(17 48 20)';
+    const leftPincerPath = isClawClosed
+        ? 'M38 31 C33 47 32 62 38 73 C42 81 49 82 52 73'
+        : 'M36 31 C25 47 18 66 20 80 C22 93 35 97 43 84 C46 79 47 75 48 70';
+    const rightPincerPath = isClawClosed
+        ? 'M58 31 C63 47 64 62 58 73 C54 81 47 82 44 73'
+        : 'M60 31 C71 47 78 66 76 80 C74 93 61 97 53 84 C50 79 49 75 48 70';
 
     return (
         <div className="flex flex-col items-center justify-center p-4 animate-in fade-in zoom-in duration-500">
@@ -1111,56 +1115,38 @@ function ClawMachine({ user, onWin, lastPlayed }) {
                             viewBox="0 0 96 96"
                             aria-hidden="true"
                         >
-                            <rect x="36" y="4" width="24" height="16" rx="4" className="fill-slate-300 stroke-slate-500" strokeWidth="2" />
-                            <circle cx="48" cy="20" r="5" className="fill-slate-400 stroke-slate-600" strokeWidth="2" />
-                            <g
-                                transform={leftPincerTransform}
-                                className="transition-transform duration-300"
-                                style={{ transformBox: 'fill-box', transformOrigin: '48px 20px' }}
-                            >
-                                <path
-                                    d="M46 20 C38 30 29 42 22 58"
-                                    className="fill-none stroke-slate-300"
-                                    strokeWidth="7"
-                                    strokeLinecap="round"
-                                />
-                                <path
-                                    d="M22 58 C14 68 13 78 20 82 C26 85 34 75 38 66"
-                                    className="fill-none stroke-slate-300"
-                                    strokeWidth="7"
-                                    strokeLinecap="round"
-                                />
-                                <path
-                                    d="M46 20 C38 30 29 42 22 58 M22 58 C14 68 13 78 20 82 C26 85 34 75 38 66"
-                                    className="fill-none stroke-slate-500/70"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                />
-                            </g>
-                            <g
-                                transform={rightPincerTransform}
-                                className="transition-transform duration-300"
-                                style={{ transformBox: 'fill-box', transformOrigin: '48px 20px' }}
-                            >
-                                <path
-                                    d="M50 20 C58 30 67 42 74 58"
-                                    className="fill-none stroke-slate-300"
-                                    strokeWidth="7"
-                                    strokeLinecap="round"
-                                />
-                                <path
-                                    d="M74 58 C82 68 83 78 76 82 C70 85 62 75 58 66"
-                                    className="fill-none stroke-slate-300"
-                                    strokeWidth="7"
-                                    strokeLinecap="round"
-                                />
-                                <path
-                                    d="M50 20 C58 30 67 42 74 58 M74 58 C82 68 83 78 76 82 C70 85 62 75 58 66"
-                                    className="fill-none stroke-slate-500/70"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                />
-                            </g>
+                            <rect x="34" y="4" width="28" height="16" rx="4" className="fill-slate-300 stroke-slate-500" strokeWidth="2.5" />
+                            <circle cx="48" cy="24" r="6" className="fill-slate-400 stroke-slate-600" strokeWidth="2.5" />
+                            <path d="M48 24 L36 31 M48 24 L60 31" className="fill-none stroke-slate-300" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M48 24 L36 31 M48 24 L60 31" className="fill-none stroke-slate-500/70" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            <path
+                                d={leftPincerPath}
+                                className="fill-none stroke-slate-300 transition-all duration-300"
+                                strokeWidth="8"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                            <path
+                                d={leftPincerPath}
+                                className="fill-none stroke-slate-500/70 transition-all duration-300"
+                                strokeWidth="2.25"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                            <path
+                                d={rightPincerPath}
+                                className="fill-none stroke-slate-300 transition-all duration-300"
+                                strokeWidth="8"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                            <path
+                                d={rightPincerPath}
+                                className="fill-none stroke-slate-500/70 transition-all duration-300"
+                                strokeWidth="2.25"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
                         </svg>
 
                         {prize && clawState === 'rising' && (
