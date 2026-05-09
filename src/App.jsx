@@ -1304,11 +1304,184 @@ function ClawMachineModal({ user, lastPlayed, onWin, onClose }) {
     );
 }
 
+function MemoryMatchModal({ user, lastPlayed, onWin, onClose }) {
+    const MEMORY_ICONS = ['🎥', '🎙️', '🎧', '🎬', '💡', '📺', '📷', '📝'];
+    const today = new Date().toDateString();
+    const lockKey = `memory_match_lock_${user?.uid}_${today}`;
+    const [localLock, setLocalLock] = useState(() => localStorage.getItem(lockKey) === 'true');
+    const [gameState, setGameState] = useState('start');
+    const [cards, setCards] = useState([]);
+    const [selectedIds, setSelectedIds] = useState([]);
+    const [moves, setMoves] = useState(0);
+    const [isResolving, setIsResolving] = useState(false);
+
+    const lastPlayedDate = lastPlayed ? lastPlayed.toDate().toDateString() : null;
+    const hasPlayedToday = lastPlayedDate === today || localLock;
+    const matchedCount = cards.filter(card => card.matched).length;
+
+    const buildDeck = () => {
+        const deck = MEMORY_ICONS.flatMap((icon, pair) => [
+            { id: `${pair}-a`, icon, matched: false, flipped: false },
+            { id: `${pair}-b`, icon, matched: false, flipped: false }
+        ]);
+
+        for (let i = deck.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [deck[i], deck[j]] = [deck[j], deck[i]];
+        }
+
+        return deck;
+    };
+
+    const startGame = () => {
+        if (hasPlayedToday) return;
+        setCards(buildDeck());
+        setSelectedIds([]);
+        setMoves(0);
+        setGameState('playing');
+    };
+
+    const handleCardClick = (cardId) => {
+        if (gameState !== 'playing' || isResolving || selectedIds.includes(cardId)) return;
+
+        const clicked = cards.find(card => card.id === cardId);
+        if (!clicked || clicked.flipped || clicked.matched) return;
+
+        const nextSelected = [...selectedIds, cardId];
+        setSelectedIds(nextSelected);
+        setCards(prev => prev.map(card => (
+            card.id === cardId ? { ...card, flipped: true } : card
+        )));
+
+        if (nextSelected.length !== 2) return;
+
+        setMoves(prev => prev + 1);
+        setIsResolving(true);
+
+        const [firstId, secondId] = nextSelected;
+        const first = cards.find(card => card.id === firstId);
+        const second = cards.find(card => card.id === secondId);
+
+        if (first?.icon === second?.icon) {
+            setTimeout(() => {
+                setCards(prev => prev.map(card => (
+                    card.id === firstId || card.id === secondId
+                        ? { ...card, matched: true, flipped: true }
+                        : card
+                )));
+                setSelectedIds([]);
+                setIsResolving(false);
+            }, 350);
+        } else {
+            setTimeout(() => {
+                setCards(prev => prev.map(card => (
+                    card.id === firstId || card.id === secondId
+                        ? { ...card, flipped: false }
+                        : card
+                )));
+                setSelectedIds([]);
+                setIsResolving(false);
+            }, 850);
+        }
+    };
+
+    useEffect(() => {
+        if (gameState !== 'playing' || cards.length === 0 || matchedCount !== cards.length) return;
+
+        setGameState('won');
+        setLocalLock(true);
+        localStorage.setItem(lockKey, 'true');
+        onWin({ type: 'donut', amount: 2, label: 'Memory Match Win', icon: '🎞️' });
+    }, [cards, gameState, lockKey, matchedCount, onWin]);
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="relative w-full max-w-md bg-slate-900 rounded-2xl border-4 border-indigo-500 shadow-2xl p-6 flex flex-col items-center" onClick={e => e.stopPropagation()}>
+                <div className="text-center mb-6">
+                    <h2 className="text-3xl font-black text-white tracking-tighter mb-1">MEMORY MATCH</h2>
+                    <p className="text-indigo-300 text-xs font-bold uppercase tracking-widest">Match the production kit</p>
+                </div>
+
+                {gameState === 'start' && (
+                    <div className="w-full text-center">
+                        <div className="grid grid-cols-4 gap-2 mb-6 opacity-70">
+                            {MEMORY_ICONS.map(icon => (
+                                <div key={icon} className="aspect-square rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-2xl">
+                                    {icon}
+                                </div>
+                            ))}
+                        </div>
+
+                        {hasPlayedToday ? (
+                            <div className="bg-slate-800 px-6 py-3 rounded-lg border border-slate-700 font-mono text-red-400">
+                                DAILY LIMIT REACHED
+                            </div>
+                        ) : (
+                            <button
+                                onClick={startGame}
+                                className="w-full bg-indigo-500 hover:bg-indigo-400 text-white font-black py-4 rounded-xl shadow-lg border-b-4 border-indigo-700 active:border-b-0 active:translate-y-1 transition-all"
+                            >
+                                START MATCH
+                            </button>
+                        )}
+                    </div>
+                )}
+
+                {gameState !== 'start' && (
+                    <>
+                        <div className="w-full flex justify-between text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
+                            <span>Moves: {moves}</span>
+                            <span>Matched: {matchedCount / 2}/8</span>
+                        </div>
+
+                        <div className="grid grid-cols-4 gap-2 w-full">
+                            {cards.map(card => {
+                                const isFaceUp = card.flipped || card.matched;
+                                return (
+                                    <button
+                                        key={card.id}
+                                        onClick={() => handleCardClick(card.id)}
+                                        disabled={gameState !== 'playing' || isResolving || card.flipped || card.matched}
+                                        className={`aspect-square rounded-xl border-2 flex items-center justify-center text-3xl font-black transition-all duration-200 ${isFaceUp
+                                            ? card.matched
+                                                ? 'bg-emerald-500/20 border-emerald-400 scale-95'
+                                                : 'bg-white border-indigo-300 text-slate-900'
+                                            : 'bg-slate-800 border-slate-700 hover:border-indigo-400 hover:bg-slate-700'
+                                            }`}
+                                    >
+                                        {isFaceUp ? card.icon : <span className="text-indigo-300">?</span>}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </>
+                )}
+
+                {gameState === 'won' && (
+                    <div className="absolute inset-0 bg-slate-900/95 flex flex-col items-center justify-center rounded-2xl z-10 p-6 text-center animate-in zoom-in">
+                        <div className="text-6xl mb-4">🎞️</div>
+                        <h3 className="text-2xl font-bold text-white mb-2">MATCHED!</h3>
+                        <p className="text-indigo-300 font-bold mb-6">Sharp memory, clean production.</p>
+                        <button onClick={onClose} className="bg-indigo-500 hover:bg-indigo-400 text-white font-bold py-2 px-6 rounded-full">
+                            Close
+                        </button>
+                    </div>
+                )}
+
+                <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors">
+                    <XCircle size={32} />
+                </button>
+            </div>
+        </div>
+    );
+}
+
 function ArcadeView({ user, profile, onWinBonus }) {
     const [showClawMachine, setShowClawMachine] = useState(false);
     const [showTypingDefence, setShowTypingDefence] = useState(false);
     const [showDailyRushes, setShowDailyRushes] = useState(false);
     const [showCableCommander, setShowCableCommander] = useState(false);
+    const [showMemoryMatch, setShowMemoryMatch] = useState(false);
 
     return (
         <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 p-4 sm:p-6">
@@ -1352,6 +1525,15 @@ function ArcadeView({ user, profile, onWinBonus }) {
                     onPlay={() => setShowDailyRushes(true)}
                 />
                 <GameRow
+                    title="Memory Match"
+                    subtitle="Pair up the production icons."
+                    icon="🎞️"
+                    color="bg-indigo-100"
+                    onPlay={() => setShowMemoryMatch(true)}
+                    badge="NEW"
+                />
+
+                <GameRow
                     title="Cable Commander"
                     subtitle="Connect the Signal"
                     icon={<Cable size={24} />}
@@ -1394,6 +1576,15 @@ function ArcadeView({ user, profile, onWinBonus }) {
                     lastPlayed={profile?.last_cable_commander_win}
                     onClose={() => setShowCableCommander(false)}
                     onWin={(prize) => onWinBonus(prize, 'last_cable_commander_win', 'Cable Commander')}
+                />
+            )}
+
+            {showMemoryMatch && (
+                <MemoryMatchModal
+                    user={user}
+                    lastPlayed={profile?.last_memory_match_win}
+                    onClose={() => setShowMemoryMatch(false)}
+                    onWin={(prize) => onWinBonus(prize, 'last_memory_match_win', 'Memory Match')}
                 />
             )}
         </div>
@@ -2085,6 +2276,7 @@ export default function YumDonutApp() {
                 if (gameName.includes("Claw")) localStorage.setItem(`claw_lock_${user.uid}_${today}`, 'true');
                 if (gameName.includes("Typing")) localStorage.setItem(`typing_defence_lock_${today}`, 'true');
                 if (gameName.includes("Rushes")) localStorage.setItem(`daily_rushes_lock_${user.uid}_${today}`, 'true');
+                if (gameName.includes("Memory")) localStorage.setItem(`memory_match_lock_${user.uid}_${today}`, 'true');
             } else {
                 showNotification("Error claiming prize. Please try again.");
             }
@@ -4129,6 +4321,15 @@ function PatchNotesModal({ onClose }) {
                 </div>
 
                 <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                    <div className="space-y-2">
+                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                            <span className="text-xl">🎞️</span> New Game: Memory Match
+                        </h3>
+                        <p className="text-slate-600 text-sm">
+                            Pair up TV and film production icons in the Arcade to earn a small daily donut reward.
+                        </p>
+                    </div>
+
                     <div className="space-y-2">
                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
                             <Landmark className="text-yellow-500" size={20} /> Bank Interest Update
