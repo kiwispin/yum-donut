@@ -501,6 +501,7 @@ const DAILY_LIMIT = 5;
 const GOAL_TARGET = 500;
 const EMOJI = "🍩";
 const APP_ID = 'yum-donut-school';
+const BANK_INTEREST_RATE = 0.02;
 
 // 3. Live Studio Configuration
 const ENABLE_LIVE_STUDIO = true;
@@ -878,7 +879,9 @@ function BankView({ user, onDeposit, onWithdraw, onPayInterest, isAdmin, allUser
     const [amount, setAmount] = useState("");
     const walletBalance = user.balance || 0;
     const bankBalance = user.bank_balance || 0;
-    const interestRate = 0.10;
+    const interestRate = BANK_INTEREST_RATE;
+    const interestPercent = Math.round(interestRate * 100);
+    const interestUnit = Math.ceil(1 / interestRate);
     const projectedInterest = Math.floor(bankBalance * interestRate);
     const nextMilestone = Math.floor((projectedInterest + 1) / interestRate);
     const neededForNext = nextMilestone - bankBalance;
@@ -912,11 +915,11 @@ function BankView({ user, onDeposit, onWithdraw, onPayInterest, isAdmin, allUser
 
                     <div className="bg-white/5 p-4 rounded-xl border border-white/10">
                         <div className="flex justify-between items-center mb-2">
-                            <span className="text-sm font-bold text-slate-300">Projected Interest (10%)</span>
+                            <span className="text-sm font-bold text-slate-300">Projected Interest ({interestPercent}%)</span>
                             <span className="text-xl font-bold text-green-400">+{projectedInterest} {EMOJI}</span>
                         </div>
                         <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
-                            <div className="bg-green-500 h-full" style={{ width: `${(bankBalance % 10) * 10}%` }}></div>
+                            <div className="bg-green-500 h-full" style={{ width: `${((bankBalance % interestUnit) / interestUnit) * 100}%` }}></div>
                         </div>
                         <p className="text-[10px] text-slate-500 mt-2 text-right">
                             {neededForNext > 0 ? `Deposit ${neededForNext} more to earn +1 interest!` : "Maximizing interest!"}
@@ -995,7 +998,7 @@ function BankView({ user, onDeposit, onWithdraw, onPayInterest, isAdmin, allUser
                         }}
                         disabled={totalInterestPayout === 0}
                     >
-                        Pay Interest (10%)
+                        Pay Interest ({interestPercent}%)
                     </Button>
 
                     <div className="mt-6 pt-6 border-t border-slate-700">
@@ -2634,7 +2637,7 @@ export default function YumDonutApp() {
     };
 
     const handlePayInterest = async () => {
-        // Admin only function to pay 10% interest (rounded down)
+        // Admin only function to pay bank interest (rounded down)
         if (myProfile.name !== "Mr Rayner") return;
 
         if (isSandbox) {
@@ -2647,9 +2650,9 @@ export default function YumDonutApp() {
 
             for (const u of users) {
                 const bBalance = u.bank_balance || 0;
-                if (bBalance < 10) continue; // Minimum to earn 1 donut (10 * 0.1 = 1)
+                if (bBalance < Math.ceil(1 / BANK_INTEREST_RATE)) continue;
 
-                const interest = Math.floor(bBalance * 0.10);
+                const interest = Math.floor(bBalance * BANK_INTEREST_RATE);
                 if (interest > 0) {
                     const userPublicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', u.id);
 
