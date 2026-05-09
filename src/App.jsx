@@ -599,7 +599,7 @@ const SYSTEM_AVATARS = {
 const SHOP_ITEMS = [
     { id: 'raffle_ticket', name: 'Weekly Raffle Ticket', cost: 2, icon: '🎟️', desc: 'Win the FRIDAY JACKPOT! (Prize: 2 items from the box).', type: 'physical' },
     { id: 'snack_box', name: 'Snack Box Treat', cost: 5, icon: '🍪', desc: 'One treat from the box.', type: 'physical' },
-    { id: 'snack_2', name: 'Double Snack Attack', cost: 8, icon: '🍫', desc: 'Permission to take a SECOND treat.', type: 'physical' },
+    { id: 'snack_2', name: 'Double Snack Attack', cost: 9, icon: '🍫', desc: 'Permission to take a SECOND treat.', type: 'physical' },
     { id: 'vip_schedule', name: 'VIP Schedule Bump', cost: 25, icon: '📅', desc: "Bump your show to the top of the 'let's work on it' list.", type: 'physical' },
     { id: 'comfy_chair', name: 'Comfy Chair Rental', cost: 30, icon: '🪑', desc: 'Rent the good chair for a day.', type: 'physical' },
     { id: 'rainbow_name', name: 'Rainbow Name', cost: 50, icon: '🌈', desc: 'Make your name shimmer on the leaderboard!', type: 'digital' },
