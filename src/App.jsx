@@ -4115,7 +4115,7 @@ function PatchNotesModal({ onClose }) {
                         <h2 className="text-2xl font-bold flex items-center gap-2">
                             <Sparkles className="text-yellow-300" /> What's New
                         </h2>
-                        <p className="opacity-90 text-sm mt-1">Games, Raffles & Fixes!</p>
+                        <p className="opacity-90 text-sm mt-1">Banking, Games, Shop & Fixes!</p>
                     </div>
                     <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
                         <XCircle size={24} />
@@ -4125,38 +4125,76 @@ function PatchNotesModal({ onClose }) {
                 <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
                     <div className="space-y-2">
                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <Cable className="text-cyan-500" size={20} /> New Game: Cable Commander
+                            <Landmark className="text-yellow-500" size={20} /> Bank Interest Update
                         </h3>
                         <p className="text-slate-600 text-sm">
-                            Connect the camera to the monitor in our newest puzzle game! Solve the grid to earn donuts. 🔌📺
+                            The Donut Bank is now more bank-style: interest has moved from <strong>10%</strong> to <strong>2%</strong>, and the payout preview matches the real payout.
                         </p>
                     </div>
 
                     <div className="space-y-2">
                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <span className="text-xl">🎟️</span> Weekly Raffle
+                            <Cable className="text-cyan-500" size={20} /> Bigger Cable Commander
                         </h3>
                         <p className="text-slate-600 text-sm">
-                            The Raffle is LIVE! Buy a ticket in the shop for a chance to win the <strong>Friday Jackpot</strong> (2 items from the box)! Good luck! 🍀
+                            Standard mode now uses the old Pro-sized board, while Pro Mode has grown into a huge 15x15 challenge. Rewards stay the same.
                         </p>
                     </div>
 
                     <div className="space-y-2">
                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <Edit2 className="text-pink-500" size={20} /> Better Pixel Art
+                            <ShoppingBag className="text-pink-500" size={20} /> Shop Settings Feedback
                         </h3>
                         <p className="text-slate-600 text-sm">
-                            We've smoothed out the pixel art brush so your avatars look better than ever. Plus, your avatar now shows up in the Feed! 🎨
+                            Shop price changes now show clear save messages. Double Snack Attack is now priced at <strong>9</strong> donuts.
                         </p>
                     </div>
 
                     <div className="space-y-2">
                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <Shield className="text-green-500" size={20} /> Secure Donuts
+                            <Settings className="text-slate-500" size={20} /> Interface Fixes
                         </h3>
                         <p className="text-slate-600 text-sm">
-                            We fixed a pesky bug that was making donuts disappear. Your rewards are now safe and sound! 🍩✅
+                            The sticky top bar now stays above page content, so cards and badges no longer slide over it while scrolling.
                         </p>
+                    </div>
+
+                    <div className="border-t border-slate-100 pt-5 space-y-6">
+                        <div className="space-y-2">
+                            <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                                <Cable className="text-cyan-500" size={20} /> New Game: Cable Commander
+                            </h3>
+                            <p className="text-slate-600 text-sm">
+                                Connect the camera to the monitor in our newest puzzle game! Solve the grid to earn donuts. 🔌📺
+                            </p>
+                        </div>
+
+                        <div className="space-y-2">
+                            <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                                <span className="text-xl">🎟️</span> Weekly Raffle
+                            </h3>
+                            <p className="text-slate-600 text-sm">
+                                The Raffle is LIVE! Buy a ticket in the shop for a chance to win the <strong>Friday Jackpot</strong> (2 items from the box)! Good luck! 🍀
+                            </p>
+                        </div>
+
+                        <div className="space-y-2">
+                            <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                                <Edit2 className="text-pink-500" size={20} /> Better Pixel Art
+                            </h3>
+                            <p className="text-slate-600 text-sm">
+                                We've smoothed out the pixel art brush so your avatars look better than ever. Plus, your avatar now shows up in the Feed! 🎨
+                            </p>
+                        </div>
+
+                        <div className="space-y-2">
+                            <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                                <Shield className="text-green-500" size={20} /> Secure Donuts
+                            </h3>
+                            <p className="text-slate-600 text-sm">
+                                We fixed a pesky bug that was making donuts disappear. Your rewards are now safe and sound! 🍩✅
+                            </p>
+                        </div>
                     </div>
                 </div>
 
