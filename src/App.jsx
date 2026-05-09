@@ -68,14 +68,29 @@ function CableCommanderModal({ user, lastPlayed, onWin, onClose }) {
 
     // Dynamic Config
     const getGameConfig = (diff) => {
-        if (diff === 'hard') return { size: 11, time: 150, reward: 3, label: 'Cable Expert', icon: '⚡' };
-        return { size: 7, time: 75, reward: 1, label: 'Cable Manager', icon: '🔌' };
+        if (diff === 'hard') return { size: 15, time: 240, reward: 3, label: 'Cable Expert', icon: '⚡' };
+        return { size: 11, time: 150, reward: 1, label: 'Cable Manager', icon: '🔌' };
     };
 
     const currentConfig = getGameConfig(difficulty || 'easy');
     const GRID_SIZE = currentConfig.size;
     const START_POS = { r: Math.floor(GRID_SIZE / 2), c: 0 };
     const END_POS = { r: Math.floor(GRID_SIZE / 2), c: GRID_SIZE - 1 };
+    const isProMode = difficulty === 'hard';
+    const isPlaying = gameState === 'playing';
+    const modalSizeClass = isPlaying
+        ? isProMode
+            ? 'w-[96vw] h-[92vh] max-w-7xl max-h-[960px] p-4 md:p-6'
+            : 'w-full max-w-4xl p-6'
+        : 'w-full max-w-xl p-6';
+    const boardTileClass = isProMode
+        ? 'w-full h-full min-w-0 min-h-0'
+        : GRID_SIZE >= 10
+            ? 'w-6 h-6 sm:w-8 sm:h-8'
+            : GRID_SIZE >= 8
+                ? 'w-9 h-9'
+                : 'w-11 h-11 md:w-12 md:h-12';
+    const proBoardSize = 'min(calc(96vw - 6rem), calc(92vh - 6rem))';
 
     const initGame = (selectedDiff) => {
         if (hasPlayedToday) return;
@@ -276,7 +291,7 @@ function CableCommanderModal({ user, lastPlayed, onWin, onClose }) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className={`relative w-full ${difficulty === 'hard' ? 'max-w-4xl' : 'max-w-xl'} bg-slate-900 rounded-2xl border-4 border-slate-700 shadow-2xl p-6 flex flex-col items-center transition-all`}>
+            <div className={`relative ${modalSizeClass} bg-slate-900 rounded-2xl border-4 border-slate-700 shadow-2xl flex flex-col items-center transition-all`}>
 
                 {/* Header */}
                 <div className="flex justify-between items-center w-full mb-6 relative z-10">
@@ -296,23 +311,28 @@ function CableCommanderModal({ user, lastPlayed, onWin, onClose }) {
 
                 {/* Game Board */}
                 {gameState === 'playing' ? (
-                    <div className="flex items-center gap-2">
+                    <div className={`flex items-center justify-center gap-2 w-full ${isProMode ? 'flex-1 min-h-0' : ''}`}>
                         {/* Camera Input */}
                         <div className="flex flex-col items-center">
                             <div className="text-cyan-400 animate-pulse mb-1"><Camera /></div>
                             <div className="h-1 w-4 bg-cyan-500/50 rounded-full"></div>
                         </div>
 
-                        <div className="bg-slate-800 p-2 rounded-lg border border-slate-700 relative">
+                        <div
+                            className={`bg-slate-800 p-2 rounded-lg border border-slate-700 relative ${isProMode ? 'aspect-square max-w-full' : ''}`}
+                            style={isProMode ? { width: proBoardSize, height: proBoardSize } : undefined}
+                        >
                             {/* Indicators */}
                             <div className="absolute left-0 top-[50%] -translate-y-1/2 -translate-x-3 text-cyan-500/50">▶</div>
                             <div className="absolute right-0 top-[50%] -translate-y-1/2 translate-x-3 text-cyan-500/50">▶</div>
 
                             <div
+                                className={isProMode ? 'w-full h-full' : ''}
                                 style={{
                                     display: 'grid',
                                     gridTemplateColumns: `repeat(${GRID_SIZE}, minmax(0, 1fr))`,
-                                    gap: '0.25rem'
+                                    gridTemplateRows: isProMode ? `repeat(${GRID_SIZE}, minmax(0, 1fr))` : undefined,
+                                    gap: isProMode ? '0.2rem' : '0.25rem'
                                 }}
                             >
                                 {grid.map((row, r) => row.map((cell, c) => (
@@ -320,7 +340,7 @@ function CableCommanderModal({ user, lastPlayed, onWin, onClose }) {
                                         key={`${r}-${c}`}
                                         onClick={() => handleRotate(r, c)}
                                         className={`
-                                            ${GRID_SIZE >= 10 ? 'w-8 h-8' : GRID_SIZE >= 8 ? 'w-9 h-9' : 'w-11 h-11 md:w-12 md:h-12'} flex items-center justify-center rounded transition-all duration-200
+                                            ${boardTileClass} flex items-center justify-center rounded transition-all duration-200
                                             ${cell.active ? 'bg-cyan-900/50 shadow-[0_0_10px_rgba(34,211,238,0.3)]' : 'bg-slate-900'}
                                             hover:bg-slate-700
                                             ${(r === START_POS.r && c === START_POS.c) || (r === END_POS.r && c === END_POS.c) ? 'border border-slate-600' : ''}
@@ -370,14 +390,14 @@ function CableCommanderModal({ user, lastPlayed, onWin, onClose }) {
                                 <button onClick={() => initGame('easy')} className="w-full bg-slate-800 hover:bg-slate-700 border border-slate-600 hover:border-cyan-500 p-4 rounded-xl flex items-center justify-between group transition-all">
                                     <div className="text-left">
                                         <div className="font-bold text-white group-hover:text-cyan-400">Standard</div>
-                                        <div className="text-xs text-slate-400">7x7 Grid • 75s</div>
+                                        <div className="text-xs text-slate-400">11x11 Grid • 150s</div>
                                     </div>
                                     <div className="text-xl">🍩</div>
                                 </button>
                                 <button onClick={() => initGame('hard')} className="w-full bg-slate-800 hover:bg-slate-700 border border-slate-600 hover:border-purple-500 p-4 rounded-xl flex items-center justify-between group transition-all">
                                     <div className="text-left">
                                         <div className="font-bold text-white group-hover:text-purple-400">PRO MODE</div>
-                                        <div className="text-xs text-slate-400">11x11 Grid • 150s • One Try</div>
+                                        <div className="text-xs text-slate-400">15x15 Grid • 240s • One Try</div>
                                     </div>
                                     <div className="text-xl">🍩🍩🍩</div>
                                 </button>
