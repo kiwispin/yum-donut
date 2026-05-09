@@ -2957,7 +2957,7 @@ export default function YumDonutApp() {
                 onEditPixels={() => setIsPixelStudioOpen(true)}
             />
 
-            <div className="bg-white border-b border-slate-200 sticky top-0 z-10 px-4 py-3 flex justify-between items-center shadow-sm">
+            <div className="bg-white border-b border-slate-200 sticky top-0 z-50 px-4 py-3 flex justify-between items-center shadow-sm">
                 {isSandbox && (
                     <div className="absolute top-0 left-0 w-full bg-yellow-400 text-yellow-900 text-[10px] font-bold text-center uppercase tracking-widest">
                         ⚠️ Sandbox Mode: Read Only ⚠️
