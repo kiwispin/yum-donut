@@ -2995,9 +2995,12 @@ export default function YumDonutApp() {
                             <h1 className="font-bold text-lg text-slate-900 leading-tight">YumDonut</h1>
                             <button
                                 onClick={() => setShowPatchNotes(true)}
-                                className="text-[10px] font-bold bg-gradient-to-r from-pink-500 to-purple-600 text-white px-2 py-0.5 rounded-full hover:scale-105 transition-transform shadow-sm flex items-center gap-1"
+                                className="relative text-[10px] font-bold bg-gradient-to-r from-pink-500 to-purple-600 text-white px-2 py-0.5 rounded-full hover:scale-105 transition-transform shadow-sm flex items-center gap-1"
                             >
                                 <Sparkles size={10} /> What's New
+                                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] leading-none font-black rounded-full w-4 h-4 flex items-center justify-center border border-white shadow-sm">
+                                    *
+                                </span>
                             </button>
                         </div>
                         <div className="flex flex-col">
@@ -4019,6 +4022,9 @@ function LoginScreen({ onLogin, roster }) {
                     className="absolute top-4 right-4 text-[10px] font-bold bg-gradient-to-r from-pink-500 to-purple-600 text-white px-2 py-0.5 rounded-full hover:scale-105 transition-transform shadow-sm flex items-center gap-1"
                 >
                     <Sparkles size={10} /> What's New
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] leading-none font-black rounded-full w-4 h-4 flex items-center justify-center border border-white shadow-sm">
+                        *
+                    </span>
                 </button>
                 <div className="text-6xl mb-4">{EMOJI}</div>
                 <h1 className="text-2xl font-bold mb-2 text-slate-800">Welcome to YumDonut</h1>
@@ -4159,43 +4165,6 @@ function PatchNotesModal({ onClose }) {
                         </p>
                     </div>
 
-                    <div className="border-t border-slate-100 pt-5 space-y-6">
-                        <div className="space-y-2">
-                            <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                                <Cable className="text-cyan-500" size={20} /> New Game: Cable Commander
-                            </h3>
-                            <p className="text-slate-600 text-sm">
-                                Connect the camera to the monitor in our newest puzzle game! Solve the grid to earn donuts. 🔌📺
-                            </p>
-                        </div>
-
-                        <div className="space-y-2">
-                            <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                                <span className="text-xl">🎟️</span> Weekly Raffle
-                            </h3>
-                            <p className="text-slate-600 text-sm">
-                                The Raffle is LIVE! Buy a ticket in the shop for a chance to win the <strong>Friday Jackpot</strong> (2 items from the box)! Good luck! 🍀
-                            </p>
-                        </div>
-
-                        <div className="space-y-2">
-                            <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                                <Edit2 className="text-pink-500" size={20} /> Better Pixel Art
-                            </h3>
-                            <p className="text-slate-600 text-sm">
-                                We've smoothed out the pixel art brush so your avatars look better than ever. Plus, your avatar now shows up in the Feed! 🎨
-                            </p>
-                        </div>
-
-                        <div className="space-y-2">
-                            <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                                <Shield className="text-green-500" size={20} /> Secure Donuts
-                            </h3>
-                            <p className="text-slate-600 text-sm">
-                                We fixed a pesky bug that was making donuts disappear. Your rewards are now safe and sound! 🍩✅
-                            </p>
-                        </div>
-                    </div>
                 </div>
 
                 <div className="p-4 bg-slate-50 border-t border-slate-100 text-center">
