@@ -3060,6 +3060,7 @@ export default function YumDonutApp() {
                     onClose={() => setIsAdminSettingsOpen(false)}
                     roster={roster}
                     holidayMode={holidayMode}
+                    isSandbox={isSandbox}
                     shopPrices={shopPrices}
                     goalData={goalData}
                     onUpdateGoal={handleUpdateGoal}
@@ -4360,12 +4361,13 @@ function GoalSettingsTab({ goalData, onUpdateGoal, onResetGoal, onToggleGoalActi
     );
 }
 
-function AdminSettingsModal({ onClose, roster, holidayMode, shopPrices, goalData, onUpdateGoal, onResetGoal, onToggleGoalActive }) {
+function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrices, goalData, onUpdateGoal, onResetGoal, onToggleGoalActive }) {
     const [activeTab, setActiveTab] = useState('general'); // general, roster, shop, goal
     const [newName, setNewName] = useState("");
     const [error, setError] = useState("");
     const [auditUser, setAuditUser] = useState(null);
     const [editingPrices, setEditingPrices] = useState({}); // Local draft for price edits
+    const [priceSaveStatus, setPriceSaveStatus] = useState({});
     const [resettingPassword, setResettingPassword] = useState(null); // Name currently being reset
 
     const handleResetPassword = async (name) => {
@@ -4441,50 +4443,74 @@ function AdminSettingsModal({ onClose, roster, holidayMode, shopPrices, goalData
     const handlePriceChange = (itemId, newCost) => {
         setEditingPrices(prev => ({
             ...prev,
-            [itemId]: Number(newCost)
+            [itemId]: newCost
+        }));
+        setPriceSaveStatus(prev => ({
+            ...prev,
+            [itemId]: null
         }));
     };
 
     const handleSavePrice = async (itemId) => {
+        if (isSandbox) {
+            setPriceSaveStatus(prev => ({
+                ...prev,
+                [itemId]: { type: 'error', message: 'Sandbox is read-only' }
+            }));
+            return;
+        }
+
         try {
             const configRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'global');
-            const newPrice = editingPrices[itemId];
+            const newPrice = Number(editingPrices[itemId]);
 
-            // If new price equals base price or is invalid, remove the override
-            const baseItem = SHOP_ITEMS.find(i => i.id === itemId);
-            if (newPrice === '' || Number(newPrice) === baseItem.cost) {
-                // To delete a field in a map in Firestore, we actually need to update the whole map or use dot notation if we knew the key?
-                // Actually, simplest is to just overwrite the 'shop_prices' map.
-                // But merging is better.
-                // Firestore doesn't support deleting a map key easily via merge.
-                // We'll read the current map, modify, and set back? Or just store the override even if same.
-                // Let's just store the override. It's fine.
-                // Actually to "Reset", passing 'undefined' or a special delete string might be needed if we want to clean up.
-                // For now, let's just save whatever value is there.
-
-                await setDoc(configRef, {
-                    shop_prices: {
-                        ...shopPrices,
-                        [itemId]: Number(newPrice)
-                    }
-                }, { merge: true });
-
-            } else {
-                await setDoc(configRef, {
-                    shop_prices: {
-                        ...shopPrices,
-                        [itemId]: Number(newPrice)
-                    }
-                }, { merge: true });
+            if (!Number.isFinite(newPrice) || newPrice < 0) {
+                setPriceSaveStatus(prev => ({
+                    ...prev,
+                    [itemId]: { type: 'error', message: 'Enter a valid price' }
+                }));
+                return;
             }
+
+            setPriceSaveStatus(prev => ({
+                ...prev,
+                [itemId]: { type: 'saving', message: 'Saving...' }
+            }));
+
+            await setDoc(configRef, {
+                shop_prices: {
+                    [itemId]: newPrice
+                }
+            }, { merge: true });
+
+            setPriceSaveStatus(prev => ({
+                ...prev,
+                [itemId]: { type: 'success', message: 'Saved' }
+            }));
         } catch (e) {
             console.error("Error saving price", e);
+            setPriceSaveStatus(prev => ({
+                ...prev,
+                [itemId]: { type: 'error', message: 'Save failed' }
+            }));
         }
     };
 
     const handleResetPrice = async (itemId) => {
+        if (isSandbox) {
+            setPriceSaveStatus(prev => ({
+                ...prev,
+                [itemId]: { type: 'error', message: 'Sandbox is read-only' }
+            }));
+            return;
+        }
+
         try {
             const configRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'global');
+            setPriceSaveStatus(prev => ({
+                ...prev,
+                [itemId]: { type: 'saving', message: 'Resetting...' }
+            }));
             // To remove a key from a map, we need to read-modify-write if we can't use FieldValue.delete() on a nested field easily without dot notation.
             // We can use dot notation: "shop_prices.itemId": deleteField()
             const { deleteField } = await import('firebase/firestore'); // distinct import if not already at top, but easier to just use standard logic
@@ -4492,8 +4518,16 @@ function AdminSettingsModal({ onClose, roster, holidayMode, shopPrices, goalData
             await updateDoc(configRef, {
                 [`shop_prices.${itemId}`]: deleteField()
             });
+            setPriceSaveStatus(prev => ({
+                ...prev,
+                [itemId]: { type: 'success', message: 'Reset' }
+            }));
         } catch (e) {
             console.error("Error resetting price", e);
+            setPriceSaveStatus(prev => ({
+                ...prev,
+                [itemId]: { type: 'error', message: 'Reset failed' }
+            }));
         }
     };
 
@@ -4667,6 +4701,7 @@ function AdminSettingsModal({ onClose, roster, holidayMode, shopPrices, goalData
                                     const currentPrice = shopPrices?.[item.id] !== undefined ? shopPrices[item.id] : item.cost;
                                     const isModified = shopPrices?.[item.id] !== undefined;
                                     const draftPrice = editingPrices[item.id] !== undefined ? editingPrices[item.id] : currentPrice;
+                                    const saveStatus = priceSaveStatus[item.id];
 
                                     return (
                                         <div
@@ -4707,7 +4742,8 @@ function AdminSettingsModal({ onClose, roster, holidayMode, shopPrices, goalData
 
                                                 <button
                                                     onClick={() => handleSavePrice(item.id)}
-                                                    className="p-2 bg-slate-100 hover:bg-indigo-100 text-slate-400 hover:text-indigo-600 rounded-lg transition-colors"
+                                                    disabled={saveStatus?.type === 'saving'}
+                                                    className="p-2 bg-slate-100 hover:bg-indigo-100 text-slate-400 hover:text-indigo-600 rounded-lg transition-colors disabled:opacity-50"
                                                     title="Save Price"
                                                 >
                                                     <CheckCircle size={18} />
@@ -4723,6 +4759,14 @@ function AdminSettingsModal({ onClose, roster, holidayMode, shopPrices, goalData
                                                     </button>
                                                 )}
                                             </div>
+
+                                            {saveStatus && (
+                                                <div
+                                                    className={`w-20 text-right text-[10px] font-bold ${saveStatus.type === 'error' ? 'text-red-500' : saveStatus.type === 'success' ? 'text-green-600' : 'text-slate-400'}`}
+                                                >
+                                                    {saveStatus.message}
+                                                </div>
+                                            )}
                                         </div>
                                     )
                                 })}
