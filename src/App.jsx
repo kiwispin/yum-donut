@@ -3226,10 +3226,10 @@ export default function YumDonutApp() {
                             <h1 className="font-bold text-lg text-slate-900 leading-tight">YumDonut</h1>
                             <button
                                 onClick={() => setShowPatchNotes(true)}
-                                className="relative text-[10px] font-bold bg-gradient-to-r from-pink-500 to-purple-600 text-white px-2 py-0.5 rounded-full hover:scale-105 transition-transform shadow-sm flex items-center gap-1"
+                                className="relative text-[10px] font-bold bg-gradient-to-r from-pink-500 to-purple-600 text-white pl-2 pr-4 py-0.5 rounded-full hover:scale-105 transition-transform shadow-sm flex items-center gap-1"
                             >
                                 <Sparkles size={10} /> What's New
-                                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] leading-none font-black rounded-full w-4 h-4 flex items-center justify-center border border-white shadow-sm">
+                                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] leading-none font-black rounded-full w-4 h-4 flex items-center justify-center border border-white shadow-sm">
                                     *
                                 </span>
                             </button>
@@ -4250,10 +4250,10 @@ function LoginScreen({ onLogin, roster }) {
             <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center border-t-8 border-pink-500 relative">
                 <button
                     onClick={() => setShowPatchNotes(true)}
-                    className="absolute top-4 right-4 text-[10px] font-bold bg-gradient-to-r from-pink-500 to-purple-600 text-white px-2 py-0.5 rounded-full hover:scale-105 transition-transform shadow-sm flex items-center gap-1"
+                    className="absolute top-4 right-4 text-[10px] font-bold bg-gradient-to-r from-pink-500 to-purple-600 text-white pl-2 pr-4 py-0.5 rounded-full hover:scale-105 transition-transform shadow-sm flex items-center gap-1"
                 >
                     <Sparkles size={10} /> What's New
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] leading-none font-black rounded-full w-4 h-4 flex items-center justify-center border border-white shadow-sm">
+                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] leading-none font-black rounded-full w-4 h-4 flex items-center justify-center border border-white shadow-sm">
                         *
                     </span>
                 </button>
