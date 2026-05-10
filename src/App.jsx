@@ -1551,7 +1551,6 @@ function ArcadeView({ user, profile, onWinBonus }) {
                     subtitle="Protect the base from words."
                     icon="👾"
                     color="bg-green-100"
-                    badge="NEW"
                     onPlay={() => setShowTypingDefence(true)}
                 />
 
