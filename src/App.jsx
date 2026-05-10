@@ -57,6 +57,8 @@ function CableCommanderModal({ user, lastPlayed, onWin, onClose }) {
     const [gameState, setGameState] = useState('start'); // start, playing, won, lost, lost_hard
     const [justPlayed, setJustPlayed] = useState(false);
     const [difficulty, setDifficulty] = useState(null); // 'easy', 'hard'
+    const [startTime, setStartTime] = useState(null);
+    const [wonPrize, setWonPrize] = useState(1);
 
     // Cooldown Logic
     const today = new Date().toDateString();
@@ -68,7 +70,7 @@ function CableCommanderModal({ user, lastPlayed, onWin, onClose }) {
 
     // Dynamic Config
     const getGameConfig = (diff) => {
-        if (diff === 'hard') return { size: 15, time: 240, reward: 3, label: 'Cable Expert', icon: '⚡' };
+        if (diff === 'hard') return { size: 15, time: 240, reward: 1, label: 'Cable Expert', icon: '⚡' };
         return { size: 11, time: 150, reward: 1, label: 'Cable Manager', icon: '🔌' };
     };
 
@@ -161,6 +163,8 @@ function CableCommanderModal({ user, lastPlayed, onWin, onClose }) {
 
         setGrid(newGrid);
         setDifficulty(selectedDiff);
+        setStartTime(Date.now());
+        setWonPrize(1);
         setGameState('playing');
         setTimeLeft(cfg.time);
     };
@@ -281,11 +285,19 @@ function CableCommanderModal({ user, lastPlayed, onWin, onClose }) {
         }))));
 
         if (won) {
+            const earnedProSpeedBonus = difficulty === 'hard' && startTime && Date.now() - startTime <= 60000;
+            const prizeAmount = earnedProSpeedBonus ? 2 : currentConfig.reward;
             setGameState('won');
+            setWonPrize(prizeAmount);
             setJustPlayed(true);
             setLocalLock(true);
             localStorage.setItem(lockKey, 'true');
-            onWin({ type: 'donut', amount: currentConfig.reward, label: currentConfig.label, icon: currentConfig.icon });
+            onWin({
+                type: 'donut',
+                amount: prizeAmount,
+                label: earnedProSpeedBonus ? 'Cable Expert Speed Win' : currentConfig.label,
+                icon: currentConfig.icon
+            });
         }
     };
 
@@ -397,9 +409,9 @@ function CableCommanderModal({ user, lastPlayed, onWin, onClose }) {
                                 <button onClick={() => initGame('hard')} className="w-full bg-slate-800 hover:bg-slate-700 border border-slate-600 hover:border-purple-500 p-4 rounded-xl flex items-center justify-between group transition-all">
                                     <div className="text-left">
                                         <div className="font-bold text-white group-hover:text-purple-400">PRO MODE</div>
-                                        <div className="text-xs text-slate-400">15x15 Grid • 240s • One Try</div>
+                                        <div className="text-xs text-slate-400">15x15 Grid • 240s • 60s Bonus • One Try</div>
                                     </div>
-                                    <div className="text-xl">🍩🍩🍩</div>
+                                    <div className="text-xl">🍩+⚡</div>
                                 </button>
                             </div>
                         )}
@@ -414,7 +426,10 @@ function CableCommanderModal({ user, lastPlayed, onWin, onClose }) {
                     <div className="absolute inset-0 bg-slate-900/95 flex flex-col items-center justify-center rounded-2xl z-10 p-6 text-center animate-in zoom-in">
                         <div className="text-6xl mb-4">📺</div>
                         <h3 className="text-2xl font-bold text-white mb-2">SIGNAL RECEIVED!</h3>
-                        <p className="text-cyan-400 font-bold mb-6">Great cable management!</p>
+                        <p className="text-cyan-400 font-bold">Great cable management!</p>
+                        <p className="text-white font-black text-lg mt-3 mb-6">
+                            You earned {wonPrize} donut{wonPrize > 1 ? 's' : ''}!
+                        </p>
                         <button onClick={onClose} className="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-6 rounded-full">
                             Close
                         </button>
@@ -4382,7 +4397,7 @@ function PatchNotesModal({ onClose }) {
                             <Cable className="text-cyan-500" size={20} /> Bigger Cable Commander
                         </h3>
                         <p className="text-slate-600 text-sm">
-                            Standard mode now uses the old Pro-sized board, while Pro Mode has grown into a huge 15x15 challenge. Rewards stay the same.
+                            Standard mode now uses the old Pro-sized board, while Pro Mode has grown into a huge 15x15 challenge with a 1-donut win and a 2-donut speed bonus for finishing within 60 seconds.
                         </p>
                     </div>
 
