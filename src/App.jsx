@@ -1265,6 +1265,14 @@ function ClawMachine({ user, onWin, lastPlayed }) {
 // --- REUSABLE COMPONENTS ---
 
 function GameRow({ title, subtitle, icon, color, onPlay, badge }) {
+    const badgeStyles = {
+        HOT: 'bg-pink-100 text-pink-600',
+        NEW: 'bg-blue-100 text-blue-600',
+        DAILY: 'bg-emerald-100 text-emerald-700',
+        UPDATED: 'bg-amber-100 text-amber-700',
+        LOGIC: 'bg-cyan-100 text-cyan-700'
+    };
+
     return (
         <div className="bg-white rounded-2xl p-4 flex items-center gap-4 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
             {/* Thumbnail */}
@@ -1277,7 +1285,7 @@ function GameRow({ title, subtitle, icon, color, onPlay, badge }) {
                 <div className="flex items-center gap-2 mb-0.5">
                     <h3 className="text-lg font-bold text-slate-900 truncate">{title}</h3>
                     {badge && (
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badge === 'HOT' ? 'bg-pink-100 text-pink-600' : 'bg-blue-100 text-blue-600'}`}>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badgeStyles[badge] || 'bg-blue-100 text-blue-600'}`}>
                             {badge}
                         </span>
                     )}
@@ -1592,7 +1600,7 @@ function ArcadeView({ user, profile, onWinBonus }) {
                     icon={<Cable size={24} />}
                     color="bg-cyan-500"
                     onPlay={() => setShowCableCommander(true)}
-                    badge="LOGIC"
+                    badge="UPDATED"
                 />
             </div>
 
