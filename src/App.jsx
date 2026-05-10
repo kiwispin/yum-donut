@@ -1306,6 +1306,7 @@ function ClawMachineModal({ user, lastPlayed, onWin, onClose }) {
 
 function MemoryMatchModal({ user, lastPlayed, onWin, onClose }) {
     const MEMORY_ICONS = ['🎥', '🎙️', '🎧', '🎬', '💡', '📺', '📷', '📝'];
+    const MEMORY_BONUS_SECONDS = 60;
     const today = new Date().toDateString();
     const lockKey = `memory_match_lock_${user?.uid}_${today}`;
     const [localLock, setLocalLock] = useState(() => localStorage.getItem(lockKey) === 'true');
@@ -1313,6 +1314,9 @@ function MemoryMatchModal({ user, lastPlayed, onWin, onClose }) {
     const [cards, setCards] = useState([]);
     const [selectedIds, setSelectedIds] = useState([]);
     const [moves, setMoves] = useState(0);
+    const [timeLeft, setTimeLeft] = useState(MEMORY_BONUS_SECONDS);
+    const [startTime, setStartTime] = useState(null);
+    const [wonPrize, setWonPrize] = useState(1);
     const [isResolving, setIsResolving] = useState(false);
 
     const lastPlayedDate = lastPlayed ? lastPlayed.toDate().toDateString() : null;
@@ -1338,6 +1342,9 @@ function MemoryMatchModal({ user, lastPlayed, onWin, onClose }) {
         setCards(buildDeck());
         setSelectedIds([]);
         setMoves(0);
+        setTimeLeft(MEMORY_BONUS_SECONDS);
+        setStartTime(Date.now());
+        setWonPrize(1);
         setGameState('playing');
     };
 
@@ -1388,11 +1395,32 @@ function MemoryMatchModal({ user, lastPlayed, onWin, onClose }) {
     useEffect(() => {
         if (gameState !== 'playing' || cards.length === 0 || matchedCount !== cards.length) return;
 
+        const earnedSpeedBonus = startTime && Date.now() - startTime <= MEMORY_BONUS_SECONDS * 1000;
+        const prizeAmount = earnedSpeedBonus ? 2 : 1;
         setGameState('won');
+        setWonPrize(prizeAmount);
         setLocalLock(true);
         localStorage.setItem(lockKey, 'true');
-        onWin({ type: 'donut', amount: 2, label: 'Memory Match Win', icon: '🎞️' });
-    }, [cards, gameState, lockKey, matchedCount, onWin]);
+        onWin({
+            type: 'donut',
+            amount: prizeAmount,
+            label: earnedSpeedBonus ? 'Memory Match Speed Win' : 'Memory Match Win',
+            icon: '🎞️'
+        });
+    }, [cards, gameState, lockKey, matchedCount, onWin, startTime]);
+
+    useEffect(() => {
+        if (gameState !== 'playing' || !startTime) return undefined;
+
+        const tick = () => {
+            const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+            setTimeLeft(Math.max(MEMORY_BONUS_SECONDS - elapsedSeconds, 0));
+        };
+
+        tick();
+        const timerId = setInterval(tick, 250);
+        return () => clearInterval(timerId);
+    }, [gameState, startTime]);
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -1417,12 +1445,17 @@ function MemoryMatchModal({ user, lastPlayed, onWin, onClose }) {
                                 DAILY LIMIT REACHED
                             </div>
                         ) : (
-                            <button
-                                onClick={startGame}
-                                className="w-full bg-indigo-500 hover:bg-indigo-400 text-white font-black py-4 rounded-xl shadow-lg border-b-4 border-indigo-700 active:border-b-0 active:translate-y-1 transition-all"
-                            >
-                                START MATCH
-                            </button>
+                            <div className="space-y-3">
+                                <div className="rounded-xl bg-slate-800 border border-slate-700 px-4 py-3 text-sm font-bold text-slate-300">
+                                    Finish for 1 donut. Beat 60 seconds for 2.
+                                </div>
+                                <button
+                                    onClick={startGame}
+                                    className="w-full bg-indigo-500 hover:bg-indigo-400 text-white font-black py-4 rounded-xl shadow-lg border-b-4 border-indigo-700 active:border-b-0 active:translate-y-1 transition-all"
+                                >
+                                    START MATCH
+                                </button>
+                            </div>
                         )}
                     </div>
                 )}
@@ -1431,6 +1464,9 @@ function MemoryMatchModal({ user, lastPlayed, onWin, onClose }) {
                     <>
                         <div className="w-full flex justify-between text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
                             <span>Moves: {moves}</span>
+                            <span className={timeLeft > 0 ? 'text-amber-300' : 'text-slate-500'}>
+                                Bonus: {timeLeft > 0 ? `${timeLeft}s` : 'Done'}
+                            </span>
                             <span>Matched: {matchedCount / 2}/8</span>
                         </div>
 
@@ -1461,7 +1497,10 @@ function MemoryMatchModal({ user, lastPlayed, onWin, onClose }) {
                     <div className="absolute inset-0 bg-slate-900/95 flex flex-col items-center justify-center rounded-2xl z-10 p-6 text-center animate-in zoom-in">
                         <div className="text-6xl mb-4">🎞️</div>
                         <h3 className="text-2xl font-bold text-white mb-2">MATCHED!</h3>
-                        <p className="text-indigo-300 font-bold mb-6">Sharp memory, clean production.</p>
+                        <p className="text-indigo-300 font-bold">Sharp memory, clean production.</p>
+                        <p className="text-white font-black text-lg mt-3 mb-6">
+                            You earned {wonPrize} donut{wonPrize > 1 ? 's' : ''}!
+                        </p>
                         <button onClick={onClose} className="bg-indigo-500 hover:bg-indigo-400 text-white font-bold py-2 px-6 rounded-full">
                             Close
                         </button>
@@ -1526,7 +1565,7 @@ function ArcadeView({ user, profile, onWinBonus }) {
                 />
                 <GameRow
                     title="Memory Match"
-                    subtitle="Pair up the production icons."
+                    subtitle="Finish fast for a bonus donut."
                     icon="🎞️"
                     color="bg-indigo-100"
                     onPlay={() => setShowMemoryMatch(true)}
@@ -4326,7 +4365,7 @@ function PatchNotesModal({ onClose }) {
                             <span className="text-xl">🎞️</span> New Game: Memory Match
                         </h3>
                         <p className="text-slate-600 text-sm">
-                            Pair up TV and film production icons in the Arcade to earn a small daily donut reward.
+                            Pair up TV and film production icons in the Arcade. Everyone earns 1 donut for finishing, or 2 if they beat the 60-second bonus timer.
                         </p>
                     </div>
 
