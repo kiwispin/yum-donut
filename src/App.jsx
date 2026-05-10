@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import {
     getFirestore, collection, addDoc, query, orderBy, limit, getDocs,
     onSnapshot, doc, updateDoc, setDoc, getDoc, serverTimestamp,
-    runTransaction, arrayUnion, arrayRemove, deleteDoc, Timestamp, increment
+    runTransaction, arrayUnion, arrayRemove, deleteDoc, Timestamp, increment, deleteField
 } from 'firebase/firestore';
 import {
     getAuth, onAuthStateChanged,
@@ -1823,6 +1823,7 @@ export default function YumDonutApp() {
     const [holidayMode, setHolidayMode] = useState(false);
     const [simulateHoliday, setSimulateHoliday] = useState(false);
     const [shopPrices, setShopPrices] = useState({});
+    const [shopItemOverrides, setShopItemOverrides] = useState({});
 
     useEffect(() => {
         const configRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'global');
@@ -1831,21 +1832,31 @@ export default function YumDonutApp() {
                 const data = snap.data();
                 setHolidayMode(!!data.holiday_mode);
                 setShopPrices(data.shop_prices || {});
+                setShopItemOverrides(data.shop_item_overrides || {});
             } else {
                 setHolidayMode(false);
                 setShopPrices({});
+                setShopItemOverrides({});
             }
         });
         return () => unsub();
     }, []);
 
     const currentShopItems = useMemo(() => {
-        return SHOP_ITEMS.map(item => ({
-            ...item,
-            cost: (shopPrices && shopPrices[item.id] !== undefined) ? Number(shopPrices[item.id]) : item.cost,
-            originalCost: item.cost // Keep track for UI comparison
-        }));
-    }, [shopPrices]);
+        return SHOP_ITEMS.map(item => {
+            const override = shopItemOverrides?.[item.id] || {};
+            const legacyPrice = shopPrices?.[item.id];
+            const overrideCost = override.cost !== undefined ? override.cost : legacyPrice;
+
+            return {
+                ...item,
+                name: override.name?.trim() || item.name,
+                desc: override.desc !== undefined ? override.desc : item.desc,
+                cost: overrideCost !== undefined ? Number(overrideCost) : item.cost,
+                originalCost: item.cost
+            };
+        });
+    }, [shopItemOverrides, shopPrices]);
 
     // Holiday Screen Component (Internal)
     const HolidayScreen = () => (
@@ -3321,6 +3332,7 @@ export default function YumDonutApp() {
                     holidayMode={holidayMode}
                     isSandbox={isSandbox}
                     shopPrices={shopPrices}
+                    shopItemOverrides={shopItemOverrides}
                     goalData={goalData}
                     onUpdateGoal={handleUpdateGoal}
                     onResetGoal={handleResetGoal}
@@ -4411,10 +4423,10 @@ function PatchNotesModal({ onClose }) {
 
                     <div className="space-y-2">
                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <ShoppingBag className="text-pink-500" size={20} /> Shop Settings Feedback
+                            <ShoppingBag className="text-pink-500" size={20} /> Store Item Editing
                         </h3>
                         <p className="text-slate-600 text-sm">
-                            Shop price changes now show clear save messages. Double Snack Attack is now priced at <strong>9</strong> donuts.
+                            Store items can now be edited from Admin Settings, including title, price, and description, with clear save/reset feedback.
                         </p>
                     </div>
 
@@ -4633,13 +4645,13 @@ function GoalSettingsTab({ goalData, onUpdateGoal, onResetGoal, onToggleGoalActi
     );
 }
 
-function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrices, goalData, onUpdateGoal, onResetGoal, onToggleGoalActive }) {
+function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrices, shopItemOverrides, goalData, onUpdateGoal, onResetGoal, onToggleGoalActive }) {
     const [activeTab, setActiveTab] = useState('general'); // general, roster, shop, goal
     const [newName, setNewName] = useState("");
     const [error, setError] = useState("");
     const [auditUser, setAuditUser] = useState(null);
-    const [editingPrices, setEditingPrices] = useState({}); // Local draft for price edits
-    const [priceSaveStatus, setPriceSaveStatus] = useState({});
+    const [editingShopItems, setEditingShopItems] = useState({});
+    const [shopSaveStatus, setShopSaveStatus] = useState({});
     const [resettingPassword, setResettingPassword] = useState(null); // Name currently being reset
 
     const handleResetPassword = async (name) => {
@@ -4663,10 +4675,25 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
         setResettingPassword(null);
     };
 
-    // Initialize editingPrices when shopPrices changes
+    // Initialize local shop drafts from the base catalog plus saved overrides.
     useEffect(() => {
-        setEditingPrices(shopPrices || {});
-    }, [shopPrices]);
+        const nextDrafts = {};
+
+        SHOP_ITEMS.forEach(item => {
+            const override = shopItemOverrides?.[item.id] || {};
+            nextDrafts[item.id] = {
+                name: override.name !== undefined ? override.name : item.name,
+                cost: override.cost !== undefined
+                    ? override.cost
+                    : shopPrices?.[item.id] !== undefined
+                        ? shopPrices[item.id]
+                        : item.cost,
+                desc: override.desc !== undefined ? override.desc : item.desc
+            };
+        });
+
+        setEditingShopItems(nextDrafts);
+    }, [shopItemOverrides, shopPrices]);
 
     const handleAddUser = async () => {
         const name = newName.trim();
@@ -4712,20 +4739,25 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
         }
     };
 
-    const handlePriceChange = (itemId, newCost) => {
-        setEditingPrices(prev => ({
+    const handleShopItemChange = (itemId, field, value) => {
+        setEditingShopItems(prev => ({
             ...prev,
-            [itemId]: newCost
+            [itemId]: {
+                ...prev[itemId],
+                [field]: value
+            }
         }));
-        setPriceSaveStatus(prev => ({
+        setShopSaveStatus(prev => ({
             ...prev,
             [itemId]: null
         }));
     };
 
-    const handleSavePrice = async (itemId) => {
+    const handleSaveShopItem = async (item) => {
+        const itemId = item.id;
+
         if (isSandbox) {
-            setPriceSaveStatus(prev => ({
+            setShopSaveStatus(prev => ({
                 ...prev,
                 [itemId]: { type: 'error', message: 'Sandbox is read-only' }
             }));
@@ -4734,43 +4766,58 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
 
         try {
             const configRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'global');
-            const newPrice = Number(editingPrices[itemId]);
+            const draft = editingShopItems[itemId] || {};
+            const newPrice = Number(draft.cost);
+            const newName = (draft.name || '').trim();
+            const newDesc = draft.desc || '';
 
             if (!Number.isFinite(newPrice) || newPrice < 0) {
-                setPriceSaveStatus(prev => ({
+                setShopSaveStatus(prev => ({
                     ...prev,
                     [itemId]: { type: 'error', message: 'Enter a valid price' }
                 }));
                 return;
             }
 
-            setPriceSaveStatus(prev => ({
+            if (!newName) {
+                setShopSaveStatus(prev => ({
+                    ...prev,
+                    [itemId]: { type: 'error', message: 'Enter a title' }
+                }));
+                return;
+            }
+
+            setShopSaveStatus(prev => ({
                 ...prev,
                 [itemId]: { type: 'saving', message: 'Saving...' }
             }));
 
-            await setDoc(configRef, {
-                shop_prices: {
-                    [itemId]: newPrice
-                }
-            }, { merge: true });
+            await setDoc(configRef, {}, { merge: true });
+            await updateDoc(configRef, {
+                [`shop_item_overrides.${itemId}`]: {
+                    name: newName,
+                    cost: newPrice,
+                    desc: newDesc
+                },
+                [`shop_prices.${itemId}`]: newPrice
+            });
 
-            setPriceSaveStatus(prev => ({
+            setShopSaveStatus(prev => ({
                 ...prev,
                 [itemId]: { type: 'success', message: 'Saved' }
             }));
         } catch (e) {
-            console.error("Error saving price", e);
-            setPriceSaveStatus(prev => ({
+            console.error("Error saving shop item", e);
+            setShopSaveStatus(prev => ({
                 ...prev,
                 [itemId]: { type: 'error', message: 'Save failed' }
             }));
         }
     };
 
-    const handleResetPrice = async (itemId) => {
+    const handleResetShopItem = async (itemId) => {
         if (isSandbox) {
-            setPriceSaveStatus(prev => ({
+            setShopSaveStatus(prev => ({
                 ...prev,
                 [itemId]: { type: 'error', message: 'Sandbox is read-only' }
             }));
@@ -4779,24 +4826,21 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
 
         try {
             const configRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'global');
-            setPriceSaveStatus(prev => ({
+            setShopSaveStatus(prev => ({
                 ...prev,
                 [itemId]: { type: 'saving', message: 'Resetting...' }
             }));
-            // To remove a key from a map, we need to read-modify-write if we can't use FieldValue.delete() on a nested field easily without dot notation.
-            // We can use dot notation: "shop_prices.itemId": deleteField()
-            const { deleteField } = await import('firebase/firestore'); // distinct import if not already at top, but easier to just use standard logic
-            // I'll trust standard setDoc merge dot notation works:
             await updateDoc(configRef, {
+                [`shop_item_overrides.${itemId}`]: deleteField(),
                 [`shop_prices.${itemId}`]: deleteField()
             });
-            setPriceSaveStatus(prev => ({
+            setShopSaveStatus(prev => ({
                 ...prev,
                 [itemId]: { type: 'success', message: 'Reset' }
             }));
         } catch (e) {
-            console.error("Error resetting price", e);
-            setPriceSaveStatus(prev => ({
+            console.error("Error resetting shop item", e);
+            setShopSaveStatus(prev => ({
                 ...prev,
                 [itemId]: { type: 'error', message: 'Reset failed' }
             }));
@@ -4806,7 +4850,7 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl h-[80vh] flex flex-col overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl h-[80vh] flex flex-col overflow-hidden">
                 {/* Header */}
                 <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                     <div className="flex items-center gap-3">
@@ -4841,7 +4885,7 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                         onClick={() => setActiveTab('shop')}
                         className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'shop' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                     >
-                        Shop Sales
+                        Store Items
                     </button>
                     <button
                         onClick={() => setActiveTab('goal')}
@@ -4957,91 +5001,129 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                     )}
 
                     {/* --- SHOP TAB --- */}
-                    {activeTab === 'shop' && (
-                        <div className="h-full flex flex-col">
-                            <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4 mb-6">
-                                <h3 className="font-bold text-indigo-900 text-sm mb-1">Store Overrides</h3>
-                                <p className="text-xs text-indigo-700">
-                                    Set temporary prices for items (e.g. for sales).
-                                    Green border indicates a custom price is active.
-                                    Use the "Undo" button to revert to the base price.
-                                </p>
-                            </div>
+                        {activeTab === 'shop' && (
+                            <div className="h-full flex flex-col">
+                                <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4 mb-6">
+                                    <h3 className="font-bold text-indigo-900 text-sm mb-1">Store Overrides</h3>
+                                    <p className="text-xs text-indigo-700">
+                                        Edit store titles, prices, and descriptions. Green border indicates a custom override is active.
+                                        Use the "Undo" button to revert an item to its base settings.
+                                    </p>
+                                </div>
 
-                            <div className="grid grid-cols-1 gap-3">
-                                {SHOP_ITEMS.map(item => {
-                                    const currentPrice = shopPrices?.[item.id] !== undefined ? shopPrices[item.id] : item.cost;
-                                    const isModified = shopPrices?.[item.id] !== undefined;
-                                    const draftPrice = editingPrices[item.id] !== undefined ? editingPrices[item.id] : currentPrice;
-                                    const saveStatus = priceSaveStatus[item.id];
+                                <div className="grid grid-cols-1 gap-3">
+                                    {SHOP_ITEMS.map(item => {
+                                        const savedOverride = shopItemOverrides?.[item.id] || {};
+                                        const hasLegacyPrice = shopPrices?.[item.id] !== undefined;
+                                        const isModified = hasLegacyPrice || Object.keys(savedOverride).length > 0;
+                                        const draftItem = editingShopItems[item.id] || {
+                                            name: item.name,
+                                            cost: hasLegacyPrice ? shopPrices[item.id] : item.cost,
+                                            desc: item.desc
+                                        };
+                                        const draftPrice = draftItem.cost;
+                                        const saveStatus = shopSaveStatus[item.id];
 
-                                    return (
-                                        <div
-                                            key={item.id}
-                                            className={`bg-white p-4 rounded-xl border flex items-center gap-4 shadow-sm transition-all
-                                                ${isModified ? 'border-green-500 ring-1 ring-green-500/20' : 'border-slate-200'}
-                                            `}
-                                        >
-                                            <div className="text-2xl bg-slate-50 w-12 h-12 flex items-center justify-center rounded-lg">
-                                                {item.icon}
-                                            </div>
+                                        return (
+                                            <div
+                                                key={item.id}
+                                                className={`bg-white p-4 rounded-xl border shadow-sm transition-all
+                                                    ${isModified ? 'border-green-500 ring-1 ring-green-500/20' : 'border-slate-200'}
+                                                `}
+                                            >
+                                                <div className="flex items-start gap-4">
+                                                    <div className="text-2xl bg-slate-50 w-12 h-12 flex items-center justify-center rounded-lg shrink-0">
+                                                        {item.icon}
+                                                    </div>
 
-                                            <div className="flex-1 min-w-0">
-                                                <div className="font-bold text-slate-800 text-sm truncate">{item.name}</div>
-                                                <div className="text-xs text-slate-500 flex items-center gap-2">
-                                                    Base Cost: <span className="font-mono font-bold">{item.cost}</span>
-                                                    {isModified && (
-                                                        <span className="text-green-600 bg-green-50 px-1.5 py-0.5 rounded ml-2 font-bold">
-                                                            SALE ACTIVE
-                                                        </span>
-                                                    )}
+                                                    <div className="flex-1 min-w-0 space-y-3">
+                                                        <div className="flex items-start justify-between gap-3">
+                                                            <div className="min-w-0">
+                                                                <div className="text-xs text-slate-500 flex items-center gap-2">
+                                                                    Base: <span className="font-bold text-slate-700">{item.name}</span>
+                                                                    <span className="font-mono font-bold">{item.cost} {EMOJI}</span>
+                                                                    {isModified && (
+                                                                        <span className="text-green-600 bg-green-50 px-1.5 py-0.5 rounded font-bold">
+                                                                            CUSTOM
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+
+                                                            {saveStatus && (
+                                                                <div
+                                                                    className={`shrink-0 text-right text-[10px] font-bold ${saveStatus.type === 'error' ? 'text-red-500' : saveStatus.type === 'success' ? 'text-green-600' : 'text-slate-400'}`}
+                                                                >
+                                                                    {saveStatus.message}
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        <div className="grid grid-cols-1 sm:grid-cols-[1fr_7rem] gap-3">
+                                                            <label className="block">
+                                                                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Title</span>
+                                                                <input
+                                                                    type="text"
+                                                                    value={draftItem.name}
+                                                                    onChange={(e) => handleShopItemChange(item.id, 'name', e.target.value)}
+                                                                    className="mt-1 w-full px-3 py-2 text-sm font-bold rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none"
+                                                                />
+                                                            </label>
+
+                                                            <label className="block">
+                                                                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Price</span>
+                                                                <div className="relative mt-1">
+                                                                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">🍩</div>
+                                                                    <input
+                                                                        type="number"
+                                                                        min="0"
+                                                                        value={draftPrice}
+                                                                        onChange={(e) => handleShopItemChange(item.id, 'cost', e.target.value)}
+                                                                        className={`w-full pl-8 pr-2 py-2 text-sm font-bold text-right rounded-lg border focus:ring-2 outline-none transition-all
+                                                                            ${Number(draftPrice) < item.cost ? 'text-green-600 border-green-200 focus:border-green-500 focus:ring-green-200' : 'text-slate-700 border-slate-200 focus:border-indigo-500 focus:ring-indigo-200'}
+                                                                        `}
+                                                                    />
+                                                                </div>
+                                                            </label>
+                                                        </div>
+
+                                                        <label className="block">
+                                                            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Description</span>
+                                                            <textarea
+                                                                value={draftItem.desc}
+                                                                onChange={(e) => handleShopItemChange(item.id, 'desc', e.target.value)}
+                                                                rows={2}
+                                                                className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none resize-y"
+                                                            />
+                                                        </label>
+
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            <button
+                                                                onClick={() => handleSaveShopItem(item)}
+                                                                disabled={saveStatus?.type === 'saving'}
+                                                                className="px-3 py-2 bg-slate-100 hover:bg-indigo-100 text-slate-500 hover:text-indigo-600 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2 text-xs font-bold"
+                                                                title="Save Store Item"
+                                                            >
+                                                                <CheckCircle size={16} />
+                                                                Save
+                                                            </button>
+
+                                                            {isModified && (
+                                                                <button
+                                                                    onClick={() => handleResetShopItem(item.id)}
+                                                                    className="px-3 py-2 bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors flex items-center gap-2 text-xs font-bold"
+                                                                    title="Reset to Base Settings"
+                                                                >
+                                                                    <RotateCcw size={16} />
+                                                                    Undo
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
-
-                                            <div className="flex items-center gap-2">
-                                                <div className="relative">
-                                                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">🍩</div>
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        value={draftPrice}
-                                                        onChange={(e) => handlePriceChange(item.id, e.target.value)}
-                                                        className={`w-20 pl-8 pr-2 py-2 text-sm font-bold text-right rounded-lg border focus:ring-2 outline-none transition-all
-                                                            ${Number(draftPrice) < item.cost ? 'text-green-600 border-green-200 focus:border-green-500 focus:ring-green-200' : 'text-slate-700 border-slate-200 focus:border-indigo-500 focus:ring-indigo-200'}
-                                                        `}
-                                                    />
-                                                </div>
-
-                                                <button
-                                                    onClick={() => handleSavePrice(item.id)}
-                                                    disabled={saveStatus?.type === 'saving'}
-                                                    className="p-2 bg-slate-100 hover:bg-indigo-100 text-slate-400 hover:text-indigo-600 rounded-lg transition-colors disabled:opacity-50"
-                                                    title="Save Price"
-                                                >
-                                                    <CheckCircle size={18} />
-                                                </button>
-
-                                                {isModified && (
-                                                    <button
-                                                        onClick={() => handleResetPrice(item.id)}
-                                                        className="p-2 bg-slate-50 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-lg transition-colors"
-                                                        title="Reset to Base Price"
-                                                    >
-                                                        <RotateCcw size={18} />
-                                                    </button>
-                                                )}
-                                            </div>
-
-                                            {saveStatus && (
-                                                <div
-                                                    className={`w-20 text-right text-[10px] font-bold ${saveStatus.type === 'error' ? 'text-red-500' : saveStatus.type === 'success' ? 'text-green-600' : 'text-slate-400'}`}
-                                                >
-                                                    {saveStatus.message}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )
-                                })}
+                                        )
+                                    })}
                             </div>
                         </div>
                     )}
