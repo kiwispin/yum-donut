@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { initializeApp } from 'firebase/app';
 import {
-    getFirestore, collection, addDoc, query, orderBy, limit, getDocs,
+    getFirestore, collection, addDoc, query, orderBy, limit, where, getDocs,
     onSnapshot, doc, updateDoc, setDoc, getDoc, serverTimestamp,
     runTransaction, arrayUnion, arrayRemove, deleteDoc, Timestamp, increment, deleteField
 } from 'firebase/firestore';
@@ -614,8 +614,8 @@ const SYSTEM_AVATARS = {
 // 4. Shop Inventory
 const SHOP_ITEMS = [
     { id: 'raffle_ticket', name: 'Weekly Raffle Ticket', cost: 2, icon: '🎟️', desc: 'Win the FRIDAY JACKPOT! (Prize: 2 items from the box).', type: 'physical' },
-    { id: 'snack_box', name: 'Snack Box Treat', cost: 5, icon: '🍪', desc: 'One treat from the box.', type: 'physical' },
-    { id: 'snack_2', name: 'Double Snack Attack', cost: 9, icon: '🍫', desc: 'Permission to take a SECOND treat.', type: 'physical' },
+    { id: 'snack_box', name: 'Snack Box Treat', cost: 5, icon: '🍪', desc: 'One treat from the box.', type: 'physical', dailyLimit: 2 },
+    { id: 'snack_2', name: 'Double Snack Attack', cost: 9, icon: '🍫', desc: 'Permission to take a SECOND treat.', type: 'physical', dailyLimit: 1 },
     { id: 'vip_schedule', name: 'VIP Schedule Bump', cost: 25, icon: '📅', desc: "Bump your show to the top of the 'let's work on it' list.", type: 'physical' },
     { id: 'comfy_chair', name: 'Comfy Chair Rental', cost: 30, icon: '🪑', desc: 'Rent the good chair for a day.', type: 'physical' },
     { id: 'rainbow_name', name: 'Rainbow Name', cost: 50, icon: '🌈', desc: 'Make your name shimmer on the leaderboard!', type: 'digital' },
@@ -625,6 +625,28 @@ const SHOP_ITEMS = [
     { id: 'gold_pass', name: 'The GOLD Pass', cost: 100, icon: '🎫', desc: 'A physical, laminated Gold VIP Lanyard.', type: 'physical' },
     { id: 'name_camera', name: 'Name a Camera', cost: 500, icon: '🎥', desc: 'Permanently name a DJI or Sony camera!', type: 'physical' },
 ];
+
+const getLocalDateKey = (date = new Date()) => {
+    const parts = new Intl.DateTimeFormat('en-NZ', {
+        timeZone: 'Pacific/Auckland',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    }).formatToParts(date);
+    const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+    return `${values.year}-${values.month}-${values.day}`;
+};
+
+const getShopDailyPurchaseDocId = (dateKey, userName, itemId) => (
+    `${dateKey}_${encodeURIComponent(userName)}_${encodeURIComponent(itemId)}`
+);
+
+const normaliseDailyLimit = (value, fallback = null) => {
+    if (value === undefined) return fallback;
+    if (value === null || value === '') return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+};
 
 const MOVIE_QUOTES = [
     { text: "May the Force be with you.", source: "Star Wars (1977)", reward: 1 },
@@ -1670,6 +1692,7 @@ export default function YumDonutApp() {
     const [featuredItemIds, setFeaturedItemIds] = useState([]);
     const [roster, setRoster] = useState([]);
     const [isAdminSettingsOpen, setIsAdminSettingsOpen] = useState(false);
+    const [shopDailyPurchases, setShopDailyPurchases] = useState({});
 
     // Roster Listener
     useEffect(() => {
@@ -1793,6 +1816,34 @@ export default function YumDonutApp() {
         return () => unsubSync();
     }, [user, myProfile?.name]);
 
+    // --- DAILY SHOP LIMITS ---
+    useEffect(() => {
+        if (!myProfile?.name) {
+            setShopDailyPurchases({});
+            return undefined;
+        }
+
+        const todayKey = getLocalDateKey();
+        const dailyPurchasesRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'shop_daily');
+        const dailyPurchasesQuery = query(dailyPurchasesRef, where('userName', '==', myProfile.name));
+
+        const unsubDailyPurchases = onSnapshot(dailyPurchasesQuery, (snap) => {
+            const counts = {};
+            snap.forEach(docSnap => {
+                const data = docSnap.data();
+                if (data.dateKey === todayKey && data.itemId) {
+                    counts[data.itemId] = Number(data.count) || 0;
+                }
+            });
+            setShopDailyPurchases(counts);
+        }, (error) => {
+            console.warn("Shop daily purchase listener error:", error);
+            setShopDailyPurchases({});
+        });
+
+        return () => unsubDailyPurchases();
+    }, [myProfile?.name]);
+
     // --- LIVE STUDIO HEARTBEAT ---
     useEffect(() => {
         if (!ENABLE_LIVE_STUDIO || !user || !myProfile) return;
@@ -1847,12 +1898,14 @@ export default function YumDonutApp() {
             const override = shopItemOverrides?.[item.id] || {};
             const legacyPrice = shopPrices?.[item.id];
             const overrideCost = override.cost !== undefined ? override.cost : legacyPrice;
+            const dailyLimit = normaliseDailyLimit(override.dailyLimit, item.dailyLimit ?? null);
 
             return {
                 ...item,
                 name: override.name?.trim() || item.name,
                 desc: override.desc !== undefined ? override.desc : item.desc,
                 cost: overrideCost !== undefined ? Number(overrideCost) : item.cost,
+                dailyLimit,
                 originalCost: item.cost
             };
         });
@@ -2555,6 +2608,25 @@ export default function YumDonutApp() {
                 const userDoc = await transaction.get(publicUserRef);
                 if (!userDoc.exists()) throw "User missing";
 
+                const todayKey = getLocalDateKey();
+                const dailyLimit = normaliseDailyLimit(item.dailyLimit);
+                const hasDailyLimit = Number.isFinite(dailyLimit) && dailyLimit >= 0;
+                let dailyPurchaseRef = null;
+                let dailyPurchaseDoc = null;
+
+                if (hasDailyLimit) {
+                    dailyPurchaseRef = doc(
+                        db,
+                        'artifacts',
+                        APP_ID,
+                        'public',
+                        'data',
+                        'shop_daily',
+                        getShopDailyPurchaseDocId(todayKey, myProfile.name, item.id)
+                    );
+                    dailyPurchaseDoc = await transaction.get(dailyPurchaseRef);
+                }
+
                 // Read Raffle State if needed
                 let raffleDoc = null;
                 const raffleRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'raffle', 'state');
@@ -2564,6 +2636,11 @@ export default function YumDonutApp() {
 
                 const currentBal = userDoc.data().balance || 0;
                 if (currentBal < item.cost) throw "Not enough funds";
+
+                const purchasedToday = dailyPurchaseDoc?.exists() ? (Number(dailyPurchaseDoc.data().count) || 0) : 0;
+                if (hasDailyLimit && purchasedToday >= dailyLimit) {
+                    throw new Error("DAILY_SHOP_LIMIT");
+                }
 
                 // --- WRITES START HERE ---
                 const updates = { balance: currentBal - item.cost };
@@ -2585,6 +2662,16 @@ export default function YumDonutApp() {
                     }
                 }
 
+                if (hasDailyLimit && dailyPurchaseRef) {
+                    transaction.set(dailyPurchaseRef, {
+                        userName: myProfile.name,
+                        itemId: item.id,
+                        dateKey: todayKey,
+                        count: purchasedToday + 1,
+                        updatedAt: serverTimestamp()
+                    }, { merge: true });
+                }
+
                 const txRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
                 transaction.set(txRef, { fromName: myProfile.name, toName: "The Shop", message: `Purchased: ${item.name}`, timestamp: serverTimestamp(), emoji: "🛍️", likes: [] });
             });
@@ -2594,7 +2681,11 @@ export default function YumDonutApp() {
             triggerConfetti();
         } catch (e) {
             console.error(e);
-            showNotification("Purchase failed.", "error");
+            if (e?.message === "DAILY_SHOP_LIMIT") {
+                showNotification(`Daily limit reached for ${item.name}.`, "error");
+            } else {
+                showNotification("Purchase failed.", "error");
+            }
         }
     };
 
@@ -3425,6 +3516,7 @@ export default function YumDonutApp() {
                         onRestoreRaffle={handleRestoreRaffle}
                         featuredItemIds={featuredItemIds}
                         onToggleFeatured={handleToggleFeatured}
+                        dailyPurchases={shopDailyPurchases}
                     />
                 )}
 
@@ -4426,7 +4518,7 @@ function PatchNotesModal({ onClose }) {
                             <ShoppingBag className="text-pink-500" size={20} /> Store Item Editing
                         </h3>
                         <p className="text-slate-600 text-sm">
-                            Store items can now be edited from Admin Settings, including title, price, and description, with clear save/reset feedback.
+                            Store items can now be edited from Admin Settings, including title, price, description, and daily purchase limits. Snack Box Treat is limited to 2 per day and Double Snack Attack is limited to 1 per day by default.
                         </p>
                     </div>
 
@@ -4688,7 +4780,8 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                     : shopPrices?.[item.id] !== undefined
                         ? shopPrices[item.id]
                         : item.cost,
-                desc: override.desc !== undefined ? override.desc : item.desc
+                desc: override.desc !== undefined ? override.desc : item.desc,
+                dailyLimit: override.dailyLimit !== undefined ? override.dailyLimit : item.dailyLimit ?? ''
             };
         });
 
@@ -4770,6 +4863,10 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
             const newPrice = Number(draft.cost);
             const newName = (draft.name || '').trim();
             const newDesc = draft.desc || '';
+            const rawDailyLimit = draft.dailyLimit;
+            const newDailyLimit = rawDailyLimit === '' || rawDailyLimit === null || rawDailyLimit === undefined
+                ? null
+                : Number(rawDailyLimit);
 
             if (!Number.isFinite(newPrice) || newPrice < 0) {
                 setShopSaveStatus(prev => ({
@@ -4787,6 +4884,14 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                 return;
             }
 
+            if (newDailyLimit !== null && (!Number.isInteger(newDailyLimit) || newDailyLimit < 0)) {
+                setShopSaveStatus(prev => ({
+                    ...prev,
+                    [itemId]: { type: 'error', message: 'Enter a whole-number daily limit' }
+                }));
+                return;
+            }
+
             setShopSaveStatus(prev => ({
                 ...prev,
                 [itemId]: { type: 'saving', message: 'Saving...' }
@@ -4797,7 +4902,8 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                 [`shop_item_overrides.${itemId}`]: {
                     name: newName,
                     cost: newPrice,
-                    desc: newDesc
+                    desc: newDesc,
+                    dailyLimit: newDailyLimit
                 },
                 [`shop_prices.${itemId}`]: newPrice
             });
@@ -5006,7 +5112,7 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                                 <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4 mb-6">
                                     <h3 className="font-bold text-indigo-900 text-sm mb-1">Store Overrides</h3>
                                     <p className="text-xs text-indigo-700">
-                                        Edit store titles, prices, and descriptions. Green border indicates a custom override is active.
+                                        Edit store titles, prices, descriptions, and daily purchase limits. Green border indicates a custom override is active.
                                         Use the "Undo" button to revert an item to its base settings.
                                     </p>
                                 </div>
@@ -5019,7 +5125,8 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                                         const draftItem = editingShopItems[item.id] || {
                                             name: item.name,
                                             cost: hasLegacyPrice ? shopPrices[item.id] : item.cost,
-                                            desc: item.desc
+                                            desc: item.desc,
+                                            dailyLimit: item.dailyLimit ?? ''
                                         };
                                         const draftPrice = draftItem.cost;
                                         const saveStatus = shopSaveStatus[item.id];
@@ -5059,7 +5166,7 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                                                             )}
                                                         </div>
 
-                                                        <div className="grid grid-cols-1 sm:grid-cols-[1fr_7rem] gap-3">
+                                                        <div className="grid grid-cols-1 sm:grid-cols-[1fr_7rem_8rem] gap-3">
                                                             <label className="block">
                                                                 <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Title</span>
                                                                 <input
@@ -5084,6 +5191,19 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                                                                         `}
                                                                     />
                                                                 </div>
+                                                            </label>
+
+                                                            <label className="block">
+                                                                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Daily Limit</span>
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    step="1"
+                                                                    placeholder="No limit"
+                                                                    value={draftItem.dailyLimit ?? ''}
+                                                                    onChange={(e) => handleShopItemChange(item.id, 'dailyLimit', e.target.value)}
+                                                                    className="mt-1 w-full px-3 py-2 text-sm font-bold text-right rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none"
+                                                                />
                                                             </label>
                                                         </div>
 
@@ -5296,7 +5416,7 @@ function UserAuditModal({ userToCheck, onClose }) {
     );
 }
 
-function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleState, onDrawRaffle, featuredItemIds, onToggleFeatured }) {
+function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleState, onDrawRaffle, featuredItemIds, onToggleFeatured, dailyPurchases = {} }) {
     const isAdmin = currentUserPublic?.name === "Mr Rayner";
 
     return (
@@ -5348,6 +5468,10 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleSta
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {items.map(item => {
                     const canAfford = userBalance >= (item.cost || 0);
+                    const dailyLimit = normaliseDailyLimit(item.dailyLimit);
+                    const hasDailyLimit = Number.isFinite(dailyLimit) && dailyLimit >= 0;
+                    const purchasedToday = Number(dailyPurchases[item.id]) || 0;
+                    const reachedDailyLimit = hasDailyLimit && purchasedToday >= dailyLimit;
 
                     // Safe check for ownership
                     let isOwned = false;
@@ -5398,16 +5522,22 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleSta
                                 </div>
                                 <h3 className={`font-bold text-lg ${isFeatured ? 'text-yellow-900' : 'text-slate-800'}`}>{item.name}</h3>
                                 <p className={`text-sm mb-4 ${isFeatured ? 'text-yellow-800/80' : 'text-slate-500'}`}>{item.desc}</p>
+                                {hasDailyLimit && (
+                                    <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ${reachedDailyLimit ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500'}`}>
+                                        <Clock size={12} />
+                                        Today {purchasedToday}/{dailyLimit}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="flex justify-between items-center mt-2">
                                 <span className={`font-bold ${isFeatured ? 'text-yellow-700' : 'text-pink-600'}`}>{item.cost} {EMOJI}</span>
                                 <button
                                     onClick={() => onPurchase(item)}
-                                    disabled={!canAfford || isOwned}
-                                    className={`px-4 py-2 rounded transition-colors text-white ${!canAfford ? "opacity-50 cursor-not-allowed" : "hover:bg-opacity-90"} ${isFeatured ? "bg-yellow-600" : "bg-pink-600"}`}
+                                    disabled={!canAfford || isOwned || reachedDailyLimit}
+                                    className={`px-4 py-2 rounded transition-colors text-white ${!canAfford || reachedDailyLimit ? "opacity-50 cursor-not-allowed" : "hover:bg-opacity-90"} ${isFeatured ? "bg-yellow-600" : "bg-pink-600"}`}
                                 >
-                                    {isOwned ? "Owned" : "Buy"}
+                                    {isOwned ? "Owned" : reachedDailyLimit ? "Limit Reached" : "Buy"}
                                 </button>
                             </div>
                         </div>
