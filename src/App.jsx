@@ -1351,7 +1351,7 @@ function ClawMachineModal({ user, lastPlayed, onWin, onClose }) {
 
 function MemoryMatchModal({ user, lastPlayed, onWin, onClose }) {
     const MEMORY_ICONS = ['🎥', '🎙️', '🎧', '🎬', '💡', '📺', '📷', '📝'];
-    const MEMORY_BONUS_SECONDS = 45;
+    const MEMORY_BONUS_SECONDS = 30;
     const today = new Date().toDateString();
     const lockKey = `memory_match_lock_${user?.uid}_${today}`;
     const [localLock, setLocalLock] = useState(() => localStorage.getItem(lockKey) === 'true');
@@ -1492,7 +1492,7 @@ function MemoryMatchModal({ user, lastPlayed, onWin, onClose }) {
                         ) : (
                             <div className="space-y-3">
                                 <div className="rounded-xl bg-slate-800 border border-slate-700 px-4 py-3 text-sm font-bold text-slate-300">
-                                    Finish for 1 donut. Beat 45 seconds for 2.
+                                    Finish for 1 donut. Beat 30 seconds for 2.
                                 </div>
                                 <button
                                     onClick={startGame}
@@ -4491,7 +4491,7 @@ function PatchNotesModal({ onClose }) {
                             <span className="text-xl">🎞️</span> New Game: Memory Match
                         </h3>
                         <p className="text-slate-600 text-sm">
-                            Pair up TV and film production icons in the Arcade. Everyone earns 1 donut for finishing, or 2 if they beat the tighter 45-second bonus timer.
+                            Pair up TV and film production icons in the Arcade. Everyone earns 1 donut for finishing, or 2 if they beat the tighter 30-second bonus timer.
                         </p>
                     </div>
 
