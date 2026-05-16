@@ -627,10 +627,10 @@ const SHOP_ITEMS = [
 ];
 
 const SPONSORSHIP_SLOTS = [
-    { id: 'arcade', title: 'Arcade Sponsor', sectionLabel: 'Arcade', cost: 100, durationDays: 7, enabled: true, icon: '🕹️', accent: 'from-fuchsia-500 to-indigo-600' },
-    { id: 'shop', title: 'Shop Sponsor', sectionLabel: 'Donut Shop', cost: 75, durationDays: 7, enabled: true, icon: '🛍️', accent: 'from-pink-500 to-rose-600' },
-    { id: 'leaderboard', title: 'Leaderboard Sponsor', sectionLabel: 'Leaderboard', cost: 100, durationDays: 7, enabled: true, icon: '🏆', accent: 'from-amber-500 to-orange-600' },
-    { id: 'goal', title: 'Goal Sponsor', sectionLabel: 'Team Goal', cost: 150, durationDays: 7, enabled: true, icon: '🎯', accent: 'from-emerald-500 to-teal-600' },
+    { id: 'arcade', title: 'Arcade Sponsor', sectionLabel: 'Arcade', cost: 100, durationDays: 7, enabled: true, icon: '🕹️', accent: 'from-fuchsia-500 to-indigo-600', description: 'Put your name above the Arcade as the weekly sponsor while everyone chooses their games.' },
+    { id: 'shop', title: 'Shop Sponsor', sectionLabel: 'Donut Shop', cost: 75, durationDays: 7, enabled: true, icon: '🛍️', accent: 'from-pink-500 to-rose-600', description: 'Get a sponsor banner in the Donut Shop while everyone browses rewards and treats.' },
+    { id: 'leaderboard', title: 'Leaderboard Sponsor', sectionLabel: 'Leaderboard', cost: 100, durationDays: 7, enabled: true, icon: '🏆', accent: 'from-amber-500 to-orange-600', description: 'Claim the top-of-page credit on the Leaderboard for a full week of bragging rights.' },
+    { id: 'goal', title: 'Goal Sponsor', sectionLabel: 'Team Goal', cost: 150, durationDays: 7, enabled: true, icon: '🎯', accent: 'from-emerald-500 to-teal-600', description: 'Back the class goal with your name shown beside the big team target for the week.' },
 ];
 
 const getLocalDateKey = (date = new Date()) => {
@@ -1981,6 +1981,7 @@ export default function YumDonutApp() {
                 ...slot,
                 title: override.title?.trim() || slot.title,
                 sectionLabel: override.sectionLabel?.trim() || slot.sectionLabel,
+                description: override.description?.trim() || slot.description,
                 cost: override.cost !== undefined ? Number(override.cost) : slot.cost,
                 durationDays: override.durationDays !== undefined ? Number(override.durationDays) : slot.durationDays,
                 enabled: override.enabled !== undefined ? override.enabled !== false : slot.enabled !== false
@@ -4985,6 +4986,7 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
             nextDrafts[slot.id] = {
                 title: override.title !== undefined ? override.title : slot.title,
                 sectionLabel: override.sectionLabel !== undefined ? override.sectionLabel : slot.sectionLabel,
+                description: override.description !== undefined ? override.description : slot.description,
                 cost: override.cost !== undefined ? override.cost : slot.cost,
                 durationDays: override.durationDays !== undefined ? override.durationDays : slot.durationDays,
                 enabled: override.enabled !== undefined ? override.enabled !== false : slot.enabled !== false
@@ -5188,6 +5190,7 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
             const draft = editingSponsorshipSlots[slotId] || {};
             const newTitle = (draft.title || '').trim();
             const newSectionLabel = (draft.sectionLabel || '').trim();
+            const newDescription = (draft.description || '').trim();
             const newCost = Number(draft.cost);
             const newDurationDays = Number(draft.durationDays);
             const newEnabled = draft.enabled !== false;
@@ -5204,6 +5207,14 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                 setSponsorshipSaveStatus(prev => ({
                     ...prev,
                     [slotId]: { type: 'error', message: 'Enter a display area' }
+                }));
+                return;
+            }
+
+            if (!newDescription) {
+                setSponsorshipSaveStatus(prev => ({
+                    ...prev,
+                    [slotId]: { type: 'error', message: 'Enter a blurb' }
                 }));
                 return;
             }
@@ -5235,6 +5246,7 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                 [`sponsorship_slot_overrides.${slotId}`]: {
                     title: newTitle,
                     sectionLabel: newSectionLabel,
+                    description: newDescription,
                     cost: newCost,
                     durationDays: newDurationDays,
                     enabled: newEnabled
@@ -5603,6 +5615,7 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                                     const draftSlot = editingSponsorshipSlots[slot.id] || {
                                         title: slot.title,
                                         sectionLabel: slot.sectionLabel,
+                                        description: slot.description,
                                         cost: slot.cost,
                                         durationDays: slot.durationDays,
                                         enabled: slot.enabled !== false
@@ -5697,6 +5710,16 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                                                             />
                                                         </label>
                                                     </div>
+
+                                                    <label className="block">
+                                                        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">What Buyers Get</span>
+                                                        <textarea
+                                                            value={draftSlot.description}
+                                                            onChange={(e) => handleSponsorshipSlotChange(slot.id, 'description', e.target.value)}
+                                                            rows={2}
+                                                            className="mt-1 w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none resize-y"
+                                                        />
+                                                    </label>
 
                                                     <div className="flex items-center justify-between gap-3">
                                                         <label className="inline-flex items-center gap-2 text-sm font-bold text-slate-600">
@@ -5960,19 +5983,27 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleSta
                 </div>
             )}
 
-            <div className="space-y-3">
-                <div className="flex items-end justify-between gap-3 px-1">
+            <div className="rounded-2xl bg-slate-900 p-4 shadow-lg border border-slate-800 space-y-4">
+                <div className="flex items-start justify-between gap-3">
                     <div>
-                        <h3 className="font-black text-slate-800 flex items-center gap-2">
-                            <Crown size={18} className="text-amber-500" />
+                        <h3 className="font-black text-white flex items-center gap-2">
+                            <Crown size={18} className="text-amber-300" />
                             Studio Sponsorships
                         </h3>
-                        <p className="text-xs text-slate-500">Weekly spotlights for the big spenders.</p>
+                        <p className="text-xs text-slate-300 mt-1">Buy a week-long spotlight banner on a major YumDonut page.</p>
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-wide text-slate-400">Claim the spotlight</span>
+                    <span className="text-[10px] font-black uppercase tracking-wide text-amber-200 bg-amber-400/10 border border-amber-300/20 px-2 py-1 rounded-full shrink-0">
+                        Claim the spotlight
+                    </span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {sponsorshipSlots.filter(slot => slot.enabled !== false).map(slot => {
+
+                {sponsorshipSlots.filter(slot => slot.enabled !== false).length === 0 ? (
+                    <div className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-6 text-center text-sm font-bold text-slate-400">
+                        Sponsorships are closed for now.
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {sponsorshipSlots.filter(slot => slot.enabled !== false).map(slot => {
                         const activeSponsorship = getActiveSponsorship(sponsorships, slot.id);
                         const canAffordSponsor = userBalance >= slot.cost;
 
@@ -5992,6 +6023,9 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleSta
                                         <div className="font-black text-pink-600">{slot.cost} {EMOJI}</div>
                                     </div>
                                 </div>
+                                <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                                    {slot.description}
+                                </p>
 
                                 <div className="mt-auto pt-4">
                                     {activeSponsorship ? (
@@ -6018,14 +6052,15 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleSta
                                             disabled={!canAffordSponsor}
                                             className={`w-full px-4 py-2 rounded-lg font-black text-sm transition-colors text-white ${canAffordSponsor ? 'bg-slate-800 hover:bg-slate-700' : 'bg-slate-300 cursor-not-allowed'}`}
                                         >
-                                            Sponsor
+                                            Sponsor {slot.sectionLabel}
                                         </button>
                                     )}
                                 </div>
                             </div>
                         );
-                    })}
-                </div>
+                        })}
+                    </div>
+                )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
