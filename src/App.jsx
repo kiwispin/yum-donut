@@ -5645,7 +5645,7 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleSta
                         const canAffordSponsor = userBalance >= slot.cost;
 
                         return (
-                            <div key={slot.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                            <div key={slot.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col">
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="flex items-start gap-3 min-w-0">
                                         <div className={`w-11 h-11 rounded-lg bg-gradient-to-br ${slot.accent} text-white flex items-center justify-center text-2xl shadow-sm shrink-0`}>
@@ -5661,33 +5661,35 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleSta
                                     </div>
                                 </div>
 
-                                {activeSponsorship ? (
-                                    <div className="mt-4 flex items-center justify-between gap-2 rounded-lg bg-slate-50 border border-slate-100 px-3 py-2">
-                                        <div className="min-w-0">
-                                            <div className="text-[10px] uppercase tracking-wide font-black text-slate-400">Current sponsor</div>
-                                            <div className="text-sm font-black text-slate-700 truncate">{activeSponsorship.sponsorName}</div>
+                                <div className="mt-auto pt-4">
+                                    {activeSponsorship ? (
+                                        <div className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 border border-slate-100 px-3 py-2">
+                                            <div className="min-w-0">
+                                                <div className="text-[10px] uppercase tracking-wide font-black text-slate-400">Current sponsor</div>
+                                                <div className="text-sm font-black text-slate-700 truncate">{activeSponsorship.sponsorName}</div>
+                                            </div>
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <span className="text-[10px] font-black uppercase text-slate-400">{getSponsorTimeLeft(activeSponsorship.expiresAt)}</span>
+                                                {isAdmin && (
+                                                    <button
+                                                        onClick={() => onClearSponsorship?.(slot.id)}
+                                                        className="text-[10px] font-black uppercase text-red-500 hover:text-red-600"
+                                                    >
+                                                        Clear
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-2 shrink-0">
-                                            <span className="text-[10px] font-black uppercase text-slate-400">{getSponsorTimeLeft(activeSponsorship.expiresAt)}</span>
-                                            {isAdmin && (
-                                                <button
-                                                    onClick={() => onClearSponsorship?.(slot.id)}
-                                                    className="text-[10px] font-black uppercase text-red-500 hover:text-red-600"
-                                                >
-                                                    Clear
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <button
-                                        onClick={() => onPurchaseSponsorship?.(slot)}
-                                        disabled={!canAffordSponsor}
-                                        className={`mt-4 w-full px-4 py-2 rounded-lg font-black text-sm transition-colors text-white ${canAffordSponsor ? 'bg-slate-800 hover:bg-slate-700' : 'bg-slate-300 cursor-not-allowed'}`}
-                                    >
-                                        Sponsor
-                                    </button>
-                                )}
+                                    ) : (
+                                        <button
+                                            onClick={() => onPurchaseSponsorship?.(slot)}
+                                            disabled={!canAffordSponsor}
+                                            className={`w-full px-4 py-2 rounded-lg font-black text-sm transition-colors text-white ${canAffordSponsor ? 'bg-slate-800 hover:bg-slate-700' : 'bg-slate-300 cursor-not-allowed'}`}
+                                        >
+                                            Sponsor
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         );
                     })}
