@@ -626,6 +626,13 @@ const SHOP_ITEMS = [
     { id: 'name_camera', name: 'Name a Camera', cost: 500, icon: '🎥', desc: 'Permanently name a DJI or Sony camera!', type: 'physical' },
 ];
 
+const SPONSORSHIP_SLOTS = [
+    { id: 'arcade', title: 'Arcade Sponsor', sectionLabel: 'Arcade', cost: 100, durationDays: 7, icon: '🕹️', accent: 'from-fuchsia-500 to-indigo-600' },
+    { id: 'shop', title: 'Shop Sponsor', sectionLabel: 'Donut Shop', cost: 75, durationDays: 7, icon: '🛍️', accent: 'from-pink-500 to-rose-600' },
+    { id: 'leaderboard', title: 'Leaderboard Sponsor', sectionLabel: 'Leaderboard', cost: 100, durationDays: 7, icon: '🏆', accent: 'from-amber-500 to-orange-600' },
+    { id: 'goal', title: 'Goal Sponsor', sectionLabel: 'Team Goal', cost: 150, durationDays: 7, icon: '🎯', accent: 'from-emerald-500 to-teal-600' },
+];
+
 const getLocalDateKey = (date = new Date()) => {
     const parts = new Intl.DateTimeFormat('en-NZ', {
         timeZone: 'Pacific/Auckland',
@@ -646,6 +653,28 @@ const normaliseDailyLimit = (value, fallback = null) => {
     if (value === null || value === '') return null;
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const getTimestampMillis = (value) => {
+    if (!value) return 0;
+    if (typeof value.toMillis === 'function') return value.toMillis();
+    if (typeof value === 'number') return value;
+    if (value.seconds) return value.seconds * 1000;
+    return 0;
+};
+
+const getActiveSponsorship = (sponsorships, slotId) => {
+    const sponsorship = sponsorships?.[slotId];
+    if (!sponsorship) return null;
+    return getTimestampMillis(sponsorship.expiresAt) > Date.now() ? sponsorship : null;
+};
+
+const getSponsorTimeLeft = (expiresAt) => {
+    const remainingMs = getTimestampMillis(expiresAt) - Date.now();
+    if (remainingMs <= 0) return 'Expired';
+    const hours = Math.ceil(remainingMs / (1000 * 60 * 60));
+    if (hours < 48) return `${hours}h left`;
+    return `${Math.ceil(hours / 24)}d left`;
 };
 
 const MOVIE_QUOTES = [
@@ -789,6 +818,33 @@ const Card = ({ children, className = "" }) => (
         {children}
     </div>
 );
+
+const SponsorshipBanner = ({ sponsorships, slotId, className = "" }) => {
+    const slot = SPONSORSHIP_SLOTS.find(s => s.id === slotId);
+    const sponsorship = getActiveSponsorship(sponsorships, slotId);
+
+    if (!slot || !sponsorship) return null;
+
+    return (
+        <div className={`rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden ${className}`}>
+            <div className={`h-1 bg-gradient-to-r ${slot.accent}`}></div>
+            <div className="px-4 py-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-xl shrink-0">
+                        {slot.icon}
+                    </div>
+                    <div className="min-w-0">
+                        <div className="text-[10px] uppercase tracking-wide font-black text-slate-400">Sponsored by</div>
+                        <div className="font-black text-slate-800 truncate">{sponsorship.sponsorName}</div>
+                    </div>
+                </div>
+                <div className="text-[10px] font-black uppercase text-slate-400 shrink-0">
+                    {getSponsorTimeLeft(sponsorship.expiresAt)}
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const Button = ({ onClick, disabled, children, variant = "primary", className = "" }) => {
     const base = "px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 active:scale-95";
@@ -1560,7 +1616,7 @@ function MemoryMatchModal({ user, lastPlayed, onWin, onClose }) {
     );
 }
 
-function ArcadeView({ user, profile, onWinBonus }) {
+function ArcadeView({ user, profile, onWinBonus, sponsorships }) {
     const [showClawMachine, setShowClawMachine] = useState(false);
     const [showTypingDefence, setShowTypingDefence] = useState(false);
     const [showDailyRushes, setShowDailyRushes] = useState(false);
@@ -1579,6 +1635,8 @@ function ArcadeView({ user, profile, onWinBonus }) {
                     <p className="text-slate-500 font-medium">Daily games & prizes</p>
                 </div>
             </div>
+
+            <SponsorshipBanner sponsorships={sponsorships} slotId="arcade" className="mb-5" />
 
             {/* Game List */}
             <div className="flex flex-col gap-4">
@@ -1693,6 +1751,7 @@ export default function YumDonutApp() {
     const [roster, setRoster] = useState([]);
     const [isAdminSettingsOpen, setIsAdminSettingsOpen] = useState(false);
     const [shopDailyPurchases, setShopDailyPurchases] = useState({});
+    const [sponsorships, setSponsorships] = useState({});
 
     // Roster Listener
     useEffect(() => {
@@ -1980,6 +2039,7 @@ export default function YumDonutApp() {
             setUsers([]);
             setTransactions([]);
             setBounties([]);
+            setSponsorships({});
             return;
         }
 
@@ -2025,7 +2085,16 @@ export default function YumDonutApp() {
             }
         }, (e) => console.error("Raffle error", e));
 
-        return () => { unsubUsers(); unsubFeed(); unsubGoal(); unsubBounties(); unsubRaffle(); };
+        const sponsorshipsRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'sponsorships');
+        const unsubSponsorships = onSnapshot(sponsorshipsRef, (snapshot) => {
+            const nextSponsorships = {};
+            snapshot.forEach(docSnap => {
+                nextSponsorships[docSnap.id] = { id: docSnap.id, ...docSnap.data() };
+            });
+            setSponsorships(nextSponsorships);
+        }, (e) => console.error("Sponsorships error", e));
+
+        return () => { unsubUsers(); unsubFeed(); unsubGoal(); unsubBounties(); unsubRaffle(); unsubSponsorships(); };
     }, [user]);
 
     // Auto-Sync Wallet & Bank REMOVED to prevent race conditions
@@ -2686,6 +2755,84 @@ export default function YumDonutApp() {
             } else {
                 showNotification("Purchase failed.", "error");
             }
+        }
+    };
+
+    const handlePurchaseSponsorship = async (slot) => {
+        if (!myProfile || myProfile.balance < slot.cost) {
+            showNotification("Not enough donuts!", "error");
+            return;
+        }
+
+        try {
+            const publicUserRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
+            const sponsorshipRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'sponsorships', slot.id);
+            const expiresAt = Timestamp.fromMillis(Date.now() + slot.durationDays * 24 * 60 * 60 * 1000);
+
+            await runTransaction(db, async (transaction) => {
+                const userDoc = await transaction.get(publicUserRef);
+                const sponsorshipDoc = await transaction.get(sponsorshipRef);
+
+                if (!userDoc.exists()) throw "User missing";
+
+                const currentBal = userDoc.data().balance || 0;
+                if (currentBal < slot.cost) throw "Not enough funds";
+
+                if (sponsorshipDoc.exists() && getTimestampMillis(sponsorshipDoc.data().expiresAt) > Date.now()) {
+                    throw new Error("SPONSORSHIP_ACTIVE");
+                }
+
+                transaction.update(publicUserRef, { balance: currentBal - slot.cost });
+                transaction.set(sponsorshipRef, {
+                    slotId: slot.id,
+                    slotTitle: slot.title,
+                    sectionLabel: slot.sectionLabel,
+                    sponsorName: myProfile.name,
+                    cost: slot.cost,
+                    durationDays: slot.durationDays,
+                    purchasedAt: serverTimestamp(),
+                    expiresAt
+                });
+
+                const txRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
+                transaction.set(txRef, {
+                    fromName: myProfile.name,
+                    toName: "YumDonut",
+                    message: `Sponsored the ${slot.sectionLabel}`,
+                    timestamp: serverTimestamp(),
+                    emoji: "📣",
+                    likes: []
+                });
+            });
+
+            const privateUserRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
+            await updateDoc(privateUserRef, { balance: myProfile.balance - slot.cost });
+            showNotification(`${slot.sectionLabel} sponsored!`);
+            triggerConfetti();
+        } catch (e) {
+            console.error(e);
+            if (e?.message === "SPONSORSHIP_ACTIVE") {
+                showNotification("That sponsorship is already active.", "error");
+            } else {
+                showNotification("Sponsorship failed.", "error");
+            }
+        }
+    };
+
+    const handleClearSponsorship = async (slotId) => {
+        if (!isAdmin) return;
+
+        try {
+            const sponsorshipRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'sponsorships', slotId);
+            await updateDoc(sponsorshipRef, {
+                expiresAt: Timestamp.fromMillis(Date.now() - 1000),
+                clearedAt: serverTimestamp(),
+                clearedBy: myProfile.name
+            });
+            showNotification("Sponsorship cleared.");
+        } catch (e) {
+            console.error(e);
+            showNotification("Clear failed.", "error");
         }
     };
 
@@ -3502,6 +3649,7 @@ export default function YumDonutApp() {
                         profile={myProfile}
                         allUsers={users.filter(u => roster.includes(u.name))}
                         onWinBonus={handleWinBonus}
+                        sponsorships={sponsorships}
                     />
                 )}
 
@@ -3517,6 +3665,9 @@ export default function YumDonutApp() {
                         featuredItemIds={featuredItemIds}
                         onToggleFeatured={handleToggleFeatured}
                         dailyPurchases={shopDailyPurchases}
+                        sponsorships={sponsorships}
+                        onPurchaseSponsorship={handlePurchaseSponsorship}
+                        onClearSponsorship={handleClearSponsorship}
                     />
                 )}
 
@@ -3551,6 +3702,7 @@ export default function YumDonutApp() {
                         onUpdateGoal={handleUpdateGoal}
                         onResetGoal={handleResetGoal}
                         onToggleActive={handleToggleGoalActive}
+                        sponsorships={sponsorships}
                     />
                 )}
 
@@ -3566,7 +3718,7 @@ export default function YumDonutApp() {
                 )}
 
                 {view === 'leaderboard' && (
-                    <LeaderboardView users={users} roster={roster} />
+                    <LeaderboardView users={users} roster={roster} sponsorships={sponsorships} />
                 )}
 
             </div>
@@ -4486,6 +4638,15 @@ function PatchNotesModal({ onClose }) {
                 </div>
 
                 <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                    <div className="space-y-2">
+                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                            <Crown className="text-amber-500" size={20} /> Studio Sponsorships
+                        </h3>
+                        <p className="text-slate-600 text-sm">
+                            Students can now spend big donuts to sponsor the Arcade, Donut Shop, Leaderboard, or Team Goal for a week. Sponsorships are pure spotlight, with no donut rewards back.
+                        </p>
+                    </div>
+
                     <div className="space-y-2">
                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
                             <span className="text-xl">🎞️</span> New Game: Memory Match
@@ -5416,7 +5577,7 @@ function UserAuditModal({ userToCheck, onClose }) {
     );
 }
 
-function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleState, onDrawRaffle, featuredItemIds, onToggleFeatured, dailyPurchases = {} }) {
+function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleState, onDrawRaffle, featuredItemIds, onToggleFeatured, dailyPurchases = {}, sponsorships = {}, onPurchaseSponsorship, onClearSponsorship }) {
     const isAdmin = currentUserPublic?.name === "Mr Rayner";
 
     return (
@@ -5431,6 +5592,8 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleSta
                     Your Balance: {userBalance} {EMOJI}
                 </div>
             </div>
+
+            <SponsorshipBanner sponsorships={sponsorships} slotId="shop" />
 
             {/* RAFFLE BANNER */}
             {raffleState && (
@@ -5464,6 +5627,72 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleSta
                     )}
                 </div>
             )}
+
+            <div className="space-y-3">
+                <div className="flex items-end justify-between gap-3 px-1">
+                    <div>
+                        <h3 className="font-black text-slate-800 flex items-center gap-2">
+                            <Crown size={18} className="text-amber-500" />
+                            Studio Sponsorships
+                        </h3>
+                        <p className="text-xs text-slate-500">Weekly spotlights for the big spenders.</p>
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-wide text-slate-400">No rewards back</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {SPONSORSHIP_SLOTS.map(slot => {
+                        const activeSponsorship = getActiveSponsorship(sponsorships, slot.id);
+                        const canAffordSponsor = userBalance >= slot.cost;
+
+                        return (
+                            <div key={slot.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="flex items-start gap-3 min-w-0">
+                                        <div className={`w-11 h-11 rounded-lg bg-gradient-to-br ${slot.accent} text-white flex items-center justify-center text-2xl shadow-sm shrink-0`}>
+                                            {slot.icon}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <h4 className="font-black text-slate-800">{slot.title}</h4>
+                                            <p className="text-xs text-slate-500">{slot.durationDays} days on {slot.sectionLabel}</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                        <div className="font-black text-pink-600">{slot.cost} {EMOJI}</div>
+                                    </div>
+                                </div>
+
+                                {activeSponsorship ? (
+                                    <div className="mt-4 flex items-center justify-between gap-2 rounded-lg bg-slate-50 border border-slate-100 px-3 py-2">
+                                        <div className="min-w-0">
+                                            <div className="text-[10px] uppercase tracking-wide font-black text-slate-400">Current sponsor</div>
+                                            <div className="text-sm font-black text-slate-700 truncate">{activeSponsorship.sponsorName}</div>
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <span className="text-[10px] font-black uppercase text-slate-400">{getSponsorTimeLeft(activeSponsorship.expiresAt)}</span>
+                                            {isAdmin && (
+                                                <button
+                                                    onClick={() => onClearSponsorship?.(slot.id)}
+                                                    className="text-[10px] font-black uppercase text-red-500 hover:text-red-600"
+                                                >
+                                                    Clear
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => onPurchaseSponsorship?.(slot)}
+                                        disabled={!canAffordSponsor}
+                                        className={`mt-4 w-full px-4 py-2 rounded-lg font-black text-sm transition-colors text-white ${canAffordSponsor ? 'bg-slate-800 hover:bg-slate-700' : 'bg-slate-300 cursor-not-allowed'}`}
+                                    >
+                                        Sponsor
+                                    </button>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {items.map(item => {
@@ -5864,7 +6093,7 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
     );
 }
 
-function GoalView({ goalData, userBalance, onContribute, currentUserName, onActivate, onUpdateGoal, onResetGoal, onToggleActive }) {
+function GoalView({ goalData, userBalance, onContribute, currentUserName, onActivate, onUpdateGoal, onResetGoal, onToggleActive, sponsorships }) {
     const target = goalData.target !== undefined ? goalData.target : GOAL_TARGET;
     const isActive = goalData.isActive !== false; // Default to true if undefined
     const isAdmin = currentUserName === "Mr Rayner";
@@ -5899,6 +6128,8 @@ function GoalView({ goalData, userBalance, onContribute, currentUserName, onActi
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <SponsorshipBanner sponsorships={sponsorships} slotId="goal" />
+
             <Card className={`text-center py-8 relative overflow-hidden ${!isActive && !isMet ? 'opacity-75 grayscale' : ''} ${isMet ? 'bg-gradient-to-br from-yellow-50 to-amber-100 border-2 border-yellow-400 shadow-xl shadow-yellow-200' : ''}`}>
                 {isMet && <div className="absolute inset-0 bg-yellow-400 opacity-10 animate-pulse"></div>}
                 <div className="relative z-10">
@@ -6416,7 +6647,7 @@ function FeedView({ transactions, onReact, coreValues, onDelete, currentUser, us
     );
 }
 
-function LeaderboardView({ users, roster }) {
+function LeaderboardView({ users, roster, sponsorships }) {
     const combinedList = roster.map(name => {
         const userData = users.find(u => u.name === name);
         return {
@@ -6444,6 +6675,8 @@ function LeaderboardView({ users, roster }) {
                 <h2 className="text-xl font-bold text-slate-800">Leaderboard</h2>
                 <span className="text-xs font-medium bg-pink-100 text-pink-600 px-2 py-1 rounded-full">All Time</span>
             </div>
+
+            <SponsorshipBanner sponsorships={sponsorships} slotId="leaderboard" />
 
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 {combinedList.map((u, index) => {
