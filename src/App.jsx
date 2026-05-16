@@ -627,10 +627,10 @@ const SHOP_ITEMS = [
 ];
 
 const SPONSORSHIP_SLOTS = [
-    { id: 'arcade', title: 'Arcade Sponsor', sectionLabel: 'Arcade', cost: 100, durationDays: 7, icon: '🕹️', accent: 'from-fuchsia-500 to-indigo-600' },
-    { id: 'shop', title: 'Shop Sponsor', sectionLabel: 'Donut Shop', cost: 75, durationDays: 7, icon: '🛍️', accent: 'from-pink-500 to-rose-600' },
-    { id: 'leaderboard', title: 'Leaderboard Sponsor', sectionLabel: 'Leaderboard', cost: 100, durationDays: 7, icon: '🏆', accent: 'from-amber-500 to-orange-600' },
-    { id: 'goal', title: 'Goal Sponsor', sectionLabel: 'Team Goal', cost: 150, durationDays: 7, icon: '🎯', accent: 'from-emerald-500 to-teal-600' },
+    { id: 'arcade', title: 'Arcade Sponsor', sectionLabel: 'Arcade', cost: 100, durationDays: 7, enabled: true, icon: '🕹️', accent: 'from-fuchsia-500 to-indigo-600' },
+    { id: 'shop', title: 'Shop Sponsor', sectionLabel: 'Donut Shop', cost: 75, durationDays: 7, enabled: true, icon: '🛍️', accent: 'from-pink-500 to-rose-600' },
+    { id: 'leaderboard', title: 'Leaderboard Sponsor', sectionLabel: 'Leaderboard', cost: 100, durationDays: 7, enabled: true, icon: '🏆', accent: 'from-amber-500 to-orange-600' },
+    { id: 'goal', title: 'Goal Sponsor', sectionLabel: 'Team Goal', cost: 150, durationDays: 7, enabled: true, icon: '🎯', accent: 'from-emerald-500 to-teal-600' },
 ];
 
 const getLocalDateKey = (date = new Date()) => {
@@ -819,8 +819,8 @@ const Card = ({ children, className = "" }) => (
     </div>
 );
 
-const SponsorshipBanner = ({ sponsorships, slotId, className = "" }) => {
-    const slot = SPONSORSHIP_SLOTS.find(s => s.id === slotId);
+const SponsorshipBanner = ({ sponsorships, sponsorshipSlots = SPONSORSHIP_SLOTS, slotId, className = "" }) => {
+    const slot = sponsorshipSlots.find(s => s.id === slotId);
     const sponsorship = getActiveSponsorship(sponsorships, slotId);
 
     if (!slot || !sponsorship) return null;
@@ -1616,7 +1616,7 @@ function MemoryMatchModal({ user, lastPlayed, onWin, onClose }) {
     );
 }
 
-function ArcadeView({ user, profile, onWinBonus, sponsorships }) {
+function ArcadeView({ user, profile, onWinBonus, sponsorships, sponsorshipSlots }) {
     const [showClawMachine, setShowClawMachine] = useState(false);
     const [showTypingDefence, setShowTypingDefence] = useState(false);
     const [showDailyRushes, setShowDailyRushes] = useState(false);
@@ -1636,7 +1636,7 @@ function ArcadeView({ user, profile, onWinBonus, sponsorships }) {
                 </div>
             </div>
 
-            <SponsorshipBanner sponsorships={sponsorships} slotId="arcade" className="mb-5" />
+            <SponsorshipBanner sponsorships={sponsorships} sponsorshipSlots={sponsorshipSlots} slotId="arcade" className="mb-5" />
 
             {/* Game List */}
             <div className="flex flex-col gap-4">
@@ -1752,6 +1752,7 @@ export default function YumDonutApp() {
     const [isAdminSettingsOpen, setIsAdminSettingsOpen] = useState(false);
     const [shopDailyPurchases, setShopDailyPurchases] = useState({});
     const [sponsorships, setSponsorships] = useState({});
+    const [sponsorshipSlotOverrides, setSponsorshipSlotOverrides] = useState({});
 
     // Roster Listener
     useEffect(() => {
@@ -1943,10 +1944,12 @@ export default function YumDonutApp() {
                 setHolidayMode(!!data.holiday_mode);
                 setShopPrices(data.shop_prices || {});
                 setShopItemOverrides(data.shop_item_overrides || {});
+                setSponsorshipSlotOverrides(data.sponsorship_slot_overrides || {});
             } else {
                 setHolidayMode(false);
                 setShopPrices({});
                 setShopItemOverrides({});
+                setSponsorshipSlotOverrides({});
             }
         });
         return () => unsub();
@@ -1969,6 +1972,21 @@ export default function YumDonutApp() {
             };
         });
     }, [shopItemOverrides, shopPrices]);
+
+    const currentSponsorshipSlots = useMemo(() => {
+        return SPONSORSHIP_SLOTS.map(slot => {
+            const override = sponsorshipSlotOverrides?.[slot.id] || {};
+
+            return {
+                ...slot,
+                title: override.title?.trim() || slot.title,
+                sectionLabel: override.sectionLabel?.trim() || slot.sectionLabel,
+                cost: override.cost !== undefined ? Number(override.cost) : slot.cost,
+                durationDays: override.durationDays !== undefined ? Number(override.durationDays) : slot.durationDays,
+                enabled: override.enabled !== undefined ? override.enabled !== false : slot.enabled !== false
+            };
+        });
+    }, [sponsorshipSlotOverrides]);
 
     // Holiday Screen Component (Internal)
     const HolidayScreen = () => (
@@ -2761,6 +2779,10 @@ export default function YumDonutApp() {
     const handlePurchaseSponsorship = async (slot) => {
         if (!myProfile || myProfile.balance < slot.cost) {
             showNotification("Not enough donuts!", "error");
+            return;
+        }
+        if (slot.enabled === false) {
+            showNotification("That sponsorship is not available right now.", "error");
             return;
         }
 
@@ -3571,6 +3593,7 @@ export default function YumDonutApp() {
                     isSandbox={isSandbox}
                     shopPrices={shopPrices}
                     shopItemOverrides={shopItemOverrides}
+                    sponsorshipSlotOverrides={sponsorshipSlotOverrides}
                     goalData={goalData}
                     onUpdateGoal={handleUpdateGoal}
                     onResetGoal={handleResetGoal}
@@ -3650,6 +3673,7 @@ export default function YumDonutApp() {
                         allUsers={users.filter(u => roster.includes(u.name))}
                         onWinBonus={handleWinBonus}
                         sponsorships={sponsorships}
+                        sponsorshipSlots={currentSponsorshipSlots}
                     />
                 )}
 
@@ -3666,6 +3690,7 @@ export default function YumDonutApp() {
                         onToggleFeatured={handleToggleFeatured}
                         dailyPurchases={shopDailyPurchases}
                         sponsorships={sponsorships}
+                        sponsorshipSlots={currentSponsorshipSlots}
                         onPurchaseSponsorship={handlePurchaseSponsorship}
                         onClearSponsorship={handleClearSponsorship}
                     />
@@ -3703,6 +3728,7 @@ export default function YumDonutApp() {
                         onResetGoal={handleResetGoal}
                         onToggleActive={handleToggleGoalActive}
                         sponsorships={sponsorships}
+                        sponsorshipSlots={currentSponsorshipSlots}
                     />
                 )}
 
@@ -3718,7 +3744,7 @@ export default function YumDonutApp() {
                 )}
 
                 {view === 'leaderboard' && (
-                    <LeaderboardView users={users} roster={roster} sponsorships={sponsorships} />
+                    <LeaderboardView users={users} roster={roster} sponsorships={sponsorships} sponsorshipSlots={currentSponsorshipSlots} />
                 )}
 
             </div>
@@ -4643,7 +4669,7 @@ function PatchNotesModal({ onClose }) {
                             <Crown className="text-amber-500" size={20} /> Studio Sponsorships
                         </h3>
                         <p className="text-slate-600 text-sm">
-                            Students can now spend big donuts to sponsor the Arcade, Donut Shop, Leaderboard, or Team Goal for a week. Sponsorships are pure spotlight, with no donut rewards back.
+                            Roll credits. Students can now put their name in lights by sponsoring the Arcade, Donut Shop, Leaderboard, or Team Goal for the week. Big spender energy, proper studio-credit vibes.
                         </p>
                     </div>
 
@@ -4898,13 +4924,15 @@ function GoalSettingsTab({ goalData, onUpdateGoal, onResetGoal, onToggleGoalActi
     );
 }
 
-function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrices, shopItemOverrides, goalData, onUpdateGoal, onResetGoal, onToggleGoalActive }) {
-    const [activeTab, setActiveTab] = useState('general'); // general, roster, shop, goal
+function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrices, shopItemOverrides, sponsorshipSlotOverrides, goalData, onUpdateGoal, onResetGoal, onToggleGoalActive }) {
+    const [activeTab, setActiveTab] = useState('general'); // general, roster, shop, sponsorships, goal
     const [newName, setNewName] = useState("");
     const [error, setError] = useState("");
     const [auditUser, setAuditUser] = useState(null);
     const [editingShopItems, setEditingShopItems] = useState({});
     const [shopSaveStatus, setShopSaveStatus] = useState({});
+    const [editingSponsorshipSlots, setEditingSponsorshipSlots] = useState({});
+    const [sponsorshipSaveStatus, setSponsorshipSaveStatus] = useState({});
     const [resettingPassword, setResettingPassword] = useState(null); // Name currently being reset
 
     const handleResetPassword = async (name) => {
@@ -4948,6 +4976,23 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
 
         setEditingShopItems(nextDrafts);
     }, [shopItemOverrides, shopPrices]);
+
+    useEffect(() => {
+        const nextDrafts = {};
+
+        SPONSORSHIP_SLOTS.forEach(slot => {
+            const override = sponsorshipSlotOverrides?.[slot.id] || {};
+            nextDrafts[slot.id] = {
+                title: override.title !== undefined ? override.title : slot.title,
+                sectionLabel: override.sectionLabel !== undefined ? override.sectionLabel : slot.sectionLabel,
+                cost: override.cost !== undefined ? override.cost : slot.cost,
+                durationDays: override.durationDays !== undefined ? override.durationDays : slot.durationDays,
+                enabled: override.enabled !== undefined ? override.enabled !== false : slot.enabled !== false
+            };
+        });
+
+        setEditingSponsorshipSlots(nextDrafts);
+    }, [sponsorshipSlotOverrides]);
 
     const handleAddUser = async () => {
         const name = newName.trim();
@@ -5004,6 +5049,20 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
         setShopSaveStatus(prev => ({
             ...prev,
             [itemId]: null
+        }));
+    };
+
+    const handleSponsorshipSlotChange = (slotId, field, value) => {
+        setEditingSponsorshipSlots(prev => ({
+            ...prev,
+            [slotId]: {
+                ...prev[slotId],
+                [field]: value
+            }
+        }));
+        setSponsorshipSaveStatus(prev => ({
+            ...prev,
+            [slotId]: null
         }));
     };
 
@@ -5114,6 +5173,118 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
         }
     };
 
+    const handleSaveSponsorshipSlot = async (slot) => {
+        const slotId = slot.id;
+
+        if (isSandbox) {
+            setSponsorshipSaveStatus(prev => ({
+                ...prev,
+                [slotId]: { type: 'error', message: 'Sandbox is read-only' }
+            }));
+            return;
+        }
+
+        try {
+            const draft = editingSponsorshipSlots[slotId] || {};
+            const newTitle = (draft.title || '').trim();
+            const newSectionLabel = (draft.sectionLabel || '').trim();
+            const newCost = Number(draft.cost);
+            const newDurationDays = Number(draft.durationDays);
+            const newEnabled = draft.enabled !== false;
+
+            if (!newTitle) {
+                setSponsorshipSaveStatus(prev => ({
+                    ...prev,
+                    [slotId]: { type: 'error', message: 'Enter a title' }
+                }));
+                return;
+            }
+
+            if (!newSectionLabel) {
+                setSponsorshipSaveStatus(prev => ({
+                    ...prev,
+                    [slotId]: { type: 'error', message: 'Enter a display area' }
+                }));
+                return;
+            }
+
+            if (!Number.isFinite(newCost) || newCost < 0) {
+                setSponsorshipSaveStatus(prev => ({
+                    ...prev,
+                    [slotId]: { type: 'error', message: 'Enter a valid price' }
+                }));
+                return;
+            }
+
+            if (!Number.isInteger(newDurationDays) || newDurationDays < 1) {
+                setSponsorshipSaveStatus(prev => ({
+                    ...prev,
+                    [slotId]: { type: 'error', message: 'Enter whole days' }
+                }));
+                return;
+            }
+
+            setSponsorshipSaveStatus(prev => ({
+                ...prev,
+                [slotId]: { type: 'saving', message: 'Saving...' }
+            }));
+
+            const configRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'global');
+            await setDoc(configRef, {}, { merge: true });
+            await updateDoc(configRef, {
+                [`sponsorship_slot_overrides.${slotId}`]: {
+                    title: newTitle,
+                    sectionLabel: newSectionLabel,
+                    cost: newCost,
+                    durationDays: newDurationDays,
+                    enabled: newEnabled
+                }
+            });
+
+            setSponsorshipSaveStatus(prev => ({
+                ...prev,
+                [slotId]: { type: 'success', message: 'Saved' }
+            }));
+        } catch (e) {
+            console.error("Error saving sponsorship slot", e);
+            setSponsorshipSaveStatus(prev => ({
+                ...prev,
+                [slotId]: { type: 'error', message: 'Save failed' }
+            }));
+        }
+    };
+
+    const handleResetSponsorshipSlot = async (slotId) => {
+        if (isSandbox) {
+            setSponsorshipSaveStatus(prev => ({
+                ...prev,
+                [slotId]: { type: 'error', message: 'Sandbox is read-only' }
+            }));
+            return;
+        }
+
+        try {
+            const configRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'global');
+            setSponsorshipSaveStatus(prev => ({
+                ...prev,
+                [slotId]: { type: 'saving', message: 'Resetting...' }
+            }));
+            await updateDoc(configRef, {
+                [`sponsorship_slot_overrides.${slotId}`]: deleteField()
+            });
+            setSponsorshipSaveStatus(prev => ({
+                ...prev,
+                [slotId]: { type: 'success', message: 'Reset' }
+            }));
+        } catch (e) {
+            console.error("Error resetting sponsorship slot", e);
+            setSponsorshipSaveStatus(prev => ({
+                ...prev,
+                [slotId]: { type: 'error', message: 'Reset failed' }
+            }));
+        }
+    };
+
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
@@ -5135,28 +5306,34 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                 </div>
 
                 {/* Tabs */}
-                <div className="flex border-b border-slate-200 px-4">
+                <div className="flex border-b border-slate-200 px-4 overflow-x-auto">
                     <button
                         onClick={() => setActiveTab('general')}
-                        className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'general' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                        className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors shrink-0 ${activeTab === 'general' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                     >
                         General
                     </button>
                     <button
                         onClick={() => setActiveTab('roster')}
-                        className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'roster' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                        className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors shrink-0 ${activeTab === 'roster' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                     >
                         Roster
                     </button>
                     <button
                         onClick={() => setActiveTab('shop')}
-                        className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'shop' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                        className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors shrink-0 ${activeTab === 'shop' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                     >
                         Store Items
                     </button>
                     <button
+                        onClick={() => setActiveTab('sponsorships')}
+                        className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors shrink-0 ${activeTab === 'sponsorships' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                    >
+                        Sponsorships
+                    </button>
+                    <button
                         onClick={() => setActiveTab('goal')}
-                        className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'goal' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                        className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors shrink-0 ${activeTab === 'goal' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                     >
                         Goal
                     </button>
@@ -5409,6 +5586,161 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                         </div>
                     )}
 
+                    {/* --- SPONSORSHIPS TAB --- */}
+                    {activeTab === 'sponsorships' && (
+                        <div className="h-full flex flex-col">
+                            <div className="bg-amber-50 border border-amber-100 rounded-lg p-4 mb-6">
+                                <h3 className="font-bold text-amber-900 text-sm mb-1">Sponsorship Slots</h3>
+                                <p className="text-xs text-amber-700">
+                                    Edit the public sponsor cards. Disabled slots stay hidden from the Shop, while existing sponsor banners can finish their current run.
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-3">
+                                {SPONSORSHIP_SLOTS.map(slot => {
+                                    const savedOverride = sponsorshipSlotOverrides?.[slot.id] || {};
+                                    const isModified = Object.keys(savedOverride).length > 0;
+                                    const draftSlot = editingSponsorshipSlots[slot.id] || {
+                                        title: slot.title,
+                                        sectionLabel: slot.sectionLabel,
+                                        cost: slot.cost,
+                                        durationDays: slot.durationDays,
+                                        enabled: slot.enabled !== false
+                                    };
+                                    const saveStatus = sponsorshipSaveStatus[slot.id];
+
+                                    return (
+                                        <div
+                                            key={slot.id}
+                                            className={`bg-white p-4 rounded-xl border shadow-sm transition-all
+                                                ${isModified ? 'border-amber-500 ring-1 ring-amber-500/20' : 'border-slate-200'}
+                                            `}
+                                        >
+                                            <div className="flex items-start gap-4">
+                                                <div className={`text-2xl w-12 h-12 flex items-center justify-center rounded-lg shrink-0 text-white bg-gradient-to-br ${slot.accent}`}>
+                                                    {slot.icon}
+                                                </div>
+
+                                                <div className="flex-1 min-w-0 space-y-3">
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div className="min-w-0">
+                                                            <div className="text-xs text-slate-500 flex items-center gap-2 flex-wrap">
+                                                                Base: <span className="font-bold text-slate-700">{slot.title}</span>
+                                                                <span className="font-mono font-bold">{slot.cost} {EMOJI}</span>
+                                                                <span className="font-bold">{slot.durationDays}d</span>
+                                                                {isModified && (
+                                                                    <span className="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded font-bold">
+                                                                        CUSTOM
+                                                                    </span>
+                                                                )}
+                                                                {draftSlot.enabled === false && (
+                                                                    <span className="text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-bold">
+                                                                        HIDDEN
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        {saveStatus && (
+                                                            <div
+                                                                className={`shrink-0 text-right text-[10px] font-bold ${saveStatus.type === 'error' ? 'text-red-500' : saveStatus.type === 'success' ? 'text-green-600' : 'text-slate-400'}`}
+                                                            >
+                                                                {saveStatus.message}
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_7rem_7rem] gap-3">
+                                                        <label className="block">
+                                                            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Card Title</span>
+                                                            <input
+                                                                type="text"
+                                                                value={draftSlot.title}
+                                                                onChange={(e) => handleSponsorshipSlotChange(slot.id, 'title', e.target.value)}
+                                                                className="mt-1 w-full px-3 py-2 text-sm font-bold rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none"
+                                                            />
+                                                        </label>
+
+                                                        <label className="block">
+                                                            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Display Area</span>
+                                                            <input
+                                                                type="text"
+                                                                value={draftSlot.sectionLabel}
+                                                                onChange={(e) => handleSponsorshipSlotChange(slot.id, 'sectionLabel', e.target.value)}
+                                                                className="mt-1 w-full px-3 py-2 text-sm font-bold rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none"
+                                                            />
+                                                        </label>
+
+                                                        <label className="block">
+                                                            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Price</span>
+                                                            <div className="relative mt-1">
+                                                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">🍩</div>
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    value={draftSlot.cost}
+                                                                    onChange={(e) => handleSponsorshipSlotChange(slot.id, 'cost', e.target.value)}
+                                                                    className="w-full pl-8 pr-2 py-2 text-sm font-bold text-right rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none"
+                                                                />
+                                                            </div>
+                                                        </label>
+
+                                                        <label className="block">
+                                                            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Days</span>
+                                                            <input
+                                                                type="number"
+                                                                min="1"
+                                                                step="1"
+                                                                value={draftSlot.durationDays}
+                                                                onChange={(e) => handleSponsorshipSlotChange(slot.id, 'durationDays', e.target.value)}
+                                                                className="mt-1 w-full px-3 py-2 text-sm font-bold text-right rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none"
+                                                            />
+                                                        </label>
+                                                    </div>
+
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <label className="inline-flex items-center gap-2 text-sm font-bold text-slate-600">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={draftSlot.enabled !== false}
+                                                                onChange={(e) => handleSponsorshipSlotChange(slot.id, 'enabled', e.target.checked)}
+                                                                className="w-4 h-4 accent-indigo-600"
+                                                            />
+                                                            Available in Shop
+                                                        </label>
+
+                                                        <div className="flex items-center gap-2">
+                                                            <button
+                                                                onClick={() => handleSaveSponsorshipSlot(slot)}
+                                                                disabled={saveStatus?.type === 'saving'}
+                                                                className="px-3 py-2 bg-slate-100 hover:bg-indigo-100 text-slate-500 hover:text-indigo-600 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2 text-xs font-bold"
+                                                                title="Save Sponsorship Slot"
+                                                            >
+                                                                <CheckCircle size={16} />
+                                                                Save
+                                                            </button>
+
+                                                            {isModified && (
+                                                                <button
+                                                                    onClick={() => handleResetSponsorshipSlot(slot.id)}
+                                                                    className="px-3 py-2 bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors flex items-center gap-2 text-xs font-bold"
+                                                                    title="Reset to Base Settings"
+                                                                >
+                                                                    <RotateCcw size={16} />
+                                                                    Undo
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
                     {/* --- GOAL TAB --- */}
                     {activeTab === 'goal' && (
                         <GoalSettingsTab
@@ -5577,7 +5909,7 @@ function UserAuditModal({ userToCheck, onClose }) {
     );
 }
 
-function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleState, onDrawRaffle, featuredItemIds, onToggleFeatured, dailyPurchases = {}, sponsorships = {}, onPurchaseSponsorship, onClearSponsorship }) {
+function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleState, onDrawRaffle, featuredItemIds, onToggleFeatured, dailyPurchases = {}, sponsorships = {}, sponsorshipSlots = SPONSORSHIP_SLOTS, onPurchaseSponsorship, onClearSponsorship }) {
     const isAdmin = currentUserPublic?.name === "Mr Rayner";
 
     return (
@@ -5593,7 +5925,7 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleSta
                 </div>
             </div>
 
-            <SponsorshipBanner sponsorships={sponsorships} slotId="shop" />
+            <SponsorshipBanner sponsorships={sponsorships} sponsorshipSlots={sponsorshipSlots} slotId="shop" />
 
             {/* RAFFLE BANNER */}
             {raffleState && (
@@ -5637,10 +5969,10 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleSta
                         </h3>
                         <p className="text-xs text-slate-500">Weekly spotlights for the big spenders.</p>
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-wide text-slate-400">No rewards back</span>
+                    <span className="text-[10px] font-black uppercase tracking-wide text-slate-400">Claim the spotlight</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {SPONSORSHIP_SLOTS.map(slot => {
+                    {sponsorshipSlots.filter(slot => slot.enabled !== false).map(slot => {
                         const activeSponsorship = getActiveSponsorship(sponsorships, slot.id);
                         const canAffordSponsor = userBalance >= slot.cost;
 
@@ -6095,7 +6427,7 @@ function BountiesView({ bounties, currentUser, userId, onCreate, onDelete, onCla
     );
 }
 
-function GoalView({ goalData, userBalance, onContribute, currentUserName, onActivate, onUpdateGoal, onResetGoal, onToggleActive, sponsorships }) {
+function GoalView({ goalData, userBalance, onContribute, currentUserName, onActivate, onUpdateGoal, onResetGoal, onToggleActive, sponsorships, sponsorshipSlots }) {
     const target = goalData.target !== undefined ? goalData.target : GOAL_TARGET;
     const isActive = goalData.isActive !== false; // Default to true if undefined
     const isAdmin = currentUserName === "Mr Rayner";
@@ -6130,7 +6462,7 @@ function GoalView({ goalData, userBalance, onContribute, currentUserName, onActi
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <SponsorshipBanner sponsorships={sponsorships} slotId="goal" />
+            <SponsorshipBanner sponsorships={sponsorships} sponsorshipSlots={sponsorshipSlots} slotId="goal" />
 
             <Card className={`text-center py-8 relative overflow-hidden ${!isActive && !isMet ? 'opacity-75 grayscale' : ''} ${isMet ? 'bg-gradient-to-br from-yellow-50 to-amber-100 border-2 border-yellow-400 shadow-xl shadow-yellow-200' : ''}`}>
                 {isMet && <div className="absolute inset-0 bg-yellow-400 opacity-10 animate-pulse"></div>}
@@ -6649,7 +6981,7 @@ function FeedView({ transactions, onReact, coreValues, onDelete, currentUser, us
     );
 }
 
-function LeaderboardView({ users, roster, sponsorships }) {
+function LeaderboardView({ users, roster, sponsorships, sponsorshipSlots }) {
     const combinedList = roster.map(name => {
         const userData = users.find(u => u.name === name);
         return {
@@ -6678,7 +7010,7 @@ function LeaderboardView({ users, roster, sponsorships }) {
                 <span className="text-xs font-medium bg-pink-100 text-pink-600 px-2 py-1 rounded-full">All Time</span>
             </div>
 
-            <SponsorshipBanner sponsorships={sponsorships} slotId="leaderboard" />
+            <SponsorshipBanner sponsorships={sponsorships} sponsorshipSlots={sponsorshipSlots} slotId="leaderboard" />
 
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 {combinedList.map((u, index) => {
