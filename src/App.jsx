@@ -1751,8 +1751,31 @@ export default function YumDonutApp() {
     const [roster, setRoster] = useState([]);
     const [isAdminSettingsOpen, setIsAdminSettingsOpen] = useState(false);
     const [shopDailyPurchases, setShopDailyPurchases] = useState({});
+    const [currentDateKey, setCurrentDateKey] = useState(() => getLocalDateKey());
     const [sponsorships, setSponsorships] = useState({});
     const [sponsorshipSlotOverrides, setSponsorshipSlotOverrides] = useState({});
+
+    useEffect(() => {
+        const refreshDateKey = () => {
+            const nextDateKey = getLocalDateKey();
+            setCurrentDateKey(prevDateKey => prevDateKey === nextDateKey ? prevDateKey : nextDateKey);
+        };
+
+        refreshDateKey();
+        const intervalId = setInterval(refreshDateKey, 60 * 1000);
+        const handleVisibilityChange = () => {
+            if (!document.hidden) refreshDateKey();
+        };
+
+        window.addEventListener('focus', refreshDateKey);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            clearInterval(intervalId);
+            window.removeEventListener('focus', refreshDateKey);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, []);
 
     // Roster Listener
     useEffect(() => {
@@ -1883,7 +1906,6 @@ export default function YumDonutApp() {
             return undefined;
         }
 
-        const todayKey = getLocalDateKey();
         const dailyPurchasesRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'shop_daily');
         const dailyPurchasesQuery = query(dailyPurchasesRef, where('userName', '==', myProfile.name));
 
@@ -1891,7 +1913,7 @@ export default function YumDonutApp() {
             const counts = {};
             snap.forEach(docSnap => {
                 const data = docSnap.data();
-                if (data.dateKey === todayKey && data.itemId) {
+                if (data.dateKey === currentDateKey && data.itemId) {
                     counts[data.itemId] = Number(data.count) || 0;
                 }
             });
@@ -1902,7 +1924,7 @@ export default function YumDonutApp() {
         });
 
         return () => unsubDailyPurchases();
-    }, [myProfile?.name]);
+    }, [myProfile?.name, currentDateKey]);
 
     // --- LIVE STUDIO HEARTBEAT ---
     useEffect(() => {
