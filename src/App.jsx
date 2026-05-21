@@ -826,19 +826,23 @@ const SponsorshipBanner = ({ sponsorships, sponsorshipSlots = SPONSORSHIP_SLOTS,
     if (!slot || !sponsorship) return null;
 
     return (
-        <div className={`rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden ${className}`}>
-            <div className={`h-1 bg-gradient-to-r ${slot.accent}`}></div>
-            <div className="px-4 py-3 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-xl shrink-0">
-                        {slot.icon}
-                    </div>
-                    <div className="min-w-0">
-                        <div className="text-[10px] uppercase tracking-wide font-black text-slate-400">Sponsored by</div>
-                        <div className="font-black text-slate-800 truncate">{sponsorship.sponsorName}</div>
+        <div className={`relative overflow-hidden rounded-2xl border-2 border-white bg-white shadow-lg shadow-slate-200/70 ${className}`}>
+            <div className={`absolute inset-x-0 top-0 h-2 bg-gradient-to-r ${slot.accent}`}></div>
+            <div className={`absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r ${slot.accent}`}></div>
+            <div className="px-5 py-5 sm:px-8 sm:py-6 text-center bg-gradient-to-br from-white via-white to-slate-50">
+                <div className="flex justify-center">
+                    <div className={`inline-flex items-center gap-2 rounded-full bg-gradient-to-r ${slot.accent} px-4 py-1.5 text-xs sm:text-sm font-black uppercase tracking-wide text-white shadow-md`}>
+                        <span className="text-base leading-none">{slot.icon}</span>
+                        <span>{slot.sectionLabel} Sponsor</span>
                     </div>
                 </div>
-                <div className="text-[10px] font-black uppercase text-slate-400 shrink-0">
+                <div className="mt-3 text-[11px] sm:text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+                    Sponsored by
+                </div>
+                <div className={`mt-1 break-words bg-gradient-to-r ${slot.accent} bg-clip-text text-3xl sm:text-5xl font-black leading-tight text-transparent`}>
+                    {sponsorship.sponsorName}
+                </div>
+                <div className="mt-3 inline-flex items-center justify-center rounded-full bg-slate-900 px-3 py-1 text-[10px] sm:text-xs font-black uppercase text-white shadow-sm">
                     {getSponsorTimeLeft(sponsorship.expiresAt)}
                 </div>
             </div>
