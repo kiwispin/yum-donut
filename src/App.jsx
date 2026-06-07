@@ -4532,14 +4532,19 @@ function PixelStudioModal({ onClose, currentPixels, currentGridSize, onSave }) {
                         <button
                             key={color.hex}
                             onClick={() => setSelectedColor(color.hex)}
-                            className={`w-10 h-10 rounded-full border-2 transition-all ${selectedColor === color.hex ? 'border-slate-800 scale-110 shadow-lg' : 'border-slate-200 hover:scale-105'
+                            aria-label={color.name}
+                            className={`w-10 h-10 rounded-full border-2 transition-all flex items-center justify-center ${selectedColor === color.hex ? 'border-slate-800 scale-110 shadow-lg' : 'border-slate-200 hover:scale-105'
                                 }`}
                             style={{
                                 backgroundColor: color.hex,
                                 boxShadow: color.hex === '#FFFFFF' ? 'inset 0 0 0 1px rgba(15, 23, 42, 0.16)' : undefined
                             }}
                             title={color.name}
-                        />
+                        >
+                            {color.hex === '#FFFFFF' && (
+                                <span className="text-[10px] font-black text-slate-500">W</span>
+                            )}
+                        </button>
                     ))}
                 </div>
 
