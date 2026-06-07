@@ -540,6 +540,7 @@ const MEDIA_EMOJIS = [
 // 5. Pixel Avatar Palette
 const PIXEL_PALETTE = [
     { name: 'Black', hex: '#000000' },
+    { name: 'White', hex: '#FFFFFF' },
     { name: 'Pink', hex: '#FF9FF3' },
     { name: 'Purple', hex: '#D6A2E8' },
     { name: 'Cyan', hex: '#48DBFB' },
@@ -4533,7 +4534,10 @@ function PixelStudioModal({ onClose, currentPixels, currentGridSize, onSave }) {
                             onClick={() => setSelectedColor(color.hex)}
                             className={`w-10 h-10 rounded-full border-2 transition-all ${selectedColor === color.hex ? 'border-slate-800 scale-110 shadow-lg' : 'border-slate-200 hover:scale-105'
                                 }`}
-                            style={{ backgroundColor: color.hex }}
+                            style={{
+                                backgroundColor: color.hex,
+                                boxShadow: color.hex === '#FFFFFF' ? 'inset 0 0 0 1px rgba(15, 23, 42, 0.16)' : undefined
+                            }}
                             title={color.name}
                         />
                     ))}
