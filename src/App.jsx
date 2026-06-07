@@ -4540,11 +4540,7 @@ function PixelStudioModal({ onClose, currentPixels, currentGridSize, onSave }) {
                                 boxShadow: color.hex === '#FFFFFF' ? 'inset 0 0 0 1px rgba(15, 23, 42, 0.16)' : undefined
                             }}
                             title={color.name}
-                        >
-                            {color.hex === '#FFFFFF' && (
-                                <span className="text-[10px] font-black text-slate-500">W</span>
-                            )}
-                        </button>
+                        />
                     ))}
                 </div>
 
