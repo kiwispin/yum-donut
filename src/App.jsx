@@ -2302,83 +2302,117 @@ export default function YumDonutApp() {
         window.location.reload();
     };
 
-    const handleGiveDonut = async (recipientName, message, amount = 1) => {
+    const handleGiveDonut = async (recipientNames, message, amount = 1, selectedValue = null, selectedVirtue = "") => {
         if (!myProfile) return;
 
+        const recipients = [...new Set((Array.isArray(recipientNames) ? recipientNames : [recipientNames]).filter(Boolean))];
+        const amountEach = Number(amount);
+        if (recipients.length === 0 || !Number.isInteger(amountEach) || amountEach < 1) return;
+
         if (isSandbox) {
-            showNotification(`Sandbox: Gave ${amount} donut(s) to ${recipientName} (Simulated)`, "info");
+            const recipientText = recipients.length === 1 ? recipients[0] : `${recipients.length} people`;
+            showNotification(`Sandbox: Gave ${amountEach} donut(s) each to ${recipientText} (Simulated)`, "info");
             // Optionally, you could update a local state for sandbox users to reflect the change
             // For simplicity, we'll just show a notification.
             return;
         }
 
         const today = new Date().toDateString();
-        let currentGiven = myProfile.last_given_date === today ? myProfile.given_today : 0;
         const isAdmin = myProfile.name === "Mr Rayner";
+        const totalAmount = amountEach * recipients.length;
 
-        if (!isAdmin && (currentGiven + amount) > DAILY_LIMIT) {
-            showNotification(`You only have ${DAILY_LIMIT - currentGiven} ${EMOJI} left!`, "error");
+        if (recipients.includes(myProfile.name)) {
+            showNotification("You cannot give donuts to yourself.", "error");
             return;
         }
 
         try {
-            triggerConfetti();
-            await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
-                fromName: myProfile.name,
-                toName: recipientName,
-                message: message,
-                timestamp: serverTimestamp(),
-                emoji: EMOJI,
-                amount: amount,
-                likes: []
-            });
-
             const senderPrivateRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
-            await updateDoc(senderPrivateRef, {
-                given_today: currentGiven + amount,
-                last_given_date: today
-            });
-
             const senderPublicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
-            const senderPublicDoc = await getDoc(senderPublicRef);
-            if (senderPublicDoc.exists()) {
-                await updateDoc(senderPublicRef, {
-                    lifetime_given: increment(amount)
-                });
-            }
+            const recipientRefs = recipients.map(name => doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', name));
 
-            const recipientRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', recipientName);
-            const recipientDoc = await getDoc(recipientRef);
-            if (recipientDoc.exists()) {
-                const recipientData = recipientDoc.data();
-                // Update recipient's PUBLIC profile
-                await updateDoc(recipientRef, {
-                    balance: increment(amount),
-                    lifetime_received: increment(amount)
-                });
-                // Update recipient's PRIVATE profile (wallet) if they have claimed their account
-                if (recipientData.uid && recipientData.claimed) {
-                    const recipientPrivateRef = doc(db, 'artifacts', APP_ID, 'users', recipientData.uid, 'profile', 'data');
-                    await updateDoc(recipientPrivateRef, {
-                        balance: increment(amount)
+            await runTransaction(db, async (transaction) => {
+                const senderPrivateDoc = await transaction.get(senderPrivateRef);
+                const senderPublicDoc = await transaction.get(senderPublicRef);
+                const recipientDocs = [];
+                for (const recipientRef of recipientRefs) {
+                    recipientDocs.push(await transaction.get(recipientRef));
+                }
+
+                const senderCounter = senderPrivateDoc.exists() ? senderPrivateDoc.data() : myProfile;
+                const currentGiven = senderCounter.last_given_date === today ? (senderCounter.given_today || 0) : 0;
+
+                if (!isAdmin && (currentGiven + totalAmount) > DAILY_LIMIT) {
+                    throw new Error("DAILY_LIMIT");
+                }
+
+                transaction.set(senderPrivateRef, {
+                    given_today: currentGiven + totalAmount,
+                    last_given_date: today
+                }, { merge: true });
+
+                if (senderPublicDoc.exists()) {
+                    transaction.update(senderPublicRef, {
+                        lifetime_given: increment(totalAmount)
                     });
                 }
-            } else {
-                await setDoc(recipientRef, {
-                    name: recipientName,
-                    balance: amount,
-                    lifetime_given: 0,
-                    lifetime_received: amount,
-                    avatar_color: `hsl(${Math.random() * 360}, 60%, 80%)`,
-                    claimed: false,
-                    last_training_date: null, // New field for Typing Dojo
+
+                recipients.forEach((recipientName, index) => {
+                    const recipientRef = recipientRefs[index];
+                    const recipientDoc = recipientDocs[index];
+                    const txRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
+
+                    transaction.set(txRef, {
+                        fromName: myProfile.name,
+                        toName: recipientName,
+                        message: message,
+                        timestamp: serverTimestamp(),
+                        emoji: EMOJI,
+                        amount: amountEach,
+                        value: selectedValue,
+                        virtue: selectedVirtue,
+                        likes: []
+                    });
+
+                    if (recipientDoc.exists()) {
+                        const recipientData = recipientDoc.data();
+                        transaction.update(recipientRef, {
+                            balance: increment(amountEach),
+                            lifetime_received: increment(amountEach)
+                        });
+                        // Update recipient's PRIVATE profile (wallet) if they have claimed their account
+                        if (recipientData.uid && recipientData.claimed) {
+                            const recipientPrivateRef = doc(db, 'artifacts', APP_ID, 'users', recipientData.uid, 'profile', 'data');
+                            transaction.set(recipientPrivateRef, {
+                                balance: increment(amountEach)
+                            }, { merge: true });
+                        }
+                    } else {
+                        transaction.set(recipientRef, {
+                            name: recipientName,
+                            balance: amountEach,
+                            lifetime_given: 0,
+                            lifetime_received: amountEach,
+                            avatar_color: `hsl(${Math.random() * 360}, 60%, 80%)`,
+                            claimed: false,
+                            last_training_date: null, // New field for Typing Dojo
+                        });
+                    }
                 });
-            }
-            showNotification(`Sent ${amount} ${EMOJI} successfully!`);
+            });
+
+            triggerConfetti();
+            const recipientText = recipients.length === 1 ? recipients[0] : `${recipients.length} people`;
+            showNotification(`Sent ${amountEach} ${EMOJI} each to ${recipientText}!`);
             setView('feed');
         } catch (e) {
             console.error(e);
-            showNotification("Failed to send donut.", "error");
+            if (e?.message === "DAILY_LIMIT") {
+                const currentGiven = myProfile.last_given_date === today ? (myProfile.given_today || 0) : 0;
+                showNotification(`You only have ${DAILY_LIMIT - currentGiven} ${EMOJI} left!`, "error");
+            } else {
+                showNotification("Failed to send donut.", "error");
+            }
         }
     };
 
@@ -6680,7 +6714,7 @@ function GoalView({ goalData, userBalance, onContribute, currentUserName, onActi
 }
 
 function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, remaining, coreValues }) {
-    const [selectedUser, setSelectedUser] = useState("");
+    const [selectedUsers, setSelectedUsers] = useState([]);
     const [message, setMessage] = useState("");
     const [filter, setFilter] = useState("");
     const [amount, setAmount] = useState(1);
@@ -6691,24 +6725,31 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
 
     const isAdmin = currentUserName === "Mr Rayner";
     const isMunch = mode === "munch";
+    const selectedCount = selectedUsers.length;
+    const totalGiveAmount = amount * selectedCount;
+    const overDailyLimit = !isAdmin && !isMunch && totalGiveAmount > remaining;
+    const amountOptions = isAdmin ? [1, 2, 5, 10] : [1, 2, 3, 4, 5];
+    const recipientSummary = selectedCount === 1 ? selectedUsers[0] : `${selectedCount} people`;
 
     const filteredRoster = roster
         .filter(name => name !== currentUserName)
+        .filter(name => isMunch || !selectedUsers.includes(name))
         .filter(name => name.toLowerCase().includes(filter.toLowerCase()));
 
     const handleSubmit = () => {
-        if (!selectedUser || !message) return;
+        if (selectedCount === 0 || !message) return;
         if (!isMunch && !selectedValue) return; // Value required for giving
+        if (overDailyLimit) return;
 
         if (isMunch) {
-            onMunch(selectedUser, message, amount);
+            onMunch(selectedUsers[0], message, amount);
         } else {
-            onGive(selectedUser, message, amount, selectedValue, selectedVirtue);
+            onGive(selectedUsers, message, amount, selectedValue, selectedVirtue);
         }
 
         // Reset
         setMessage("");
-        setSelectedUser("");
+        setSelectedUsers([]);
         setFilter("");
         setAmount(1);
         setStep(1);
@@ -6717,14 +6758,25 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
     };
 
     const handleUserSelect = (name) => {
-        setSelectedUser(name);
         setFilter("");
         if (isMunch) {
+            setSelectedUsers([name]);
             // Munch doesn't need values
             setStep(3);
         } else {
-            setStep(2);
+            setSelectedUsers(prev => prev.includes(name) ? prev.filter(selectedName => selectedName !== name) : [...prev, name]);
         }
+    };
+
+    const handleModeChange = (nextMode) => {
+        setMode(nextMode);
+        setStep(1);
+        setSelectedUsers([]);
+        setFilter("");
+        setMessage("");
+        setAmount(1);
+        setSelectedValue(null);
+        setSelectedVirtue("");
     };
 
     return (
@@ -6750,13 +6802,13 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
                     {isAdmin && (
                         <div className="flex bg-slate-100 rounded-lg p-1">
                             <button
-                                onClick={() => { setMode("give"); setStep(1); }}
+                                onClick={() => handleModeChange("give")}
                                 className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${!isMunch ? 'bg-white text-pink-500 shadow-sm' : 'text-slate-400'}`}
                             >
                                 😇 Give
                             </button>
                             <button
-                                onClick={() => { setMode("munch"); setStep(1); }}
+                                onClick={() => handleModeChange("munch")}
                                 className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${isMunch ? 'bg-white text-red-500 shadow-sm' : 'text-slate-400'}`}
                             >
                                 😈 Munch
@@ -6772,67 +6824,98 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
                     </div>
                 ) : (
                     <>
-                        {/* STEP 1: SELECT USER */}
+                        {/* STEP 1: SELECT USERS */}
                         <div className={`space-y-2 ${step !== 1 && 'opacity-50 pointer-events-none'}`}>
                             <label className="text-sm font-semibold text-slate-600 flex justify-between">
-                                <span>Step 1: Select Teammate</span>
+                                <span>{isMunch ? "Step 1: Select Teammate" : "Step 1: Select Teammates"}</span>
                                 {step > 1 && <button onClick={() => setStep(1)} className="text-pink-500 text-xs underline pointer-events-auto">Change</button>}
                             </label>
-                            {!selectedUser ? (
-                                <div className="relative">
-                                    <input
-                                        className="w-full p-3 pl-10 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none"
-                                        placeholder="Search name..."
-                                        value={filter}
-                                        onChange={e => setFilter(e.target.value)}
-                                    />
-                                    <UserPlus className="absolute left-3 top-3.5 text-slate-400" size={18} />
-
-                                    {filter && (
-                                        <div className="absolute top-full left-0 right-0 mt-1 bg-white shadow-xl rounded-xl border border-slate-100 max-h-60 overflow-y-auto z-10 divide-y divide-slate-50">
-                                            {filteredRoster.map(name => {
+                            {step === 1 ? (
+                                <div className="space-y-3">
+                                    {selectedUsers.length > 0 && (
+                                        <div className="flex flex-wrap gap-2">
+                                            {selectedUsers.map(name => {
                                                 const userData = existingUsers.find(u => u.name === name);
-                                                const bgColor = userData?.avatar_color || "#cbd5e1";
-                                                const hasGoldBorder = userData?.gold_border;
-                                                const hasNeonName = userData?.neon_name;
-                                                const hasVerified = userData?.verified_badge;
-
                                                 return (
-                                                    <button
+                                                    <span
                                                         key={name}
-                                                        onClick={() => handleUserSelect(name)}
-                                                        className="w-full text-left p-3 hover:bg-pink-50 flex items-center gap-3 transition-colors"
+                                                        className="inline-flex max-w-full items-center gap-2 rounded-full border border-pink-100 bg-pink-50 px-3 py-1.5 text-sm font-bold text-pink-700"
                                                     >
-                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${hasGoldBorder ? 'gold-border' : ''}`} style={{ background: bgColor }}>
+                                                        <span
+                                                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] text-white"
+                                                            style={{ background: userData?.avatar_color || "#cbd5e1" }}
+                                                        >
                                                             {name[0]}
-                                                        </div>
-                                                        <span className={`flex items-center gap-1 ${hasNeonName ? 'neon-text font-bold' : ''}`}>
-                                                            {name}
-                                                            {hasVerified && <span className="text-blue-500 text-[10px]">✅</span>}
                                                         </span>
-                                                    </button>
-                                                )
+                                                        <span className="truncate">{name}</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setSelectedUsers(prev => prev.filter(selectedName => selectedName !== name))}
+                                                            className="text-pink-300 hover:text-red-500"
+                                                            title={`Remove ${name}`}
+                                                        >
+                                                            <XCircle size={14} />
+                                                        </button>
+                                                    </span>
+                                                );
                                             })}
-                                            {filteredRoster.length === 0 && <div className="p-3 text-slate-400 text-sm">No users found</div>}
                                         </div>
+                                    )}
+
+                                    <div className="relative">
+                                        <input
+                                            className="w-full p-3 pl-10 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none"
+                                            placeholder={isMunch ? "Search name..." : "Search and add names..."}
+                                            value={filter}
+                                            onChange={e => setFilter(e.target.value)}
+                                        />
+                                        <UserPlus className="absolute left-3 top-3.5 text-slate-400" size={18} />
+
+                                        {filter && (
+                                            <div className="absolute top-full left-0 right-0 mt-1 bg-white shadow-xl rounded-xl border border-slate-100 max-h-60 overflow-y-auto z-10 divide-y divide-slate-50">
+                                                {filteredRoster.map(name => {
+                                                    const userData = existingUsers.find(u => u.name === name);
+                                                    const bgColor = userData?.avatar_color || "#cbd5e1";
+                                                    const hasGoldBorder = userData?.gold_border;
+                                                    const hasNeonName = userData?.neon_name;
+                                                    const hasVerified = userData?.verified_badge;
+
+                                                    return (
+                                                        <button
+                                                            key={name}
+                                                            onClick={() => handleUserSelect(name)}
+                                                            className="w-full text-left p-3 hover:bg-pink-50 flex items-center gap-3 transition-colors"
+                                                        >
+                                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${hasGoldBorder ? 'gold-border' : ''}`} style={{ background: bgColor }}>
+                                                                {name[0]}
+                                                            </div>
+                                                            <span className={`flex items-center gap-1 ${hasNeonName ? 'neon-text font-bold' : ''}`}>
+                                                                {name}
+                                                                {hasVerified && <span className="text-blue-500 text-[10px]">✅</span>}
+                                                            </span>
+                                                        </button>
+                                                    )
+                                                })}
+                                                {filteredRoster.length === 0 && <div className="p-3 text-slate-400 text-sm">No users found</div>}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {!isMunch && selectedUsers.length > 0 && (
+                                        <Button onClick={() => setStep(2)} className="w-full" variant="secondary">
+                                            Continue with {selectedUsers.length} teammate{selectedUsers.length === 1 ? "" : "s"}
+                                        </Button>
                                     )}
                                 </div>
                             ) : (
-                                <div className="flex items-center justify-between p-3 bg-white border border-pink-200 rounded-xl">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                                            style={{ background: existingUsers.find(u => u.name === selectedUser)?.avatar_color || "#cbd5e1" }}>
-                                            {selectedUser[0]}
-                                        </div>
-                                        <span className="font-medium text-slate-800">
-                                            {selectedUser}
-                                        </span>
+                                <div className="p-3 bg-white border border-pink-200 rounded-xl">
+                                    <div className="flex flex-wrap gap-2">
+                                        {selectedUsers.map(name => (
+                                            <span key={name} className="rounded-full bg-pink-50 px-3 py-1 text-sm font-bold text-pink-700">
+                                                {name}
+                                            </span>
+                                        ))}
                                     </div>
-                                    {step === 1 && (
-                                        <button onClick={() => setSelectedUser("")} className="text-slate-400 hover:text-red-500">
-                                            <LogOut size={18} />
-                                        </button>
-                                    )}
                                 </div>
                             )}
                         </div>
@@ -6897,37 +6980,47 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
                                     />
                                 </div>
 
-                                {/* Admin Bulk Controls (Show in Give AND Munch Mode) */}
-                                {isAdmin && (
+                                {/* Amount Controls */}
+                                {(!isMunch || isAdmin) && (
                                     <div className="space-y-2">
                                         <label className="text-sm font-semibold text-slate-600 flex items-center gap-2">
-                                            <Zap size={16} className="text-yellow-500" /> Admin Multiplier
+                                            <Zap size={16} className="text-yellow-500" /> {isMunch ? "Munch Amount" : "Donuts Each"}
                                         </label>
                                         <div className="flex gap-2">
-                                            {[1, 2, 5, 10].map(n => (
+                                            {amountOptions.map(n => {
+                                                const wouldExceedLimit = !isAdmin && !isMunch && selectedCount > 0 && (n * selectedCount) > remaining;
+                                                return (
                                                 <button
                                                     key={n}
+                                                    disabled={wouldExceedLimit}
                                                     onClick={() => setAmount(n)}
-                                                    className={`flex-1 py-2 rounded-lg font-bold text-sm transition-all ${amount === n
+                                                    className={`flex-1 py-2 rounded-lg font-bold text-sm transition-all disabled:cursor-not-allowed disabled:opacity-40 ${amount === n
                                                         ? "bg-yellow-400 text-yellow-900 shadow-md scale-105"
                                                         : "bg-slate-100 text-slate-500 hover:bg-slate-200"
                                                         }`}
                                                 >
-                                                    {n}x
+                                                    {n}{isMunch ? "x" : ""}
                                                 </button>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
+                                        {!isMunch && selectedCount > 0 && (
+                                            <p className={`text-xs font-bold ${overDailyLimit ? "text-red-500" : "text-slate-500"}`}>
+                                                {totalGiveAmount} total for {recipientSummary}
+                                                {!isAdmin && `, ${remaining} left today`}
+                                            </p>
+                                        )}
                                     </div>
                                 )}
 
                                 <Button
                                     onClick={handleSubmit}
-                                    disabled={!selectedUser || !message || (!isMunch && !selectedValue)}
+                                    disabled={selectedCount === 0 || !message || (!isMunch && !selectedValue) || overDailyLimit}
                                     className="w-full py-3 text-lg"
                                     variant={isMunch ? "danger" : "primary"}
                                 >
                                     {isMunch ? `Feed The Muncher (${amount} ${EMOJI})` :
-                                        `Give ${amount > 1 ? `${amount} ${EMOJI}` : EMOJI}`}
+                                        `Give ${amount > 1 ? `${amount} ${EMOJI}` : EMOJI}${selectedCount > 1 ? ` each to ${selectedCount}` : ""}`}
                                     {!isMunch && <span className="text-sm opacity-80 ml-1">
                                         {isAdmin ? "(∞ left)" : `(${remaining} left)`}
                                     </span>}
