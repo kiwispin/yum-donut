@@ -1,5 +1,11 @@
 # YumPals rollout prerequisites
 
+## Paid-care release status — 2026-09-08
+
+The five-callable deployment instructions below describe the earlier free-care module, **not** a ready-to-deploy paid handheld. Do not use them to activate the current prototype. Paid-care integration is being built additively and remains disconnected from production exports and wallets. Track current work and gates in `YUMPALS_PRODUCTION_INTEGRATION_LOG.md` and `YUMPALS_PAID_CARE_PLAN.md`.
+
+Before any pilot, complete trusted UID wallet ownership, compatible bank/gifting/Arcade/shop/Teams writers, permanent atomic receipts, persistent time-based handheld care, versioned teacher calendar/settings, safe migration and cloud security verification. A passing local synthetic-wallet test does not satisfy these gates. No production student test purchases are authorised by local readiness work.
+
 YumPals is implemented as an additive, review-gated module. This branch has not been deployed, has not written live data, and has not changed the existing Teams export/configuration or broad Firestore rules.
 
 ## Current review mode
