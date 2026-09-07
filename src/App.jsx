@@ -13,6 +13,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getBankBalance, resolveBankBalance } from './bankBalance';
 import { accountEmailCandidatesForName, accountEmailForName } from './authIdentity';
 import YumPalsView from './yumpals/YumPalsView';
+import YumPalsHandheldDemo from './yumpals/YumPalsHandheldDemo';
 import {
     Trophy, Gift, Activity, MessageSquare,
     LogOut, UserPlus, Heart, Zap, Search, CheckCircle, Target, Sparkles,
@@ -4125,7 +4126,7 @@ function YumDonutDashboard() {
 function YumPalsStandaloneDemo() {
     return (
         <div className="yumpals-demo-shell">
-            <YumPalsView demoMode onExit={() => { window.location.href = window.location.pathname; }} />
+            <YumPalsHandheldDemo />
         </div>
     );
 }

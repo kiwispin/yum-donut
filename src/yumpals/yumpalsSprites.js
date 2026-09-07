@@ -48,6 +48,12 @@ function makeBlobFrame({ eyes = 'open', mouth = 'closed', pose = 'idleA' } = {})
     } else if (eyes === 'wide') {
         setPixels(grid, 6, [5, 6, 9, 10], 'c');
         setPixels(grid, 7, [5, 6, 9, 10], 'c');
+    } else if (eyes === 'left') {
+        setPixels(grid, 6, [5, 6, 9], 'c');
+        setPixels(grid, 7, [5, 6], 'c');
+    } else if (eyes === 'right') {
+        setPixels(grid, 6, [6, 10], 'c');
+        setPixels(grid, 7, [9, 10], 'c');
     } else {
         setPixels(grid, 6, [5, 10], 'c');
     }
@@ -75,6 +81,11 @@ const BLOB_FRAMES = {
     patHappy: makeBlobFrame({ eyes: 'happy', mouth: 'happy', pose: 'idleB' }),
     sleep: makeBlobFrame({ eyes: 'closed' }),
     wake: makeBlobFrame({ eyes: 'wide' }),
+    lookLeft: makeBlobFrame({ eyes: 'left' }),
+    lookRight: makeBlobFrame({ eyes: 'right' }),
+    clean: makeBlobFrame({ eyes: 'happy', pose: 'idleA' }),
+    medicine: makeBlobFrame({ eyes: 'wide', pose: 'idleA' }),
+    reminder: makeBlobFrame({ eyes: 'wide', mouth: 'happy', pose: 'idleA' }),
 };
 
 export const YUMPALS_HEART_PIXELS = [
@@ -125,6 +136,9 @@ export const YUMPALS_ANIMATION_SEQUENCES = {
         { key: 'idle-b', spriteFrame: 'idleB', duration: 900 },
         { key: 'blink', spriteFrame: 'blink', duration: 160 },
     ],
+    blink: [
+        { key: 'blink', spriteFrame: 'blink', duration: 160 },
+    ],
     feed: [
         { key: 'feed-open-1', spriteFrame: 'feedOpen', mouth: 'open', foodRemaining: 3, duration: 320 },
         { key: 'feed-close-1', spriteFrame: 'feedClosed', mouth: 'closed', foodRemaining: 2, duration: 350 },
@@ -144,6 +158,21 @@ export const YUMPALS_ANIMATION_SEQUENCES = {
     wake: [
         { key: 'wake-open', spriteFrame: 'wake', duration: 240 },
         { key: 'wake-happy', spriteFrame: 'happy', duration: 620 },
+    ],
+    lookLeft: [
+        { key: 'look-left', spriteFrame: 'lookLeft', duration: 520 },
+    ],
+    lookRight: [
+        { key: 'look-right', spriteFrame: 'lookRight', duration: 520 },
+    ],
+    clean: [
+        { key: 'clean-done', spriteFrame: 'clean', duration: 620 },
+    ],
+    medicine: [
+        { key: 'medicine-done', spriteFrame: 'medicine', duration: 620 },
+    ],
+    reminder: [
+        { key: 'reminder-heard', spriteFrame: 'reminder', duration: 620 },
     ],
 };
 

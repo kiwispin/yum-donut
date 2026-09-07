@@ -1,0 +1,751 @@
+.paid-demo-shell {
+    --paid-ink: #2e3d43;
+    --paid-muted: #637178;
+    --paid-lcd: #b7cb89;
+    --paid-lcd-ink: #304636;
+    background: #e7eaee;
+    color: var(--paid-ink);
+    min-height: 100vh;
+    padding: clamp(1rem, 4vw, 2.75rem) 1rem 3rem;
+}
+
+.paid-demo-shell * {
+    box-sizing: border-box;
+}
+
+.paid-demo-page {
+    margin: 0 auto;
+    max-width: 660px;
+}
+
+.paid-demo-header {
+    align-items: flex-start;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    margin: 0 auto 0.65rem;
+    max-width: 520px;
+}
+
+.paid-demo-header h1,
+.paid-demo-header p {
+    margin: 0;
+}
+
+.paid-demo-header h1 {
+    color: #35464d;
+    font-size: clamp(1.35rem, 5vw, 1.8rem);
+    letter-spacing: 0.03em;
+    line-height: 1.1;
+}
+
+.paid-demo-header p:last-child {
+    color: var(--paid-muted);
+    font-size: 0.78rem;
+    margin-top: 0.28rem;
+}
+
+.paid-demo-kicker,
+.paid-demo-badge,
+.paid-demo-meta,
+.paid-lcd,
+.paid-demo-lcd,
+.paid-hardware-button,
+.paid-demo-inspector,
+.paid-demo-notice {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.paid-demo-kicker {
+    color: #718088;
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    margin-bottom: 0.35rem !important;
+}
+
+.paid-demo-badge {
+    background: #d5dbe0;
+    border: 1px solid #aeb9c0;
+    color: #53636b;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    padding: 0.35rem 0.45rem;
+    white-space: nowrap;
+}
+
+.paid-demo-warning,
+.paid-demo-hint {
+    color: var(--paid-muted);
+    font-size: 0.74rem;
+    line-height: 1.45;
+    margin: 0.55rem auto;
+    max-width: 520px;
+}
+
+.paid-demo-warning {
+    background: #f2f4f5;
+    border-left: 3px solid #a6b3b7;
+    padding: 0.45rem 0.6rem;
+}
+
+.paid-demo-device-wrap {
+    margin: 1.1rem auto 0;
+    max-width: 438px;
+}
+
+.paid-demo-device {
+    background: linear-gradient(145deg, #dd7897 0%, #bd4f78 63%, #a74468 100%);
+    border: 5px solid #563644;
+    border-radius: 49% 49% 43% 43% / 22% 22% 39% 39%;
+    box-shadow: 0 12px 0 #3e3037, 0 20px 25px rgba(55, 65, 74, 0.19), inset 5px 5px 0 rgba(255, 255, 255, 0.25), inset -7px -8px 0 rgba(63, 26, 46, 0.2);
+    margin: 0 auto;
+    max-width: 420px;
+    padding: 1.7rem clamp(1.45rem, 6vw, 2.4rem) 2.45rem;
+    position: relative;
+}
+
+.paid-demo-device.is-sleeping {
+    background: linear-gradient(145deg, #b96786 0%, #9c4669 100%);
+}
+
+.paid-demo-brand {
+    color: #fff3f4;
+    font-size: 0.66rem;
+    font-weight: 900;
+    letter-spacing: 0.22em;
+    margin-bottom: 0.65rem;
+    text-align: center;
+    text-shadow: 1px 1px 0 rgba(69, 26, 48, 0.4);
+}
+
+.paid-demo-screen-frame {
+    background: #403445;
+    border: 4px solid #2d2e3b;
+    border-radius: 18px;
+    box-shadow: inset 3px 3px 0 rgba(255, 255, 255, 0.1), inset -4px -4px 0 rgba(0, 0, 0, 0.25);
+    padding: 0.55rem;
+}
+
+.paid-demo-lcd {
+    background: var(--paid-lcd);
+    border: 3px solid #52634c;
+    border-radius: 8px;
+    color: var(--paid-lcd-ink);
+    display: flex;
+    flex-direction: column;
+    min-height: 318px;
+    overflow: hidden;
+    padding: 0.6rem;
+    position: relative;
+    text-transform: uppercase;
+}
+
+.paid-demo-lcd::after {
+    background: repeating-linear-gradient(0deg, rgba(37, 64, 42, 0.07) 0 1px, transparent 1px 4px);
+    content: '';
+    inset: 0;
+    pointer-events: none;
+    position: absolute;
+}
+
+.paid-demo-lcd.is-sleeping {
+    background: #9ead75;
+    border-color: #485b49;
+}
+
+.paid-demo-lcd.is-sleeping.is-bedtime-set {
+    background: #87986d;
+    border-color: #3d513f;
+    box-shadow: inset 0 0 0 2px rgba(41, 59, 43, 0.18), inset 0 0 22px rgba(23, 38, 28, 0.16);
+}
+
+.paid-demo-lcd.is-bedtime-set:not(.is-sleeping) {
+    box-shadow: inset 0 0 0 2px rgba(70, 90, 62, 0.14);
+}
+
+.paid-lcd-room,
+.paid-lcd-menu,
+.paid-lcd-message,
+.paid-lcd-status,
+.paid-lcd-game {
+    min-height: 0;
+    position: relative;
+    z-index: 1;
+}
+
+.paid-lcd-content {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    width: 100%;
+    z-index: 1;
+}
+
+.paid-lcd-content > .paid-lcd-room,
+.paid-lcd-content > .paid-lcd-menu,
+.paid-lcd-content > .paid-lcd-message,
+.paid-lcd-content > .paid-lcd-status,
+.paid-lcd-content > .paid-lcd-game {
+    flex: 1;
+    width: 100%;
+}
+
+.paid-icon-strip {
+    display: grid;
+    flex: none;
+    gap: 0.2rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    height: 30px;
+    position: relative;
+    width: 100%;
+    z-index: 2;
+}
+
+.paid-icon-button {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    border-radius: 2px;
+    color: inherit;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    min-width: 0;
+    padding: 2px;
+}
+
+.paid-icon-button.selected {
+    background: #344b38;
+}
+
+.paid-icon-button:focus-visible {
+    outline: 2px solid #8a6330;
+    outline-offset: -1px;
+}
+
+.paid-icon-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+.paid-pixel-grid.paid-icon-grid {
+    flex: 0 0 24px;
+    height: 24px;
+    inset: auto !important;
+    max-height: 24px;
+    max-width: 24px;
+    position: relative !important;
+    width: 24px;
+}
+
+.paid-lcd-room {
+    display: flex;
+    flex-direction: column;
+}
+
+.paid-lcd-top,
+.paid-lcd-bottom {
+    align-items: center;
+    display: flex;
+    font-size: 0.68rem;
+    font-weight: 900;
+    justify-content: space-between;
+    letter-spacing: 0.08em;
+}
+
+.paid-lcd-bottom {
+    border-top: 2px solid rgba(48, 70, 54, 0.22);
+    margin-top: auto;
+    padding-top: 0.45rem;
+}
+
+.paid-lcd-help {
+    color: #536b51;
+    display: block;
+    font-size: 0.57rem;
+    letter-spacing: 0.06em;
+    margin-top: 0.55rem;
+    text-align: center;
+}
+
+.paid-lcd-stage {
+    align-items: center;
+    display: flex;
+    flex: 1;
+    justify-content: center;
+    min-height: 170px;
+    position: relative;
+}
+
+.paid-sprite {
+    height: 144px;
+    position: relative;
+    width: 144px;
+}
+
+.paid-pixel-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--pixel-grid-columns, 16), 1fr);
+    height: 100%;
+    image-rendering: pixelated;
+    inset: 0;
+    position: absolute;
+    width: 100%;
+}
+
+.paid-pixel-cell {
+    aspect-ratio: 1;
+}
+
+.paid-food-grid {
+    bottom: -2px;
+    height: 32px;
+    inset: auto -19px -2px auto;
+    width: 32px;
+}
+
+.paid-sprite-heart {
+    bottom: 46px;
+    height: 35px;
+    inset: auto 0 46px auto;
+    width: 35px;
+}
+
+.paid-sleep-mark {
+    color: #4e674f;
+    font-size: 0.8rem;
+    font-weight: 900;
+    position: absolute;
+    right: 0;
+    top: 8px;
+}
+
+.paid-prop-grid {
+    height: 56px;
+    left: calc(50% + 70px);
+    top: 50%;
+    transform: translateY(-50%);
+    width: 56px;
+}
+
+.prop-pat,
+.prop-reminder {
+    left: calc(50% - 126px);
+}
+
+.prop-bedtime {
+    left: calc(50% + 68px);
+    top: 27%;
+}
+
+.prop-mess {
+    left: calc(50% - 126px);
+    top: 67%;
+}
+
+.prop-illness {
+    left: calc(50% + 70px);
+    top: 28%;
+}
+
+.paid-lcd-title {
+    display: block;
+    font-size: 0.69rem;
+    font-weight: 900;
+    letter-spacing: 0.11em;
+    margin-bottom: 0.9rem;
+    text-align: center;
+}
+
+.paid-lcd-menu {
+    padding: 0.1rem 0.25rem;
+}
+
+.paid-lcd-menu .paid-lcd-title {
+    border-bottom: 2px solid rgba(48, 70, 54, 0.2);
+    padding-bottom: 0.4rem;
+}
+
+.paid-menu-row {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    color: inherit;
+    display: flex;
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 900;
+    height: 2rem;
+    letter-spacing: 0.1em;
+    padding: 0 0.2rem;
+    text-align: left;
+    width: 100%;
+}
+
+.paid-menu-row small {
+    font-size: 0.64rem;
+    margin-left: auto;
+}
+
+.paid-menu-arrow {
+    display: inline-block;
+    margin-right: 0.5rem;
+    width: 0.8rem;
+}
+
+.paid-menu-row.selected {
+    background: rgba(255, 247, 180, 0.35);
+}
+
+.paid-menu-row:focus-visible {
+    outline: 2px solid #8a6330;
+    outline-offset: -2px;
+}
+
+.paid-lcd-message,
+.paid-lcd-game {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+}
+
+.paid-lcd-message strong,
+.paid-lcd-game strong {
+    font-size: 0.95rem;
+    letter-spacing: 0.11em;
+    margin-bottom: 0.85rem;
+}
+
+.paid-lcd-message span,
+.paid-lcd-game span {
+    font-size: 0.72rem;
+    font-weight: 900;
+    line-height: 1.75;
+}
+
+.paid-lcd-message small,
+.paid-lcd-game small {
+    color: #536b51;
+    font-size: 0.59rem;
+    font-weight: 900;
+    margin-top: 1rem;
+}
+
+.paid-game-visual {
+    height: 80px;
+    margin: -0.25rem 0 0.3rem;
+    position: relative;
+    width: 80px;
+}
+
+.paid-game-visual .paid-sprite {
+    height: 80px;
+    width: 80px;
+}
+
+.paid-lcd-status {
+    padding: 0.1rem 0.1rem;
+}
+
+.paid-lcd-status .paid-lcd-title {
+    margin-bottom: 0.55rem;
+}
+
+.paid-meter-row {
+    align-items: center;
+    display: flex;
+    font-size: 0.64rem;
+    font-weight: 900;
+    justify-content: space-between;
+    margin: 0.25rem 0;
+}
+
+.paid-meter-hearts {
+    display: flex;
+    gap: 0.15rem;
+}
+
+.paid-meter-heart {
+    height: 15px;
+    position: relative;
+    width: 15px;
+}
+
+.paid-meter-heart.empty {
+    opacity: 0.36;
+}
+
+.paid-status-attention {
+    display: block;
+    font-size: 0.59rem;
+    font-weight: 900;
+    margin-top: 0.45rem;
+    text-align: center;
+}
+
+.paid-receipt-list {
+    border-top: 2px solid rgba(48, 70, 54, 0.2);
+    display: grid;
+    gap: 0.12rem;
+    margin-top: 0.45rem;
+    padding-top: 0.35rem;
+}
+
+.paid-receipt-list span {
+    font-size: 0.53rem;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+}
+
+.paid-hardware {
+    align-items: flex-start;
+    display: flex;
+    gap: 0.85rem;
+    justify-content: center;
+    margin: 1.2rem auto 0;
+}
+
+.paid-hardware-button {
+    align-items: center;
+    background: #f0e8e9;
+    border: 3px solid #5b3a4b;
+    border-radius: 50%;
+    box-shadow: 0 4px 0 #432b38;
+    color: #58384a;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    height: 58px;
+    justify-content: center;
+    padding: 0;
+    width: 58px;
+}
+
+.paid-hardware-button strong {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.paid-hardware-button span {
+    font-size: 0.46rem;
+    font-weight: 900;
+    line-height: 1;
+    margin-top: 0.22rem;
+}
+
+.paid-hardware-select {
+    background: #f2dda0;
+}
+
+.paid-hardware-button:focus-visible,
+.paid-inspector-actions button:focus-visible,
+.paid-inspector-adopt:focus-visible {
+    outline: 3px solid #bb6d35;
+    outline-offset: 3px;
+}
+
+.paid-hardware-button:active,
+.paid-inspector-actions button:active,
+.paid-inspector-adopt:active {
+    box-shadow: none;
+    transform: translateY(2px);
+}
+
+.paid-hardware-button:disabled {
+    cursor: wait;
+    opacity: 0.55;
+}
+
+.paid-demo-notice {
+    background: #eef3e8;
+    border: 1px solid #a7b995;
+    color: #3d5740;
+    font-size: 0.71rem;
+    line-height: 1.4;
+    margin: 1.1rem auto 0;
+    max-width: 438px;
+    padding: 0.55rem 0.65rem;
+}
+
+.paid-demo-notice.is-error {
+    background: #f7ece8;
+    border-color: #d39b8b;
+    color: #7c4033;
+}
+
+.paid-demo-meta {
+    color: #68767d;
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 0.63rem;
+    gap: 0.3rem 0.75rem;
+    justify-content: center;
+    margin-top: 1rem;
+}
+
+.paid-demo-hint {
+    text-align: center;
+}
+
+.paid-demo-utility {
+    background: transparent;
+    border: 1px solid #bbc7cb;
+    color: #53666d;
+    cursor: pointer;
+    display: block;
+    font: inherit;
+    font-size: 0.66rem;
+    margin: 0.8rem auto 0;
+    padding: 0.35rem 0.55rem;
+}
+
+.paid-demo-utility:focus-visible {
+    outline: 3px solid #bb6d35;
+    outline-offset: 3px;
+}
+
+.paid-demo-utility:active {
+    transform: translateY(1px);
+}
+
+.paid-demo-inspector {
+    background: #f3f5f6;
+    border: 1px solid #c6d0d5;
+    color: #58686f;
+    font-size: 0.72rem;
+    margin: 1rem auto 0;
+    max-width: 520px;
+    padding: 0.65rem 0.75rem;
+}
+
+.paid-demo-inspector summary {
+    color: #3f5158;
+    cursor: pointer;
+    font-weight: 800;
+}
+
+.paid-demo-inspector p {
+    line-height: 1.45;
+    margin: 0.55rem 0;
+}
+
+.paid-demo-inspector label {
+    display: block;
+    font-size: 0.64rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+}
+
+.paid-demo-inspector select {
+    background: #fff;
+    border: 1px solid #aebdc3;
+    color: #3b4c53;
+    font: inherit;
+    min-height: 34px;
+    padding: 0.35rem;
+    width: 100%;
+}
+
+.paid-inspector-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.6rem;
+}
+
+.paid-inspector-actions button,
+.paid-inspector-adopt {
+    background: #e0e6e8;
+    border: 1px solid #aebbc0;
+    color: #42565d;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.65rem;
+    font-weight: 800;
+    padding: 0.4rem 0.5rem;
+}
+
+.paid-inspector-readout {
+    display: grid;
+    gap: 0.18rem;
+    margin-top: 0.65rem;
+}
+
+.paid-inspector-readout span {
+    font-size: 0.63rem;
+}
+
+.paid-inspector-adopt {
+    margin-top: 0.6rem;
+}
+
+@media (max-width: 480px) {
+    .paid-demo-shell {
+        padding-left: 0.65rem;
+        padding-right: 0.65rem;
+    }
+
+    .paid-demo-device {
+        border-radius: 48% 48% 43% 43% / 20% 20% 38% 38%;
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .paid-demo-lcd {
+        min-height: 292px;
+    }
+
+    .paid-lcd-room,
+    .paid-lcd-menu,
+    .paid-lcd-message,
+    .paid-lcd-status,
+    .paid-lcd-game {
+        min-height: 0;
+    }
+
+    .paid-lcd-stage {
+        min-height: 145px;
+    }
+
+    .paid-sprite {
+        height: 128px;
+        width: 128px;
+    }
+
+    .paid-food-grid {
+        height: 32px;
+        width: 32px;
+    }
+
+    .paid-sprite-heart {
+        height: 35px;
+        width: 35px;
+    }
+
+    .paid-prop-grid {
+        height: 48px;
+        left: calc(50% + 57px);
+        width: 48px;
+    }
+
+    .prop-pat,
+    .prop-reminder {
+        left: calc(50% - 105px);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .paid-demo-shell *,
+    .paid-demo-shell *::before,
+    .paid-demo-shell *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+    }
+}

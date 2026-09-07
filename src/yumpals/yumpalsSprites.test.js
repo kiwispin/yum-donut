@@ -45,6 +45,7 @@ test('feed frames hold whole food while open and reduce it on each closing bite'
 
 test('idle, pat, sleep, and wake use minimal meaningful poses', () => {
     assert.deepEqual(getYumPalsAnimationSequence('idle').map((frame) => frame.key), ['idle-a', 'idle-b', 'blink']);
+    assert.equal(getYumPalsFrame('mossbit', 'blink').pixels, YUMPALS_SPRITES.mossbit.frames.blink);
     assert.equal(getYumPalsAnimationSequence('pat')[0].heart, true);
     assert.deepEqual(getYumPalsAnimationSequence('sleep').map((frame) => [frame.eyes, frame.sleepMark]), [['closed', 'Z'], ['closed', 'Zz']]);
     assert.deepEqual(getYumPalsAnimationSequence('wake').map((frame) => frame.spriteFrame), ['wake', 'happy']);

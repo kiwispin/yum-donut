@@ -2,6 +2,8 @@
 
 Status: proposal for review, 2026-09-07. No coding, student charges, cloud project creation or deployment authorised by this planning pass. Preview checkpoint: `a0465d1`; gold-standard tags remain intact. This replaces the earlier free-care design for the NEXT implementation, not the currently running preview.
 
+Update: user has now authorised moving ahead to see and try the experience. Stage 2 isolated demo implementation is approved, using the proposed defaults as trial values and pretend donuts only. Real-money-equivalent app balance writes, cloud security changes and deployment remain outside this stage. Checkpoint before this revision: `checkpoint-before-paid-yumpals-demo-2026-09-07` (c44234c). Acceptance of the prototype is not approval to charge live students.
+
 ## 1. Agreed requirements and proposed defaults
 
 Agreed: an original-style virtual pet inside YumDonut, not a feed/pat checklist. One simple original pixel blob in a handheld casing; paid care consumes donuts, with no pet donut payouts. Hunger/loneliness and other unmet needs can require more paid actions to recover. Recovery is capped; no death, negative balance, debt or lost possessions. Weekends, holidays and approved absences pause deterioration. Idle feet/body stay still; occasional eye-only blinks are sufficient.
@@ -89,6 +91,8 @@ Preserve all existing careDays, earned milestones, name/species and possessions.
 ## 6. Device and animation specification
 
 Screen-led design: care icons around the little display, blob and props, compact status/menu screens. Do not bury the experience under dashboard cards. Three round buttons: A cycles, B selects/confirms, C cancels/returns without charging. Direction-game A/B choose left/right, C exits; explain the temporary mapping on screen. Direct icon taps and labelled keyboard equivalents remain supported. Settings must remain visibly separate and restore focus.
+
+Corrected reference contract after user review: NO primary word-list menu. The Gen 1 diagram was visually inspected: four care icons above the central pet (food, lights, game, medicine) and four below (cleaning, health/status, discipline, attention). A cycles their selection while the pet remains visible, B invokes the selected icon, C clears selection or returns. Original code-native icons use dark/inverse selection and accessible names; no emoji or text-abbreviation substitutes. Secondary choices such as Meal/Snack and the necessary paid confirmation may temporarily replace the centre, while the icon rails retain their place. Settings is a small separate utility, not a replacement for an original care icon. Three round physical buttons remain on the casing. The prior big word-list interpretation is REFUSED. Keep the presentation restrained; demo-only controls remain clearly separate from the toy.
 
 One original 16x16 blob, preserving existing species IDs as colour variants. Stationary idle silhouette and feet, with an eye-only blink about every 5–8 seconds. Two basic expression poses per activity plus the minimum prop states needed. Eating remains open → closed/bite removed. No continuous foot shuffle, smooth bobbing or elaborate choreography. Reduced motion shows a meaningful static result and releases controls normally.
 
