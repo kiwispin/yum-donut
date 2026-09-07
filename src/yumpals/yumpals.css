@@ -163,7 +163,24 @@
     font-size: 1rem;
     height: 30px;
     justify-content: center;
+    position: relative;
     width: 30px;
+}
+
+.yumpals-status-icon::before {
+    background: #526847;
+    content: '';
+    height: 5px;
+    image-rendering: pixelated;
+    width: 5px;
+}
+
+.yumpals-status-icon.feed::before {
+    box-shadow: 5px 0 #526847, 10px 0 #526847, 0 5px #526847, 5px 5px #f0ad42, 10px 5px #526847, 0 10px #526847, 5px 10px #526847, 10px 10px #526847;
+}
+
+.yumpals-status-icon.pat::before {
+    box-shadow: 5px 0 #526847, 0 5px #526847, 5px 5px #f0ad42, 10px 5px #526847, 5px 10px #526847;
 }
 
 .yumpals-status-icon.done {
@@ -179,15 +196,7 @@
     position: relative;
 }
 
-.yumpals-pet-stage.action-feed .yumpals-sprite {
-    transform: translateY(-5px) scale(1.04);
-}
-
-.yumpals-pet-stage.action-pat .yumpals-sprite {
-    transform: rotate(-3deg) scale(1.04);
-}
-
-.yumpals-pet-stage.action-rest .yumpals-sprite {
+.yumpals-pet-stage.action-sleep .yumpals-sprite {
     filter: grayscale(.25) brightness(.92);
     opacity: .82;
 }
@@ -221,24 +230,59 @@
 }
 
 .yumpals-sprite {
-    display: grid;
-    grid-template-columns: repeat(16, 1fr);
     height: 160px;
-    image-rendering: pixelated;
+    position: relative;
     width: 160px;
 }
 
-.yumpals-sprite-cell {
+.yumpals-pixel-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--pixel-grid-columns, 16), 1fr);
+    height: 100%;
+    image-rendering: pixelated;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+}
+
+.yumpals-pixel-cell {
     aspect-ratio: 1;
 }
 
-.yumpals-pet-bounce {
-    animation: yumpals-bounce 1.5s steps(2, end) infinite;
+.yumpals-food-grid {
+    bottom: 8px;
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    height: 40px;
+    image-rendering: pixelated;
+    left: auto;
+    position: absolute;
+    right: -22px;
+    top: auto;
+    transform: none;
+    width: 40px;
 }
 
-@keyframes yumpals-bounce {
-    0%, 100% { transform: translateY(3px); }
-    50% { transform: translateY(-5px); }
+.yumpals-heart {
+    bottom: 58px;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    height: 40px;
+    left: auto;
+    position: absolute;
+    right: 4px;
+    top: auto;
+    width: 40px;
+}
+
+.yumpals-sleep-mark {
+    color: #526847;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .9rem;
+    font-weight: 900;
+    position: absolute;
+    right: 4px;
+    top: 14px;
 }
 
 .yumpals-room-bottom {
@@ -254,6 +298,64 @@
     gap: .55rem;
     grid-template-columns: repeat(2, 1fr);
     margin-top: .7rem;
+}
+
+.yumpals-cosmetic-row {
+    display: flex;
+    justify-content: center;
+    margin-top: .55rem;
+}
+
+.yumpals-cosmetic-button {
+    align-items: center;
+    background: #fffbe5;
+    border: 2px solid #7a8a68;
+    border-radius: 8px;
+    box-shadow: 0 2px 0 #596746;
+    color: #283d32;
+    cursor: pointer;
+    display: inline-flex;
+    font: inherit;
+    font-size: .72rem;
+    font-weight: 900;
+    gap: .35rem;
+    padding: .3rem .55rem;
+}
+
+.yumpals-cosmetic-button small {
+    color: #445c4b;
+    font-size: .62rem;
+    font-weight: 700;
+}
+
+.yumpals-cosmetic-button:focus-visible {
+    outline: 3px solid #f0ab35;
+    outline-offset: 2px;
+}
+
+.yumpals-cosmetic-button:disabled {
+    cursor: wait;
+    opacity: .45;
+}
+
+.yumpals-cosmetic-mark {
+    flex: 0 0 16px;
+    height: 12px;
+    image-rendering: pixelated;
+    position: relative;
+    width: 16px;
+}
+
+.yumpals-cosmetic-mark::before {
+    background: #526c5b;
+    content: '';
+    display: block;
+    height: 8px;
+    width: 8px;
+}
+
+.yumpals-cosmetic-button[aria-pressed='true'] .yumpals-cosmetic-mark::before {
+    box-shadow: 4px 0 #526c5b, 0 4px #526c5b, 4px 4px #526c5b, 8px 4px #526c5b, 4px 8px #526c5b;
 }
 
 .yumpals-action,
@@ -324,6 +426,41 @@
     line-height: 1;
     margin-top: .14rem;
     text-transform: uppercase;
+}
+
+.yumpals-hardware-mark {
+    display: block;
+    height: 10px;
+    margin: 0 auto;
+    position: relative;
+    width: 16px;
+}
+
+.yumpals-hardware-mark.cycle::before,
+.yumpals-hardware-mark.back::before {
+    border-bottom: 5px solid transparent;
+    border-top: 5px solid transparent;
+    content: '';
+    position: absolute;
+    top: 0;
+}
+
+.yumpals-hardware-mark.cycle::before {
+    border-right: 8px solid #572d4b;
+    left: 0;
+}
+
+.yumpals-hardware-mark.back::before {
+    border-left: 8px solid #572d4b;
+    left: 4px;
+}
+
+.yumpals-hardware-mark.select {
+    background: #572d4b;
+    border-radius: 50%;
+    height: 9px;
+    margin-top: 1px;
+    width: 9px;
 }
 
 .yumpals-hardware-button.select {
@@ -525,8 +662,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .yumpals-pet-bounce,
     .yumpals-progress > span { animation: none; transition: none; }
 }
 
-.yumpals-device.reduced-motion .yumpals-pet-bounce { animation: none; }
+.yumpals-device.reduced-motion .yumpals-sprite { transition: none; }

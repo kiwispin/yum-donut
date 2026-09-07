@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { demoAdopt, demoCare, demoDateFromKey, demoUpdatePet, createDemoState, getAucklandDateParts, growthForCareDays, growthForDisplay, refreshDemoState, YUMPALS_CASES, YUMPALS_DEFAULT_SETTINGS, YUMPALS_SPECIES } from './yumpalsRules';
-import { getYumPalsSprite } from './yumpalsSprites';
+import { advanceYumPalsAnimation, createYumPalsAnimationState, getYumPalsAnimationSequence, getYumPalsFrame, startYumPalsAnimation, YUMPALS_FOOD_PIXELS, YUMPALS_HEART_PIXELS } from './yumpalsSprites';
 import './yumpals.css';
 
 const ACTIONS = [
-    { id: 'feed', label: 'Feed', icon: '🍎', hint: 'Give a snack' },
-    { id: 'pat', label: 'Pat / play', icon: '✋', hint: 'Give encouragement' },
-    { id: 'settings', label: 'Settings', icon: '⚙', hint: 'Open preferences' },
+    { id: 'feed', label: 'Feed', hint: 'Give a snack' },
+    { id: 'pat', label: 'Pat', hint: 'Give encouragement' },
+    { id: 'settings', label: 'Settings', hint: 'Open preferences' },
 ];
 
 const CASE_COLORS = Object.fromEntries(YUMPALS_CASES.map((item) => [item.id, item.color]));
@@ -23,23 +23,40 @@ function dateForDemo(dateKey) {
     return demoDateFromKey(dateKey) || demoDateFromKey(getAucklandDateParts().dateKey);
 }
 
-function YumPalsSprite({ species, reducedMotion = false, color }) {
-    const sprite = getYumPalsSprite(species);
+function PixelGrid({ pixels, palette, className = 'yumpals-pixel-grid' }) {
     return (
-        <div
-            className={`yumpals-sprite ${reducedMotion ? '' : 'yumpals-pet-bounce'}`}
-            role="img"
-            aria-label={`${sprite.name} pixel creature`}
-            style={{ '--pet-accent': color || 'transparent' }}
-        >
-            {sprite.pixels.flatMap((row, rowIndex) => [...row].map((cell, columnIndex) => (
+        <span className={className} aria-hidden="true" style={{ '--pixel-grid-columns': pixels[0]?.length || 1 }}>
+            {pixels.flatMap((row, rowIndex) => [...row].map((cell, columnIndex) => (
                 <span
-                    aria-hidden="true"
-                    className="yumpals-sprite-cell"
+                    className="yumpals-pixel-cell"
                     key={`${rowIndex}-${columnIndex}`}
-                    style={{ backgroundColor: sprite.palette[cell] || 'transparent' }}
+                    style={{ backgroundColor: palette[cell] || 'transparent' }}
                 />
             )))}
+        </span>
+    );
+}
+
+function YumPalsSprite({ species, reducedMotion = false, color, animation = 'idle', frameIndex = 0 }) {
+    const frame = getYumPalsFrame(species, animation, frameIndex, reducedMotion);
+    const frameDescription = frame.sleepMark
+        ? `sleeping, ${frame.sleepMark}`
+        : frame.heart
+            ? 'happy'
+            : frame.foodRemaining !== undefined
+                ? `eating, ${frame.foodRemaining} bites left`
+                : 'idle';
+    return (
+        <div
+            className={`yumpals-sprite sprite-${animation}`}
+            role="img"
+            aria-label={`${frame.name} pixel blob, ${frameDescription}`}
+            style={{ '--pet-accent': color || 'transparent' }}
+        >
+            <PixelGrid palette={frame.palette} pixels={frame.pixels} />
+            {animation === 'feed' && frame.foodRemaining > 0 && <PixelGrid className="yumpals-food-grid" palette={{ a: '#784632', b: '#f0ad42' }} pixels={YUMPALS_FOOD_PIXELS[frame.foodRemaining]} />}
+            {frame.heart && <PixelGrid className="yumpals-heart" palette={{ a: '#d94878' }} pixels={YUMPALS_HEART_PIXELS} />}
+            {frame.sleepMark && <span className="yumpals-sleep-mark" aria-hidden="true">{frame.sleepMark}</span>}
         </div>
     );
 }
@@ -54,7 +71,7 @@ function ActionButton({ action, active, disabled, onClick }) {
             onClick={onClick}
             type="button"
         >
-            <span aria-hidden="true">{action.icon}</span> {action.label}
+            {action.label}
         </button>
     );
 }
@@ -68,7 +85,9 @@ export function YumPalsView({ demoMode = false, state: cloudState, loading = fal
     const [focusIndex, setFocusIndex] = useState(0);
     const [pending, setPending] = useState(null);
     const [notice, setNotice] = useState(null);
-    const [actionFx, setActionFx] = useState(null);
+    const [napActive, setNapActive] = useState(false);
+    const [spriteAnimation, setSpriteAnimation] = useState(() => createYumPalsAnimationState());
+    const noticeTimerRef = useRef(null);
     const [adoption, setAdoption] = useState({ species: 'mossbit', name: '', color: '#d94878', casing: 'berry' });
     const [profileDraft, setProfileDraft] = useState(null);
     const [teacherDraft, setTeacherDraft] = useState(null);
@@ -82,6 +101,7 @@ export function YumPalsView({ demoMode = false, state: cloudState, loading = fal
     );
     const today = state?.today;
     const selectedAction = ACTIONS[focusIndex] || ACTIONS[0];
+    const animationBusy = !['idle', 'sleep'].includes(spriteAnimation.type);
 
     const openSettings = (event) => {
         settingsOpenerRef.current = event.currentTarget;
@@ -112,6 +132,25 @@ export function YumPalsView({ demoMode = false, state: cloudState, loading = fal
     }, [pet?.name, pet?.color, pet?.casing, pet?.reducedMotion]);
 
     useEffect(() => {
+        setNapActive(false);
+        setSpriteAnimation((current) => startYumPalsAnimation(current, 'idle', pet?.reducedMotion === true));
+    }, [pet?.species, pet?.reducedMotion]);
+
+    useEffect(() => {
+        const sequence = getYumPalsAnimationSequence(spriteAnimation.type, spriteAnimation.reducedMotion);
+        if (spriteAnimation.reducedMotion && ['idle', 'sleep'].includes(spriteAnimation.type)) return undefined;
+        const frame = sequence[Math.min(spriteAnimation.index, sequence.length - 1)];
+        const timer = window.setTimeout(() => {
+            setSpriteAnimation((current) => current.token === spriteAnimation.token ? advanceYumPalsAnimation(current) : current);
+        }, frame.duration);
+        return () => window.clearTimeout(timer);
+    }, [spriteAnimation]);
+
+    useEffect(() => () => {
+        if (noticeTimerRef.current) window.clearTimeout(noticeTimerRef.current);
+    }, []);
+
+    useEffect(() => {
         setTeacherDraft({
             enabled: settings.enabled === true,
             holidayRest: settings.holidayRest !== false,
@@ -121,8 +160,9 @@ export function YumPalsView({ demoMode = false, state: cloudState, loading = fal
     }, [settings.enabled, settings.holidayRest, settings.growthSpeed, settings.holidayDates?.join(',')]);
 
     const showNotice = (message, type = 'success') => {
+        if (noticeTimerRef.current) window.clearTimeout(noticeTimerRef.current);
         setNotice({ message, type });
-        window.setTimeout(() => setNotice(null), 3500);
+        noticeTimerRef.current = window.setTimeout(() => setNotice(null), 3500);
     };
 
     const performCloud = async (callableName, data) => {
@@ -147,13 +187,12 @@ export function YumPalsView({ demoMode = false, state: cloudState, loading = fal
     };
 
     const performCare = async (action) => {
-        if (pending || !pet || !today?.eligible || today[action]) return;
+        if (pending || animationBusy || napActive || !pet || !today?.eligible || today[action]) return;
         setPending(action);
         try {
             if (demoMode) {
                 const result = demoCare(demoState, action, dateForDemo(demoDateKey));
                 if (result.code !== 'OK') {
-                    setActionFx('rest');
                     throw new Error(result.code === 'DUPLICATE' ? 'That care action is already complete today.' : result.code === 'DISABLED' ? 'YumPals is paused by the teacher.' : 'This is a rest day.');
                 }
                 setDemoState(result.state);
@@ -163,7 +202,6 @@ export function YumPalsView({ demoMode = false, state: cloudState, loading = fal
                     operationId: `${today.dateKey}_${action}_${Date.now()}`,
                 });
                 if (result.response.blockedReason) {
-                    setActionFx('rest');
                     showNotice(result.response.blockedReason === 'HOLIDAY' ? 'Holiday rest day — progress is safe.' : 'Weekend rest day — progress is safe.');
                     return;
                 }
@@ -172,13 +210,22 @@ export function YumPalsView({ demoMode = false, state: cloudState, loading = fal
                     return;
                 }
             }
-            setActionFx(action);
+            setNapActive(false);
+            setSpriteAnimation((current) => startYumPalsAnimation(current, action, pet.reducedMotion === true));
             showNotice(action === 'feed' ? 'Snack delivered!' : 'Pat received!');
         } catch (actionError) {
             showNotice(readableError(actionError), 'error');
         } finally {
             setPending(null);
         }
+    };
+
+    const toggleNap = () => {
+        if (pending || animationBusy) return;
+        const nextNapActive = !napActive;
+        setNapActive(nextNapActive);
+        setSpriteAnimation((current) => startYumPalsAnimation(current, nextNapActive ? 'sleep' : 'wake', pet?.reducedMotion === true));
+        showNotice(nextNapActive ? 'Cosmetic nap started; care progress is unchanged.' : 'Woke up; care progress is unchanged.');
     };
 
     const activateSelected = (event) => {
@@ -302,8 +349,13 @@ export function YumPalsView({ demoMode = false, state: cloudState, loading = fal
         ? !pet ? `${growth.next.at} to ${growth.next.label}` : growth.next.at <= pet.careDays ? 'Ready on next care' : `${growth.next.at - pet.careDays} to ${growth.next.label}`
         : 'Fully grown!';
     const rewardTheme = growth.completed.includes('grown') ? 'grown' : growth.completed.includes('junior') ? 'junior' : growth.completed.includes('accessory') ? 'accessory' : 'starter';
-    const visibleActionFx = !today?.eligible ? 'rest' : actionFx;
-    const actionLabel = visibleActionFx === 'feed' ? 'NOM NOM!' : visibleActionFx === 'pat' ? 'PURR!' : visibleActionFx === 'rest' ? 'REST' : null;
+    const actionLabel = spriteAnimation.type === 'feed'
+        ? 'FEEDING'
+        : spriteAnimation.type === 'pat'
+            ? 'HAPPY'
+            : spriteAnimation.type === 'sleep'
+                ? 'NAP'
+                : spriteAnimation.type === 'wake' ? 'WAKE' : null;
 
     return (
         <section className="yumpals-page" aria-label="YumPals virtual pet room">
@@ -339,28 +391,29 @@ export function YumPalsView({ demoMode = false, state: cloudState, loading = fal
                             <div className="yumpals-screen-frame">
                                 <div className={`yumpals-screen theme-${rewardTheme}`}>
                                 <div className="yumpals-room">
-                                    <div className="yumpals-room-top"><span>{pet.name} · {growth.stage}</span><div className="yumpals-room-icons"><span className={`yumpals-status-icon ${today?.feed ? 'done' : ''}`} title={today?.feed ? 'Fed today' : 'Feed still available'}>🍎</span><span className={`yumpals-status-icon ${today?.pat ? 'done' : ''}`} title={today?.pat ? 'Patted today' : 'Pat still available'}>✋</span></div></div>
-                                    <div className={`yumpals-pet-stage ${visibleActionFx ? `action-${visibleActionFx}` : ''}`}>
+                                    <div className="yumpals-room-top"><span>{pet.name} · {growth.stage}</span><div className="yumpals-room-icons"><span className={`yumpals-status-icon feed ${today?.feed ? 'done' : ''}`} title={today?.feed ? 'Fed today' : 'Feed still available'} aria-label={today?.feed ? 'Fed today' : 'Feed still available'} /><span className={`yumpals-status-icon pat ${today?.pat ? 'done' : ''}`} title={today?.pat ? 'Patted today' : 'Pat still available'} aria-label={today?.pat ? 'Patted today' : 'Pat still available'} /></div></div>
+                                    <div className={`yumpals-pet-stage ${spriteAnimation.type ? `action-${spriteAnimation.type}` : ''}`}>
                                         {actionLabel && <div className="yumpals-mood" aria-live="polite">{actionLabel}</div>}
                                         <div className="yumpals-reward-badges" aria-label="Earned pet rewards">
-                                            {growth.completed.includes('accessory') && <span title="Accessory unlocked">🎀</span>}
-                                            {growth.completed.includes('junior') && <span title="Toy unlocked">🧸</span>}
-                                            {growth.completed.includes('grown') && <span title="Room theme unlocked">🌟</span>}
+                                            {growth.completed.includes('accessory') && <span className="badge-accessory" title="Accessory unlocked">A</span>}
+                                            {growth.completed.includes('junior') && <span className="badge-junior" title="Toy unlocked">T</span>}
+                                            {growth.completed.includes('grown') && <span className="badge-grown" title="Room theme unlocked">G</span>}
                                         </div>
-                                        <YumPalsSprite color={pet.color} reducedMotion={pet.reducedMotion} species={pet.species} />
+                                        <YumPalsSprite animation={spriteAnimation.type} color={pet.color} frameIndex={spriteAnimation.index} reducedMotion={pet.reducedMotion} species={pet.species} />
                                     </div>
                                     <div className="yumpals-room-bottom"><span>{pet.careDays} care day{pet.careDays === 1 ? '' : 's'}</span><span>{nextMilestoneText}</span></div>
                                 </div>
                                 </div>
                             </div>
                             <div className="yumpals-action-grid">
-                                {ACTIONS.map((action, index) => <ActionButton action={action} active={index === focusIndex} disabled={action.id !== 'settings' && (!settings.enabled || pending || !today?.eligible || today[action.id])} key={action.id} onClick={(event) => { setFocusIndex(index); action.id === 'settings' ? openSettings(event) : performCare(action.id); }} />)}
+                                {ACTIONS.map((action, index) => <ActionButton action={action} active={index === focusIndex} disabled={action.id !== 'settings' && (!settings.enabled || pending || animationBusy || napActive || !today?.eligible || today[action.id])} key={action.id} onClick={(event) => { setFocusIndex(index); action.id === 'settings' ? openSettings(event) : performCare(action.id); }} />)}
                             </div>
+                            <div className="yumpals-cosmetic-row"><button aria-pressed={napActive} className="yumpals-cosmetic-button" disabled={pending || animationBusy} onClick={toggleNap} type="button"><span aria-hidden="true" className="yumpals-cosmetic-mark" />{napActive ? 'Wake' : 'Nap'} <small>cosmetic rest</small></button></div>
                             {!today?.eligible && <div className="yumpals-rest">{today.reason === 'HOLIDAY' ? 'Holiday rest day — no catch-up debt.' : 'Weekend rest day — your progress is safe.'}</div>}
                             <div className="yumpals-hardware" aria-label="YumPals hardware controls">
-                                <button aria-label="Cycle selection left" className="yumpals-hardware-button" onClick={() => setFocusIndex((current) => (current + ACTIONS.length - 1) % ACTIONS.length)} type="button"><span aria-hidden="true">◀</span><span>Cycle</span></button>
-                                <button aria-label="Select highlighted action" className="yumpals-hardware-button select" onClick={activateSelected} type="button"><span aria-hidden="true">●</span><span>Select</span></button>
-                                <button aria-label="Go back" className="yumpals-hardware-button" onClick={() => { if (screen === 'settings') setScreen('room'); else if (onExit) onExit(); }} type="button"><span aria-hidden="true">✕</span><span>Back</span></button>
+                                <button aria-label="Cycle selection left" className="yumpals-hardware-button" onClick={() => setFocusIndex((current) => (current + ACTIONS.length - 1) % ACTIONS.length)} type="button"><span aria-hidden="true" className="yumpals-hardware-mark cycle" /><span>Cycle</span></button>
+                                <button aria-label="Select highlighted action" className="yumpals-hardware-button select" onClick={activateSelected} type="button"><span aria-hidden="true" className="yumpals-hardware-mark select" /><span>Select</span></button>
+                                <button aria-label="Go back" className="yumpals-hardware-button" onClick={() => { if (screen === 'settings') setScreen('room'); else if (onExit) onExit(); }} type="button"><span aria-hidden="true" className="yumpals-hardware-mark back" /><span>Back</span></button>
                             </div>
                         </div>
                     </div>
