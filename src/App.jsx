@@ -11,6 +11,7 @@ import {
 } from 'firebase/auth';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getBankBalance, resolveBankBalance } from './bankBalance';
+import { assertWalletSession, readWalletMirrors, reconcileLegacyWallet, walletBalanceAfterDebit, walletErrorMessage } from './walletCompatibility.js';
 import { accountEmailCandidatesForName, accountEmailForName } from './authIdentity';
 import YumPalsView from './yumpals/YumPalsView';
 import YumPalsHandheldDemo from './yumpals/YumPalsHandheldDemo';
@@ -1981,33 +1982,21 @@ function YumDonutDashboard() {
     }, []);
 
     // === REAL-TIME WALLET SYNC ===
-    // Listen to the user's PUBLIC profile and sync balance changes to private wallet
+    // Legacy-only reconciliation reads CURRENT mirrors, never a captured event balance.
     useEffect(() => {
-        if (!user || !myProfile?.name) return;
+        if (!user?.uid || !myProfile?.name || isSandbox) return;
+
+        const uid = user.uid;
+        let cancelled = false;
+        const isActive = () => !cancelled && auth.currentUser?.uid === uid && !auth.currentUser?.isAnonymous;
 
         const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
         const privateRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
 
-        const unsubSync = onSnapshot(publicRef, async (publicSnap) => {
-            if (!publicSnap.exists()) return;
-
-            const publicBalance = getDonutBalance(publicSnap.data().balance, null);
-            if (publicBalance === null) {
-                console.warn(`[WALLET SYNC] ${myProfile.name} has an invalid public balance; leaving it untouched for repair.`);
-                return;
-            }
-
-            // Read ACTUAL private balance from Firestore (not stale state)
+        const unsubSync = onSnapshot(publicRef, async () => {
+            if (!isActive()) return;
             try {
-                const privateSnap = await getDoc(privateRef);
-                const privateBalance = privateSnap.exists()
-                    ? getDonutBalance(privateSnap.data().balance)
-                    : 0;
-
-                if (publicBalance !== privateBalance) {
-                    console.log(`[WALLET SYNC] ${myProfile.name}: ${privateBalance} -> ${publicBalance}`);
-                    await updateDoc(privateRef, { balance: publicBalance });
-                }
+                await runTransaction(db, (transaction) => reconcileLegacyWallet(transaction, { publicRef, privateRef, uid, isActive }));
             } catch (syncError) {
                 console.warn("Wallet sync failed:", syncError);
             }
@@ -2015,8 +2004,8 @@ function YumDonutDashboard() {
             console.warn("Public profile listener error:", error);
         });
 
-        return () => unsubSync();
-    }, [user, myProfile?.name]);
+        return () => { cancelled = true; unsubSync(); };
+    }, [user?.uid, myProfile?.name, isSandbox]);
 
     // --- DAILY SHOP LIMITS ---
     useEffect(() => {
@@ -2781,6 +2770,7 @@ function YumDonutDashboard() {
     };
 
     const handleContributeToGoal = async (amount = 1) => {
+        if (isSandbox) { showNotification('Preview only — no donuts spent or goal changed.'); return; }
         const availableBalance = getDonutBalance(myProfile?.balance, null);
         if (!myProfile || availableBalance === null) {
             showNotification("Your donut balance needs repair before you can contribute.", "error");
@@ -2793,19 +2783,21 @@ function YumDonutDashboard() {
         try {
             const publicUserRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
             const goalRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'goals', 'active_goal');
+            const uid = user?.uid;
+            const isActive = () => Boolean(uid && auth.currentUser?.uid === uid && !auth.currentUser?.isAnonymous);
+            assertWalletSession(isActive);
+            const privateUserRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data');
             await runTransaction(db, async (transaction) => {
-                const userDoc = await transaction.get(publicUserRef);
+                const wallet = await readWalletMirrors(transaction, { publicRef: publicUserRef, privateRef: privateUserRef, uid, isActive });
                 const goalDoc = await transaction.get(goalRef);
-                if (!userDoc.exists()) throw "User missing";
-                const currentBalance = getDonutBalance(userDoc.data().balance, null);
-                if (currentBalance === null) throw "CORRUPT_BALANCE";
-                const newBalance = currentBalance - amount;
-                if (newBalance < 0) throw "Not enough donuts!";
+                const newBalance = walletBalanceAfterDebit(wallet.balance, amount);
 
                 const goalCurrent = (goalDoc.data()?.current || 0) + amount;
                 const contributors = goalDoc.data()?.contributors || {};
                 const myContribution = (contributors[myProfile.name] || 0) + amount;
 
+                assertWalletSession(isActive);
+                transaction.update(privateUserRef, { balance: newBalance });
                 transaction.update(publicUserRef, {
                     balance: newBalance,
                     lifetime_given: increment(amount)
@@ -2817,15 +2809,11 @@ function YumDonutDashboard() {
                 const txRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
                 transaction.set(txRef, { fromName: myProfile.name, toName: goalDoc.data()?.title || "Team Goal", message: `Contributed ${amount} donut${amount > 1 ? 's' : ''} to the goal!`, timestamp: serverTimestamp(), emoji: "🚀", likes: [], amount: amount });
             });
-            const privateUserRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
-            await updateDoc(privateUserRef, { balance: myProfile.balance - amount });
             showNotification(`Contributed ${amount} donut${amount > 1 ? 's' : ''}!`);
             triggerConfetti();
         } catch (e) {
             console.error(e);
-            showNotification(e === "CORRUPT_BALANCE"
-                ? "Your donut balance needs repair before you can contribute."
-                : "Contribution failed.", "error");
+            showNotification(walletErrorMessage(e) || "Contribution failed.", "error");
         }
     };
 
@@ -2917,6 +2905,7 @@ function YumDonutDashboard() {
     };
 
     const handlePurchase = async (item) => {
+        if (isSandbox) { showNotification('Preview only — no donuts spent or item bought.'); return; }
         const availableBalance = getDonutBalance(myProfile?.balance, null);
         if (!myProfile || availableBalance === null) {
             showNotification("Your donut balance needs repair before you can shop.", "error");
@@ -2947,9 +2936,16 @@ function YumDonutDashboard() {
         }
         try {
             const publicUserRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
+            const uid = user?.uid;
+            const isActive = () => Boolean(uid && auth.currentUser?.uid === uid && !auth.currentUser?.isAnonymous);
+            assertWalletSession(isActive);
+            const privateUserRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data');
             await runTransaction(db, async (transaction) => {
+                const wallet = await readWalletMirrors(transaction, { publicRef: publicUserRef, privateRef: privateUserRef, uid, isActive });
                 const userDoc = await transaction.get(publicUserRef);
                 if (!userDoc.exists()) throw "User missing";
+                const digitalField = { rainbow_name: 'rainbow_name', gold_border: 'gold_border', neon_name: 'neon_name', verified_badge: 'verified_badge' }[item.id];
+                if (item.type === 'digital' && digitalField && userDoc.data()[digitalField]) throw new Error('ALREADY_OWNED');
 
                 const todayKey = getLocalDateKey();
                 const dailyLimit = normaliseDailyLimit(item.dailyLimit);
@@ -2977,9 +2973,7 @@ function YumDonutDashboard() {
                     raffleDoc = await transaction.get(raffleRef);
                 }
 
-                const currentBal = getDonutBalance(userDoc.data().balance, null);
-                if (currentBal === null) throw "CORRUPT_BALANCE";
-                if (currentBal < item.cost) throw "Not enough funds";
+                const newBalance = walletBalanceAfterDebit(wallet.balance, item.cost);
 
                 const purchasedToday = dailyPurchaseDoc?.exists() ? (Number(dailyPurchaseDoc.data().count) || 0) : 0;
                 if (hasDailyLimit && purchasedToday >= dailyLimit) {
@@ -2987,7 +2981,8 @@ function YumDonutDashboard() {
                 }
 
                 // --- WRITES START HERE ---
-                const updates = { balance: currentBal - item.cost };
+                assertWalletSession(isActive);
+                const updates = { balance: newBalance };
                 if (item.type === 'digital') {
                     if (item.id === 'rainbow_name') updates.rainbow_name = true;
                     if (item.id === 'gold_border') updates.gold_border = true;
@@ -2995,6 +2990,7 @@ function YumDonutDashboard() {
                     if (item.id === 'verified_badge') updates.verified_badge = true;
                 }
                 transaction.update(publicUserRef, updates);
+                transaction.update(privateUserRef, { balance: newBalance });
 
                 // Handle Raffle Ticket Write
                 if (item.id === 'raffle_ticket') {
@@ -3027,23 +3023,22 @@ function YumDonutDashboard() {
                     likes: []
                 });
             });
-            const privateUserRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
-            await updateDoc(privateUserRef, { balance: myProfile.balance - item.cost });
             showNotification(`Bought ${item.name}!`);
             triggerConfetti();
         } catch (e) {
             console.error(e);
             if (e?.message === "DAILY_SHOP_LIMIT") {
                 showNotification(`Daily limit reached for ${item.name}.`, "error");
-            } else if (e === "CORRUPT_BALANCE") {
-                showNotification("Your donut balance needs repair before you can shop.", "error");
+            } else if (e?.message === "ALREADY_OWNED") {
+                showNotification("Already owned!", "error");
             } else {
-                showNotification("Purchase failed.", "error");
+                showNotification(walletErrorMessage(e) || "Purchase failed.", "error");
             }
         }
     };
 
     const handlePurchaseSponsorship = async (slot) => {
+        if (isSandbox) { showNotification('Preview only — no donuts spent or sponsorship bought.'); return; }
         const availableBalance = getDonutBalance(myProfile?.balance, null);
         if (!myProfile || availableBalance === null) {
             showNotification("Your donut balance needs repair before you can sponsor.", "error");
@@ -3062,22 +3057,23 @@ function YumDonutDashboard() {
             const publicUserRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
             const sponsorshipRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'sponsorships', slot.id);
             const expiresAt = Timestamp.fromMillis(Date.now() + slot.durationDays * 24 * 60 * 60 * 1000);
+            const uid = user?.uid;
+            const isActive = () => Boolean(uid && auth.currentUser?.uid === uid && !auth.currentUser?.isAnonymous);
+            assertWalletSession(isActive);
+            const privateUserRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data');
 
             await runTransaction(db, async (transaction) => {
-                const userDoc = await transaction.get(publicUserRef);
+                const wallet = await readWalletMirrors(transaction, { publicRef: publicUserRef, privateRef: privateUserRef, uid, isActive });
                 const sponsorshipDoc = await transaction.get(sponsorshipRef);
-
-                if (!userDoc.exists()) throw "User missing";
-
-                const currentBal = getDonutBalance(userDoc.data().balance, null);
-                if (currentBal === null) throw "CORRUPT_BALANCE";
-                if (currentBal < slot.cost) throw "Not enough funds";
+                const newBalance = walletBalanceAfterDebit(wallet.balance, slot.cost);
 
                 if (sponsorshipDoc.exists() && getTimestampMillis(sponsorshipDoc.data().expiresAt) > Date.now()) {
                     throw new Error("SPONSORSHIP_ACTIVE");
                 }
 
-                transaction.update(publicUserRef, { balance: currentBal - slot.cost });
+                assertWalletSession(isActive);
+                transaction.update(publicUserRef, { balance: newBalance });
+                transaction.update(privateUserRef, { balance: newBalance });
                 transaction.set(sponsorshipRef, {
                     slotId: slot.id,
                     slotTitle: slot.title,
@@ -3101,18 +3097,14 @@ function YumDonutDashboard() {
                 });
             });
 
-            const privateUserRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
-            await updateDoc(privateUserRef, { balance: myProfile.balance - slot.cost });
             showNotification(`${slot.sectionLabel} sponsored!`);
             triggerConfetti();
         } catch (e) {
             console.error(e);
             if (e?.message === "SPONSORSHIP_ACTIVE") {
                 showNotification("That sponsorship is already active.", "error");
-            } else if (e === "CORRUPT_BALANCE") {
-                showNotification("Your donut balance needs repair before you can sponsor.", "error");
             } else {
-                showNotification("Sponsorship failed.", "error");
+                showNotification(walletErrorMessage(e) || "Sponsorship failed.", "error");
             }
         }
     };

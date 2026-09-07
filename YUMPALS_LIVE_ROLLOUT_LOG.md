@@ -19,6 +19,18 @@ Read previous YUMPALS_PRODUCTION_INTEGRATION_LOG.md and YUMPALS_CHANGE_LOG.md be
 - Independent results: adapter9/9 passed279.385917ms; full backend57/57 runner entries (56 test cases plus fixture load) passed266.370375ms; backend lint exit0. Frontend33/33 passed; root lint exit0; build810ms,1697modules, same JS840.05kB and CSS78.53kB as baseline. Existing browser-data and large-chunk warnings remain.
 - These are synthetic optimistic-transaction checks, not deployed Firestore verification. No live wiring, production writes, database rules changes or deployment. Shared writers, audited ownership bootstrap and release gates below remain incomplete.
 
+## LR-002 — Legacy balance synchronization and spending compatibility — ACCEPTED locally, not deployed
+
+- Baseline8fec897. Luna assigned current-value transactional sync with account/cancellation guards and atomic private/public debits for goal, shop and sponsorship. Preserve existing costs, benefits, counters and receipts.
+- Legacy linkage checks are compatibility checks, not trusted financial authorisation. Protected owner accounts must reject balance mismatch rather than automatically reconcile. This does not replace server-owned mapping or database rules.
+- No production writes or deployment. Acceptance and measured results pending independent review.
+- Implemented in src/App.jsx with new src/walletCompatibility.js and src/walletCompatibility.test.js. Sync rereads both records in a transaction, never accepts a captured event balance, and guards cancellation/current authenticated UID. Missing/corrupt ownership or balances are not replaced with zero. Protected-owner mismatches refuse reconciliation. Legacy public-authoritative reconciliation remains explicitly transitional.
+- Goal, shop and sponsorship now read both mirrors before writes and debit both in their existing benefit/receipt transaction. Removed all three stale post-transaction private writes. Sandbox returns without mutation. Digital shop ownership is rechecked transactionally. Costs, existing Given semantics, benefit fields and receipt amounts retained; account/session/funds failures have plain-language messages.
+- Interim verification:40/40 tests passed188.51775ms, but lint rejected an unused walletErrorMessage test import, so build was not run. This incomplete candidate was NOT accepted. Completed error-copy and actual-handler regression tests use the import; no lint suppression applied.
+- Independent completed verification:43/43 frontend tests passed147.018625ms; root lint exit0; build1.09s,1698modules, JS841.65kB/248.09gzip and CSS78.53kB/14.61gzip. Backend57/57 entries (56 cases plus fixture load) passed383.99525ms; backend lint exit0. Existing browser-data/chunk warnings remain.
+- Tests force sync/debit overlap with a barrier and assert retry; execute extracted actual goal/shop/sponsorship handlers with synthetic transaction dependencies to verify receipts, benefits, preserved fields, second-write rollback, sandbox, wrong UID, missing mirrors, conflicts and insufficient funds. These are not real browser/emulator or production tests.
+- Checkpoint checkpoint-before-yumpals-shared-writers-2026-09-08 preserves8fec897. Remaining writer/server/rules rollout is still required; legacy client linkage remains writable and does not authorise paid pet launch.
+
 ## Remaining rollout gates
 
 - Coordinate every legacy wallet writer and stale mirror listener before charges.
