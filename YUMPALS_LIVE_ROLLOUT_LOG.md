@@ -30,6 +30,7 @@ Read previous YUMPALS_PRODUCTION_INTEGRATION_LOG.md and YUMPALS_CHANGE_LOG.md be
 - Independent completed verification:43/43 frontend tests passed147.018625ms; root lint exit0; build1.09s,1698modules, JS841.65kB/248.09gzip and CSS78.53kB/14.61gzip. Backend57/57 entries (56 cases plus fixture load) passed383.99525ms; backend lint exit0. Existing browser-data/chunk warnings remain.
 - Tests force sync/debit overlap with a barrier and assert retry; execute extracted actual goal/shop/sponsorship handlers with synthetic transaction dependencies to verify receipts, benefits, preserved fields, second-write rollback, sandbox, wrong UID, missing mirrors, conflicts and insufficient funds. These are not real browser/emulator or production tests.
 - Checkpoint checkpoint-before-yumpals-shared-writers-2026-09-08 preserves8fec897. Remaining writer/server/rules rollout is still required; legacy client linkage remains writable and does not authorise paid pet launch.
+- Final test additions independently reviewed after Luna stopped: forced concurrent actual-handler purchases/contributions and auth switch after extra benefit reads. Final45/45 frontend tests passed167.759958ms; lint exit0. These supersede the earlier43-case count; application code/build unchanged.
 
 ## Remaining rollout gates
 
