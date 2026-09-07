@@ -1,5 +1,16 @@
 # Paid-care foundation: internal implementation, not deployed
 
+LR010 adds internal teacher controls and permanent legacy-route cutover; see
+TEACHER_CONTROLS.md for the injected API, audit/replay semantics, deployment
+ordering and separate pause-history compatibility. No live endpoints or UI are
+wired. Parent LR010 emulator passed 17 groups in 11258ms, exit0, with
+OWNERSHIP_EMULATOR_CLEANUP_PASS. Logs:
+`/var/folders/2d/gft75_193hj9vpjv06mb63qh0000gq/T/yumpals-ownership-verification-mTbUj2`.
+Internal request auth is injected synthetic context and deny-all fixture rules
+are not production security evidence. Disabled reads are permitted without pet
+state writes; charges are blocked. Local backend 98/98 entries (97 tests plus
+fixture load) passed in 260.547166ms, including the older-pet regression.
+
 LR009 numeric compatibility: existing finite wallet balances from zero through
 Number.MAX_SAFE_INTEGER may contain fractions. Prices, caps, needs and counters
 remain integer-only. Service and adapter share exact bounded debit validation;
@@ -83,9 +94,10 @@ Calculations are bounded by configured history/interval limits, not missed days.
 
 Disabled reads return the validated pet unchanged, with no checkpoint write;
 disabled purchases fail. **Before re-enabling, the administrative layer must
-record the disabled interval as paused calendar history.** Simply changing
+record the disabled interval as control pause history.** Simply changing
 `enabled` back to true without that history permits catch-up and violates the
-activation contract. No enable/disable endpoint is supplied in this slice.
+activation contract. The internal teacher service implements inclusive off/on
+dates without changing the base-calendar hash; no live endpoint is supplied.
 Mid-day pauses and retroactive absence corrections need a separately reviewed
 calendar policy; this foundation operates on whole date labels.
 
@@ -106,9 +118,10 @@ and guarantees its happiness at purchase; other care/reads do not discard it.
 - No automatic attention schedule, paid growth-award policy, configurable
   decline/sleep-hour policy, receipt-fetch endpoint, refund endpoint, or public
   activity write. Existing progress is preserved, not advanced by this engine.
-- No legacy free-callable version gate. Keeping the legacy outer schema is for
-  preservation only; old endpoints MUST reject migrated pets before any release.
-- No config/calendar admin API, retroactive history repair or live migration run.
+- Old handlers now refuse paid pets and permanent cutover markers locally; those
+  guards and protected rules must be deployed before any live cutover.
+- Internal enabled-only settings control exists; no live settings endpoint,
+  editable base-calendar API, retroactive repair or live migration run exists.
 - Production receipt privacy, public spending classification, old-client write
   rejection, shared-wallet concurrency, and cloud-stage authorization remain gates.
 

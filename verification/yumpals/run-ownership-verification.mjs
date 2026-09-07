@@ -76,7 +76,9 @@ async function verify() {
   const { createOwnershipBootstrap, snapshotFingerprint, manifestFingerprint } = require('./src/yumpals/ownershipBootstrap');
   const { createUidWalletAdapter } = require('./src/yumpals/uidWalletAdapter');
   const { createPaidCareService } = require('./src/yumpals/paidCareService');
-  const { defaultConfig } = require('./src/yumpals/paidCareEngine');
+  const { createTeacherSettingsService } = require('./src/yumpals/teacherSettingsService');
+  const { createYumPalsHandlers } = require('./src/yumpals/callables');
+  const { yumPalsSettingsDoc } = require('./src/yumpals/paths');
   // Recheck immediately before SDK initialization. No ADC or real service account:
   // this ephemeral certificate exists only in memory and is never logged/saved.
   guard();
@@ -169,13 +171,36 @@ async function verify() {
     }
     assert.deepEqual((await refs.audit('initial').get()).data(), auditBefore);
     assert.equal((await service.apply('initial')).duplicate, true); pass('real adapter atomic mirror debit preserves audit and replay');
-    const careRefs = { config: (uid) => db.doc(`ownershipFixture/main/careConfigs/${uid}`),
+    const careRefs = { config: () => db.doc('ownershipFixture/main/careConfigs/global'),
       pet: (uid) => db.doc(`ownershipFixture/main/pets/${uid}`),
       receipt: (uid, id) => db.doc(`ownershipFixture/main/paidReceipts/${uid}_${id}`),
       migration: (uid) => db.doc(`ownershipFixture/main/migrations/${uid}`) };
-    const config = { ...defaultConfig('2026-01-01'), enabled: true };
-    await careRefs.config('synthetic-b').set(config);
-    const careOptions = { refs: careRefs, walletAdapter: adapter, now: () => Date.parse('2026-09-07T00:00:00Z') };
+    let controlNow = Date.parse('2026-09-07T00:00:00Z');
+    const controlRefs = { settings: careRefs.config, legacySettings: () => yumPalsSettingsDoc(db),
+      receipt: (uid, id) => db.doc(`ownershipFixture/main/controlReceipts/${uid}_${id}`) };
+    const legacySettings = { enabled: true, opaque, custom: ['preserve'] };
+    await controlRefs.legacySettings().set(legacySettings);
+    // Synthetic internal teacher claim, not deployed callable verification.
+    const teacherAuth = { uid: 'synthetic-a', token: { yumpalsAdmin: true, firebase: { sign_in_provider: 'password' } } };
+    const controls = createTeacherSettingsService({ db, refs: controlRefs, now: () => controlNow });
+    const initialControls = { auth: teacherAuth, data: { operationId: 'initial', expectedVersion: null, expectedSettingsHash: null, enabled: true } };
+    const abortControlsDb = { runTransaction: cb => db.runTransaction(async t => { await cb(t); throw new Error('SETTINGS_STAGED_ABORT'); }) };
+    await assert.rejects(createTeacherSettingsService({ db: abortControlsDb, refs: controlRefs, now: () => controlNow }).updateSettings(initialControls), /SETTINGS_STAGED_ABORT/);
+    assert.deepEqual((await controlRefs.legacySettings().get()).data(), legacySettings);
+    assert.equal((await careRefs.config().get()).exists, false);
+    assert.equal((await controlRefs.receipt('synthetic-a', 'initial').get()).exists, false);
+    pass('real initial settings cutover abort preserves legacy SDK fields and absent config/receipt');
+    await controls.updateSettings(initialControls);
+    const closedLegacy = (await controlRefs.legacySettings().get()).data();
+    assert.deepEqual(closedLegacy, { ...legacySettings, enabled: false, paidCareControl: { schemaVersion: 1, mode: 'paid', settingsPath: careRefs.config().path } });
+    class LocalHttpsError extends Error { constructor(code, message) { super(message); this.code = code; } }
+    const oldHandlers = createYumPalsHandlers({ db, FieldValue: admin.firestore.FieldValue, HttpsError: LocalHttpsError, now: () => controlNow });
+    await assert.rejects(oldHandlers.getState({ auth: teacherAuth, data: {} }), { code: 'failed-precondition' });
+    await assert.rejects(oldHandlers.adopt({ auth: teacherAuth, data: { name: 'Blocked', species: 'mossbit', casing: 'berry', color: '#d94878' } }), { code: 'failed-precondition' });
+    await assert.rejects(oldHandlers.updateSettings({ auth: teacherAuth, data: { enabled: true } }), { code: 'failed-precondition' });
+    assert.deepEqual((await controlRefs.legacySettings().get()).data(), closedLegacy);
+    pass('real permanent cutover marker preserves fields and old read/adopt/settings handlers refuse');
+    const careOptions = { refs: careRefs, walletAdapter: adapter, now: () => controlNow };
     const careService = createPaidCareService({ ...careOptions, db });
     const careAuth = { uid: 'synthetic-b', token: { firebase: { sign_in_provider: 'password' } } };
     const quote = await careService.getState({ auth: careAuth, data: {} });
@@ -207,6 +232,25 @@ async function verify() {
     for (const [index, ref] of fractionalRefs.entries()) assert.deepEqual((await ref.get()).data(), { ...fractionalBefore[index], balance: 25.5 });
     assert.deepEqual((await refs.audit('initial').get()).data(), auditBefore);
     pass('real fractional ownership-to-paid-service adoption and replay charge once, preserve savings/Given/SDK data');
+    const setEnabled = async (enabled, operationId) => {
+      const current = await controls.getSettings({ auth: teacherAuth, data: {} });
+      return controls.updateSettings({ auth: teacherAuth, data: { operationId, expectedVersion: current.version, expectedSettingsHash: current.settingsHash, enabled } });
+    };
+    await setEnabled(false, 'off');
+    controlNow = Date.parse('2026-09-14T00:00:00Z');
+    const disabledQuote = await careService.getState({ auth: careAuth, data: {} });
+    assert.deepEqual((await careRefs.pet('synthetic-b').get()).data(), petAfter);
+    await assert.rejects(careService.purchase({ auth: careAuth, data: { operationId: 'blocked', action: 'pat', expectedConfigVersion: disabledQuote.configVersion, expectedConfigHash: disabledQuote.configHash } }), { code: 'DISABLED' });
+    assert.equal((await careRefs.receipt('synthetic-b', 'blocked').get()).exists, false);
+    for (const [index, ref] of fractionalRefs.entries()) assert.deepEqual((await ref.get()).data(), { ...fractionalBefore[index], balance: 25.5 });
+    await setEnabled(true, 'on');
+    const awake = await careService.getState({ auth: careAuth, data: {} });
+    assert.deepEqual(awake.pet.paidCare.needs, petAfter.paidCare.needs);
+    assert.equal(awake.pet.paidCare.checkpoint, '2026-09-13'); assert.ok(awake.pet.paidCare.pauseHistoryHash);
+    assert.deepEqual((await controlRefs.legacySettings().get()).data(), closedLegacy);
+    assert.equal((await controls.updateSettings(initialControls)).duplicate, true);
+    assert.equal((await careService.purchase(purchase)).duplicate, true);
+    pass('real global settings disable blocks charges and pet-state writes on reads, inclusive resume prevents catchup; original receipts replay');
     await approve('drift', [['synthetic-a', 'record-a']]);
     await refs.publicProfile('record-a').update({ balance: 27 }); await refs.privateProfile('synthetic-a').update({ balance: 27 });
     assert.equal((await service.dryRun('drift')).ok, false); await assert.rejects(service.apply('drift')); pass('reviewed financial drift refuses without rewriting');

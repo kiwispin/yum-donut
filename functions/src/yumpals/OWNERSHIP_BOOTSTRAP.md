@@ -1,5 +1,16 @@
 # Reviewed ownership bootstrap — internal foundation only
 
+LR010 harness extension: teacher controls and paid care share one synthetic
+global config. Added checks cover initial marker/config/receipt abort, legacy
+SDK preservation and old-handler refusal, plus disabled read/charge protection
+and inclusive multi-date resume. Parent LR010 execution passed 17 groups in
+11258ms, exit0, with OWNERSHIP_EMULATOR_CLEANUP_PASS. Logs:
+`/var/folders/2d/gft75_193hj9vpjv06mb63qh0000gq/T/yumpals-ownership-verification-mTbUj2`.
+Internal synthetic auth is not callable token verification; deny-all rules are
+local fixture evidence only. Disabled reads are allowed without pet-state writes;
+charges are blocked. See TEACHER_CONTROLS.md. The guarded
+command and cleanup sentinel below are unchanged; do not run simultaneously.
+
 No live endpoint, paths, operator manifest, protected-source implementation or
 default authorizer is provided. Nothing here is exported by `functions/index.js`.
 

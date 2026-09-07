@@ -52,7 +52,35 @@ function validateConfig(config) {
     entry.holidays.forEach(dayNumber);
     for (const interval of entry.absences) requireValue(dayNumber(interval.from) <= dayNumber(interval.to), 'INVALID_CALENDAR');
   }
+  validatePauses(config);
   return config;
+}
+
+function validatePauses(config) {
+  if (!Object.hasOwn(config, 'pauses')) return;
+  requireValue(Array.isArray(config.pauses) && config.pauses.length <= 512, 'INVALID_PAUSES');
+  let previous = -Infinity;
+  config.pauses.forEach((interval, index) => {
+    requireValue(interval && Object.keys(interval).length === 2 && Object.hasOwn(interval, 'from') && Object.hasOwn(interval, 'to'), 'INVALID_PAUSES');
+    const from = dayNumber(interval.from);
+    const to = interval.to === null ? Infinity : dayNumber(interval.to);
+    requireValue(from > previous && to >= from && (to !== Infinity || (!config.enabled && index === config.pauses.length - 1)), 'INVALID_PAUSES');
+    previous = to;
+  });
+}
+
+function pauseIntervals(config, from, to) {
+  const merged = [];
+  if (to < from) return merged;
+  for (const interval of config.pauses || []) {
+    const a = Math.max(from, dayNumber(interval.from));
+    const b = Math.min(to, interval.to === null ? to : dayNumber(interval.to));
+    if (a > b) continue;
+    const last = merged[merged.length - 1];
+    if (last && a <= last[1] + 1) last[1] = Math.max(last[1], b);
+    else merged.push([a, b]);
+  }
+  return merged;
 }
 
 function defaultConfig(effectiveFrom, version = 'trial-v1') {
@@ -72,14 +100,14 @@ function weekdays(from, to) {
   return count;
 }
 
-function calendarSegments(config, from, to) {
+function calendarSegments(config, from, to, withControlPauses = false) {
   requireValue(dayNumber(config.calendar[0].effectiveFrom) <= from, 'CALENDAR_COVERAGE');
   if (to < from) return [];
   return config.calendar.flatMap((entry, index) => {
     const start = Math.max(from, dayNumber(entry.effectiveFrom));
     const end = Math.min(to, index + 1 < config.calendar.length ? dayNumber(config.calendar[index + 1].effectiveFrom) - 1 : to);
     if (start > end) return [];
-    const intervals = [...entry.holidays.map((date) => [dayNumber(date), dayNumber(date)]), ...entry.absences.map(({ from: a, to: b }) => [dayNumber(a), dayNumber(b)])]
+    const intervals = [...entry.holidays.map((date) => [dayNumber(date), dayNumber(date)]), ...entry.absences.map(({ from: a, to: b }) => [dayNumber(a), dayNumber(b)]), ...(withControlPauses ? pauseIntervals(config, start, end) : [])]
       .map(([a, b]) => [Math.max(start, a), Math.min(end, b)]).filter(([a, b]) => a <= b).sort((a, b) => a[0] - b[0]);
     const merged = [];
     for (const interval of intervals) {
@@ -92,7 +120,7 @@ function calendarSegments(config, from, to) {
 }
 function historyHash(config, start, through) { return digest(calendarSegments(config, dayNumber(start), dayNumber(through))); }
 function eligibleCount(config, from, to) {
-  return calendarSegments(config, from, to).reduce((sum, part) => sum + (part.paused ? 0 : weekdays(part.start, part.end) - part.frozen.reduce((n, [a, b]) => n + weekdays(a, b), 0)), 0);
+  return calendarSegments(config, from, to, true).reduce((sum, part) => sum + (part.paused ? 0 : weekdays(part.start, part.end) - part.frozen.reduce((n, [a, b]) => n + weekdays(a, b), 0)), 0);
 }
 
 function validatePet(pet, uid) {
@@ -102,6 +130,7 @@ function validatePet(pet, uid) {
   requireValue(Object.keys(FULL).every((key) => integer(state.needs?.[key], 0, 4)));
   requireValue(typeof state.attention === 'boolean' && dayNumber(state.checkpoint) >= dayNumber(state.startedDate));
   requireValue(typeof state.historyHash === 'string' && /^[a-f0-9]{64}$/u.test(state.historyHash));
+  if (Object.hasOwn(state, 'pauseHistoryHash')) requireValue(typeof state.pauseHistoryHash === 'string' && /^[a-f0-9]{64}$/u.test(state.pauseHistoryHash), 'PAUSE_HISTORY_CHANGED');
   requireValue(state.sleepDate === null || dayNumber(state.sleepDate) <= dayNumber(state.daily?.date));
   requireValue(state.game === null || (typeof state.game.id === 'string' && /^[A-Za-z0-9_-]{1,80}$/u.test(state.game.id) && integer(state.game.benefit, 1, 4) && state.game.round === 0));
   requireValue(state.daily && integer(state.daily.spent) && dayNumber(state.daily.date) >= dayNumber(state.checkpoint));
@@ -125,6 +154,8 @@ function advancePet(pet, uid, config, nowMs) {
   const { date } = aucklandNow(nowMs);
   requireValue(dayNumber(date) >= dayNumber(state.daily.date), 'CLOCK_REVERSED');
   requireValue(state.historyHash === historyHash(config, state.startedDate, state.checkpoint), 'CALENDAR_HISTORY_CHANGED');
+  const processedPauses = pauseIntervals(config, dayNumber(state.startedDate) + 1, dayNumber(state.checkpoint));
+  requireValue(Object.hasOwn(state, 'pauseHistoryHash') ? state.pauseHistoryHash === digest(processedPauses) : processedPauses.length === 0, 'PAUSE_HISTORY_CHANGED');
   // No silent checkpoint movement while disabled. Activation MUST include pause
   // history for the disabled interval before enabled becomes true again.
   if (!config.enabled) return pet;
@@ -134,7 +165,9 @@ function advancePet(pet, uid, config, nowMs) {
   needs.health = Math.max(0, needs.health - Math.max(0, elapsed - Math.min(needs.hunger, needs.cleanliness)));
   for (const key of ['hunger', 'happiness', 'cleanliness']) needs[key] = Math.max(0, needs[key] - elapsed);
   const checkpoint = dateKey(through);
+  const nextPauses = pauseIntervals(config, dayNumber(state.startedDate) + 1, through);
   return { ...pet, paidCare: { ...state, needs, checkpoint,
+    ...(nextPauses.length || Object.hasOwn(state, 'pauseHistoryHash') ? { pauseHistoryHash: digest(nextPauses) } : {}),
     historyHash: historyHash(config, state.startedDate, checkpoint), daily: state.daily.date === date ? { ...state.daily } : { date, spent: 0 } } };
 }
 
