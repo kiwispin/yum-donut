@@ -99,3 +99,35 @@ Do not reset or delete the current checkout. Create a separate worktree from `go
 - Production activation is NOT accepted: real Firestore rules/overlapping permissions, teacher claim setup, emulator/auth integration and staging tests remain outstanding. No deployment or push performed. No deliberate live account, balance or pet record writes; normal app browser startup retains its existing background sync behavior.
 - All seven final implementation groups above are accepted as a disabled-by-default local implementation, not certified cloud readiness. Historical refused approaches remain refused; each revision above is linked to new review evidence rather than restarting an old attempt.
 - v1 preview scope: original pixel pets/casing, feed/pat, cumulative stages and simple reward indicators, teacher rollout settings. Donut purchases/payouts, student-drawn assets and gallery remain excluded. Temporary demo is not cross-device persistence; authoritative persistence must be staged before student rollout.
+
+## IMPL-008 — Settings visibly replaces room and restores focus — ACCEPTED locally
+
+- Finding: selecting Settings appended its card below the device and growth section without focus or scrolling, making the action appear inert. Revised hypothesis: an exclusive visible panel with explicit focus makes both direct Settings and hardware Select immediately apparent.
+- Scope: `src/yumpals/YumPalsView.jsx` only, plus this appended entry. The room/adoption wrapper is hidden while settings is visible, preserving its DOM and component state. Direct Settings, hardware Select, and pre-adoption Teacher settings share an opener that remembers the activating button. The settings heading receives focus and scrolls into view; top/bottom Back buttons and panel-local Escape restore the room and focus to that opener. Drafts and pet progress remain in the existing component state. Native Tab, Enter, and Space behavior is unchanged; no modal focus trap or new global keyboard interception was added.
+- Measured verification: root lint exit 0; existing frontend/bank/sprite tests 9/9 in 99.246ms; production build exit 0 in 812ms, 1692 modules; `git diff --check` exit 0. JS `index-CEim1V1d.js`: 802.58kB /236.41kB gzip; CSS unchanged at 65.48kB /11.92kB gzip. Existing browser-data and large-chunk warnings remain.
+- These existing tests exercise care/date/progression regressions, not DOM focus or scrolling. Parent browser verification is pending for direct Settings, Cycle-to-Settings plus Select, Back/Escape focus restoration, unsaved draft preservation, and normal keyboard navigation. No backend/configuration changes or deployment were performed in this revision.
+
+- Parent verification completed: direct Settings replaces room with panel and focused heading; hardware Select with Settings highlighted also opens it; Escape restores respective opener focus; Enter reopens, retaining an unsaved name draft and unchanged pet. Original off-screen-panel approach is REFUSED on new user-reported evidence. This revision is ACCEPTED locally.
+
+## SEC-001 — Read-only production rules inspection — ACCEPTED finding; current rules REFUSED for YumPals activation
+
+- Exact release: `projects/yum-donut-school/releases/cloud.firestore`; ruleset `7b40979e-05c0-46de-8631-41bdc54ac695`, updated 2025-12-19T08:45:42.181400Z. Retrieved through authenticated Rules API GET calls only. No rules or student data writes.
+- Existing global rules permit public reads and all writes when request.auth is non-null, including anonymous Firebase identities. These overlapping grants would bypass intended pet callable enforcement; adding a separate deny would not override them.
+- Scope: test a candidate that preserves legacy access outside the new pet subtree and denies direct client access within it. Candidate is NOT a live deployment. Existing broader legacy security remains outside this narrow change and must not be described as secure.
+- Available Firebase projects include production YumDonut and an unrelated app, no YumDonut staging project. Use `demo-yumpals-stage` emulator only; no cloud project creation or use of unrelated project.
+
+## SEC-002 — Isolated staging runtimes — ACCEPTED setup
+
+- Official Adoptium Java21.0.12.1 JRE archive SHA256 verified: `dec50fc6f9fcd4fe3ae8cabf5a5fa68f6afc48841f7698e468e9aa5d54beed84`.
+- Official Node22.23.2 macOS ARM64 archive SHA256 verified: `61130f394c1630d211dd50aecc4353d379480f36d3ac913cd85dbba1aed585c6`.
+- Extracted only to `/tmp/yumpals-java.aAqx58`; no system-wide installs. Firebase CLI downloaded Firestore emulator1.19.8 to its normal cache. Root app/backend dependencies unchanged.
+- Local emulator verification pending. Parent reviewed Settings while Luna builds isolated security tests.
+
+## SEC-003 — Real local security stage and independent review — ACCEPTED locally; cloud activation remains REFUSED
+
+- Luna Extra High implemented the isolated verification fixture/harness; parent reviewed and ran it. An initial cleanup `return` that could suppress failure was REFUSED. Luna corrected it; new deliberate-failure evidence below validates the revised cleanup, not the refused approach.
+- Real Auth/Functions/Firestore emulator run: exit 0, 66 checks, 26,921 ms. Baseline fixtures demonstrate unsafe access; candidate denies direct pet reads/writes (403), preserves representative legacy access (200), and passes callable UID separation, admin gating, duplicate/concurrent care with exact audit counts, server-date authority, disabled preservation, and corrupt-state fail-closed checks.
+- Cleanup sentinel: expected exit 1 with deterministic error, no PASS marker, owned emulator ports closed. The Auth emulator accepts forged JWTs; this is explicitly a limitation, not evidence of production signature verification. Fixture dependency warning is documented; existing installed dependencies resolve successfully without upgrades.
+- Parent regressions: frontend 9/9 in 104.33 ms; backend/Teams 23/23 in 107.47 ms; both lint commands exit 0; build exit 0 in 823 ms, 1692 modules. JS `index-CEim1V1d.js` 802.58 kB /236.41 kB gzip; CSS `index-CUYuo-A0.css` 65.48 kB /11.92 kB gzip. Existing browser-data/chunk warnings remain. Diff whitespace check passed.
+- Google Rules API non-deploying test: HTTP 200, empty response body/no issues. Follow-up read confirms live release still points to `7b40979e-05c0-46de-8631-41bdc54ac695`, update time 2025-12-19T08:45:42.181400Z. No rules deployment, live claims, student data, or production configuration changes.
+- Current acceptance: Settings fix and local candidate verification accepted. Cloud staging unavailable without a separate authorized project. Candidate protects only the new pet subtree; existing broad legacy permissions are NOT certified safe. Production activation remains refused pending cloud verification and reviewed rollout. Gold-standard tags retained; no prior refused application changes repeated.

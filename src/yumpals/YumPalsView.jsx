@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { demoAdopt, demoCare, demoDateFromKey, demoUpdatePet, createDemoState, getAucklandDateParts, growthForCareDays, growthForDisplay, refreshDemoState, YUMPALS_CASES, YUMPALS_DEFAULT_SETTINGS, YUMPALS_SPECIES } from './yumpalsRules';
 import { getYumPalsSprite } from './yumpalsSprites';
 import './yumpals.css';
@@ -63,6 +63,8 @@ export function YumPalsView({ demoMode = false, state: cloudState, loading = fal
     const [demoState, setDemoState] = useState(() => createDemoState());
     const [demoDateKey, setDemoDateKey] = useState(() => getAucklandDateParts().dateKey);
     const [screen, setScreen] = useState('room');
+    const settingsHeadingRef = useRef(null);
+    const settingsOpenerRef = useRef(null);
     const [focusIndex, setFocusIndex] = useState(0);
     const [pending, setPending] = useState(null);
     const [notice, setNotice] = useState(null);
@@ -80,6 +82,18 @@ export function YumPalsView({ demoMode = false, state: cloudState, loading = fal
     );
     const today = state?.today;
     const selectedAction = ACTIONS[focusIndex] || ACTIONS[0];
+
+    const openSettings = (event) => {
+        settingsOpenerRef.current = event.currentTarget;
+        setScreen('settings');
+    };
+
+    useEffect(() => {
+        const target = screen === 'settings' ? settingsHeadingRef.current : settingsOpenerRef.current;
+        if (!target?.isConnected) return;
+        target.focus({ preventScroll: true });
+        target.scrollIntoView({ block: screen === 'settings' ? 'start' : 'nearest', behavior: 'instant' });
+    }, [screen]);
 
     useEffect(() => {
         if (demoMode) {
@@ -167,9 +181,9 @@ export function YumPalsView({ demoMode = false, state: cloudState, loading = fal
         }
     };
 
-    const activateSelected = () => {
+    const activateSelected = (event) => {
         if (selectedAction.id === 'settings') {
-            setScreen('settings');
+            openSettings(event);
         } else {
             performCare(selectedAction.id);
         }
@@ -299,6 +313,7 @@ export function YumPalsView({ demoMode = false, state: cloudState, loading = fal
             </div>
             {demoMode && <p className="yumpals-demo-note">Temporary local demo; refresh resets this room and no account saves are made.</p>}
 
+            <div hidden={screen !== 'room'}>
             {!pet ? (
                 <div className="yumpals-card">
                     <h3>Choose your first YumPal</h3>
@@ -313,7 +328,7 @@ export function YumPalsView({ demoMode = false, state: cloudState, loading = fal
                     </div>
                     <div className="yumpals-field"><label htmlFor="yumpals-adoption-name">Pet name</label><input id="yumpals-adoption-name" maxLength={16} onChange={(event) => setAdoption((current) => ({ ...current, name: event.target.value }))} placeholder="e.g. Niblet" value={adoption.name} /></div>
                     <div className="yumpals-field"><label htmlFor="yumpals-adoption-case">Case colour</label><select id="yumpals-adoption-case" onChange={(event) => setAdoption((current) => ({ ...current, casing: event.target.value, color: CASE_COLORS[event.target.value] }))} value={adoption.casing}>{YUMPALS_CASES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></div>
-                    <div className="yumpals-button-row"><button className="yumpals-primary" disabled={!adoption.name.trim() || pending || !settings.enabled && !demoMode} onClick={adopt} type="button">{pending === 'adopt' ? 'Adopting…' : 'Adopt YumPal'}</button>{state?.isAdmin && <button className="yumpals-secondary" onClick={() => setScreen('settings')} type="button">Teacher settings</button>}</div>
+                    <div className="yumpals-button-row"><button className="yumpals-primary" disabled={!adoption.name.trim() || pending || !settings.enabled && !demoMode} onClick={adopt} type="button">{pending === 'adopt' ? 'Adopting…' : 'Adopt YumPal'}</button>{state?.isAdmin && <button className="yumpals-secondary" onClick={openSettings} type="button">Teacher settings</button>}</div>
                 </div>
             ) : (
                 <>
@@ -339,7 +354,7 @@ export function YumPalsView({ demoMode = false, state: cloudState, loading = fal
                                 </div>
                             </div>
                             <div className="yumpals-action-grid">
-                                {ACTIONS.map((action, index) => <ActionButton action={action} active={index === focusIndex} disabled={action.id !== 'settings' && (!settings.enabled || pending || !today?.eligible || today[action.id])} key={action.id} onClick={() => { setFocusIndex(index); action.id === 'settings' ? setScreen('settings') : performCare(action.id); }} />)}
+                                {ACTIONS.map((action, index) => <ActionButton action={action} active={index === focusIndex} disabled={action.id !== 'settings' && (!settings.enabled || pending || !today?.eligible || today[action.id])} key={action.id} onClick={(event) => { setFocusIndex(index); action.id === 'settings' ? openSettings(event) : performCare(action.id); }} />)}
                             </div>
                             {!today?.eligible && <div className="yumpals-rest">{today.reason === 'HOLIDAY' ? 'Holiday rest day — no catch-up debt.' : 'Weekend rest day — your progress is safe.'}</div>}
                             <div className="yumpals-hardware" aria-label="YumPals hardware controls">
@@ -358,16 +373,18 @@ export function YumPalsView({ demoMode = false, state: cloudState, loading = fal
                     </div>
                 </>
             )}
+            </div>
 
             {screen === 'settings' && (
-                <div className="yumpals-card" aria-label="YumPals settings">
-                    <h3>Room settings</h3>
+                <section className="yumpals-card" aria-labelledby="yumpals-settings-heading" onKeyDown={(event) => { if (event.key === 'Escape' && !event.defaultPrevented) { event.stopPropagation(); setScreen('room'); } }}>
+                    <h3 id="yumpals-settings-heading" ref={settingsHeadingRef} tabIndex={-1}>Room settings</h3>
+                    <button className="yumpals-secondary" onClick={() => setScreen('room')} type="button">Back to room</button>
                     <p>Student preferences are separate from teacher rollout controls. Saving never changes care days or earned milestones.</p>
                     {profileDraft && <><div className="yumpals-field"><label htmlFor="yumpals-profile-name">Pet name</label><input id="yumpals-profile-name" maxLength={16} onChange={(event) => setProfileDraft((current) => ({ ...current, name: event.target.value }))} value={profileDraft.name} /></div><div className="yumpals-field"><label htmlFor="yumpals-profile-case">Case colour</label><select id="yumpals-profile-case" onChange={(event) => setProfileDraft((current) => ({ ...current, casing: event.target.value, color: CASE_COLORS[event.target.value] }))} value={profileDraft.casing}>{YUMPALS_CASES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></div><div className="yumpals-check-row"><input checked={profileDraft.reducedMotion} id="yumpals-reduced-motion" onChange={(event) => setProfileDraft((current) => ({ ...current, reducedMotion: event.target.checked }))} type="checkbox" /><label htmlFor="yumpals-reduced-motion">Reduce pet animation</label></div><div className="yumpals-button-row"><button className="yumpals-primary" disabled={pending === 'profile'} onClick={saveProfile} type="button">{pending === 'profile' ? 'Saving…' : 'Save preferences'}</button></div></>}
                     {state?.isAdmin && teacherDraft && <><hr /><h3>Teacher rollout controls</h3><p>Server checks the <code>yumpalsAdmin</code> claim. The existing display-name admin path is not used here.</p><div className="yumpals-check-row"><input checked={teacherDraft.enabled} id="yumpals-enabled" onChange={(event) => setTeacherDraft((current) => ({ ...current, enabled: event.target.checked }))} type="checkbox" /><label htmlFor="yumpals-enabled">Enable YumPals for eligible accounts</label></div><div className="yumpals-check-row"><input checked={teacherDraft.holidayRest} id="yumpals-holiday-rest" onChange={(event) => setTeacherDraft((current) => ({ ...current, holidayRest: event.target.checked }))} type="checkbox" /><label htmlFor="yumpals-holiday-rest">Rest on configured holidays</label></div><div className="yumpals-field"><label htmlFor="yumpals-growth-speed">Growth speed preset</label><select id="yumpals-growth-speed" onChange={(event) => setTeacherDraft((current) => ({ ...current, growthSpeed: event.target.value }))} value={teacherDraft.growthSpeed}><option value="gentle">Gentle</option><option value="standard">Standard</option><option value="quick">Quick</option></select></div><div className="yumpals-field"><label htmlFor="yumpals-holidays">Holiday dates (YYYY-MM-DD, comma separated)</label><input id="yumpals-holidays" onChange={(event) => setTeacherDraft((current) => ({ ...current, holidayDates: event.target.value }))} value={teacherDraft.holidayDates} /></div><div className="yumpals-button-row"><button className="yumpals-primary" disabled={pending === 'teacher'} onClick={saveTeacherSettings} type="button">{pending === 'teacher' ? 'Saving…' : 'Save teacher settings'}</button></div></>}
                     {demoMode && <div className="yumpals-field"><label htmlFor="yumpals-demo-date">Demo date (Auckland)</label><input id="yumpals-demo-date" onChange={(event) => { if (demoDateFromKey(event.target.value, null)) setDemoDateKey(event.target.value); }} type="date" value={dateInputValue(demoDateKey)} /></div>}
                     <div className="yumpals-button-row"><button className="yumpals-secondary" onClick={() => setScreen('room')} type="button">Back to room</button></div>
-                </div>
+                </section>
             )}
 
             {notice && <div className={`yumpals-alert ${notice.type === 'error' ? '' : 'success'}`} role="status">{notice.message}</div>}

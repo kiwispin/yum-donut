@@ -1,0 +1,8 @@
+{
+  "name": "yumpals-emulator-functions",
+  "private": true,
+  "main": "functions-entry.js",
+  "engines": {
+    "node": "22"
+  }
+}
