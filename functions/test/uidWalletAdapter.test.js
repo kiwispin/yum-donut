@@ -14,6 +14,65 @@ const publicPath = refs.publicProfile('record-a');
 const privatePath = refs.privateProfile(UID);
 const snapshot = (db) => structuredClone([...db.values]);
 
+test('fractional receipt replay rejects literal 0.1 in place of canonical 1.1 minus 1', async () => {
+  const f = fixture();
+  for (const path of [publicPath, privatePath]) f.db.seed(path, { ...f.db.read(path), balance: 1.1 });
+  const req = f.purchaseRequest('snack');
+  const result = await f.service.purchase(req);
+  assert.equal(result.receipt.walletAfter, 1.1 - 1);
+  assert.notEqual(result.receipt.walletAfter, 0.1);
+  assert.equal(1.1 - 0.1, 1); // A difference-only receipt check would miss this tamper.
+  assert.equal((await f.service.purchase(req)).duplicate, true);
+  f.db.seed(f.refs.receipt(UID, 'purchase-1'), { ...result.receipt, walletAfter: 0.1 });
+  const before = snapshot(f.db);
+  await assert.rejects(f.service.purchase(req), { code: 'CORRUPT_RECEIPT' });
+  assert.deepEqual(snapshot(f.db), before);
+});
+
+test('fractional service refuses insufficient whole costs, preserves partial benefits, rollback and corrupt replay', async () => {
+  for (const balance of [0.1, Number.MIN_VALUE, 1.1, 10.3, 30.5]) {
+    const f = fixture();
+    for (const path of [publicPath, privatePath]) f.db.seed(path, { ...f.db.read(path), balance });
+    const before = snapshot(f.db);
+    if (balance < 2) {
+      await assert.rejects(f.service.purchase(f.purchaseRequest('meal')), { code: 'INSUFFICIENT_FUNDS' });
+      assert.deepEqual(snapshot(f.db), before);
+      continue;
+    }
+    f.db.failCommit = true;
+    await assert.rejects(f.service.purchase(f.purchaseRequest('meal')), /COMMIT_FAILURE/);
+    assert.deepEqual(snapshot(f.db), before);
+    const pet = f.db.read(f.refs.pet(UID)); pet.paidCare.needs.hunger = 3; f.db.seed(f.refs.pet(UID), pet);
+    const result = await f.service.purchase(f.purchaseRequest('meal'));
+    assert.equal(result.receipt.amount, 2); assert.equal(result.receipt.benefit.amount, 1);
+    assert.equal(result.receipt.walletAfter, balance - 2);
+    const receiptPath = f.refs.receipt(UID, 'purchase-1');
+    for (const patch of [{ walletAfter: result.receipt.walletAfter + 0.25 }, { amount: 1.5 }, { walletBefore: NaN }, { walletAfter: -1 }]) {
+      f.db.seed(receiptPath, { ...result.receipt, ...patch });
+      const corrupted = snapshot(f.db);
+      await assert.rejects(f.service.purchase(f.purchaseRequest('meal')), { code: 'CORRUPT_RECEIPT' });
+      assert.deepEqual(snapshot(f.db), corrupted);
+    }
+  }
+});
+
+test('deterministic concurrent fractional purchases retry and cannot overdraw or duplicate effects', async () => {
+  const f = fixture();
+  for (const path of [publicPath, privatePath]) f.db.seed(path, { ...f.db.read(path), balance: 1.1 });
+  let release; const barrier = new Promise((resolve) => { release = resolve; }); let reads = 0;
+  const adapter = { ...f.adapter, read: async (t, uid) => {
+    const wallet = await f.adapter.read(t, uid);
+    if (++reads <= 2) { if (reads === 2) release(); await barrier; }
+    return wallet;
+  } };
+  const service = f.makeService(adapter);
+  const results = await Promise.allSettled([service.purchase(f.purchaseRequest('snack', 'a')), service.purchase(f.purchaseRequest('pat', 'b'))]);
+  assert.equal(results.filter((r) => r.status === 'fulfilled').length, 1);
+  assert.equal(results.find((r) => r.status === 'rejected').reason.code, 'INSUFFICIENT_FUNDS');
+  assert.ok(f.db.conflicts > 0);
+  for (const path of [publicPath, privatePath]) assert.equal(f.db.read(path).balance, 1.1 - 1);
+});
+
 function fixture() {
   const base = setup({ needs: { hunger: 0, happiness: 0, cleanliness: 0, health: 0 } });
   for (const [uid, id] of [[UID, 'record-a'], ['student-b', 'record-b']]) {

@@ -10,7 +10,12 @@ or a name search. Private profiles are resolved only by authenticated UID.
 Required protected mapping: `{ schemaVersion: 1, ownerUid, publicProfileId }`.
 Both existing profiles must have protected `ownerUid` equal to that UID. Any
 legacy `uid` field, if present, must also agree. Both balances must be equal,
-nonnegative safe integers. Missing, corrupt or conflicting records refuse care;
+finite nonnegative numbers no greater than Number.MAX_SAFE_INTEGER, including
+existing fractions (LR009 supersedes the integer-only restriction). Costs remain
+positive safe integers. Shared `walletNumber`/`debitAfter` use ordinary JS
+subtraction with bounded results, strict decrease and exact conservation in both
+directions, never rounding, epsilon, coercion or remainder repair.
+Missing, corrupt or conflicting records refuse care;
 there is no fallback zero, selected larger balance, automatic repair or savings
 withdrawal. Private balance is usable only after mirror equality is established.
 

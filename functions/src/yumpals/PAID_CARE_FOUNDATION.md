@@ -1,7 +1,32 @@
-# Paid-care foundation: synthetic integration only
+# Paid-care foundation: internal implementation, not deployed
+
+LR009 numeric compatibility: existing finite wallet balances from zero through
+Number.MAX_SAFE_INTEGER may contain fractions. Prices, caps, needs and counters
+remain integer-only. Service and adapter share exact bounded debit validation;
+receipt replay requires walletAfter to equal the computed JS subtraction result,
+not merely a matching difference (1.1 - 1 is not literal 0.1). No rounding,
+conversion, default-zero, bank/Given change or receipt-schema migration occurs.
+Existing integer receipts remain replayable. Parent-run LR009 real-emulator
+verification passed14 check groups in11,754ms, including fractional paid adoption,
+receipt replay and staged-write abort. No live rollout is implied.
+
+LR009 serialization correction: a synthetic reordered saved request demonstrated
+CORRUPT_RECEIPT despite unchanged content. Replay now validates the exact five
+stored request fields (including mandatory null adoption for non-adoption), then
+reconstructs the original outer/adoption field order before checking the original
+binding. Unexpected keys, missing fields and semantic edits still refuse as
+CORRUPT_RECEIPT. No receipt rewrite, schema migration or global digest/calendar
+change occurs; legacy integer bindings remain compatible. Config-key-only order
+changes still conservatively require reconfirmation. Emulator requests now use
+getState quotes from saved config, not a pre-write in-memory hash. Parent verified
+actual Firestore purchase/replay with this correction in the LR009 run.
 
 This additive engine/service is not imported by `functions/index.js`, old callables,
-or the app. It has no default Firestore paths or production wallet adapter.
+or the app. The real internal `uidWalletAdapter` and reviewed ownership bootstrap
+exist, but no live resolvers, approved student manifest or deployed exports are
+provided. LR008 ownership/adapter emulator verification passed under isolated
+rules; LR009 fractional paid-service/serialization emulator verification also
+passed locally. Neither constitutes production authorization.
 
 ## API and trust boundary
 
@@ -21,8 +46,9 @@ or the app. It has no default Firestore paths or production wallet adapter.
 - `walletAdapter.debit(transaction, wallet, amount)` is awaited. It must stage
   all wallet/mirror writes in that transaction, preserve unrelated fields,
   perform no external effects and make no additional reads after writes begin.
-  Both adapter methods must tolerate Firestore retries. The only implementation
-  is the test fixture, whose canonical wallet is synthetic and owned by UID.
+  Both adapter methods must tolerate Firestore retries. `uidWalletAdapter` is
+  the internal real mirror implementation, requiring injected trusted resolvers
+  and protected ownership. A separate synthetic adapter remains in unit fixtures.
 
 `getState` validates and transactionally persists completed-date advancement.
 Legacy records require the explicit migration operation. Migration adds a
@@ -72,8 +98,10 @@ and guarantees its happiness at purchase; other care/reads do not discard it.
 
 ## Explicitly incomplete release gates
 
-- No production paths, trusted identity bootstrap, mirror compatibility,
-  legacy-writer migration, live export, client wiring or rules change.
+- Internal reviewed ownership bootstrap, mirror adapter, fractional compatibility
+  and coordinated legacy-writer compatibility slices are implemented locally.
+  Live approved ownership/provenance, protected resolvers, server-authorized
+  writers, deployed exports, client wiring and compatible rules remain missing.
 - No game round/completion endpoint: stored entitlement has round 0 only.
 - No automatic attention schedule, paid growth-award policy, configurable
   decline/sleep-hour policy, receipt-fetch endpoint, refund endpoint, or public
@@ -84,7 +112,13 @@ and guarantees its happiness at purchase; other care/reads do not discard it.
 - Production receipt privacy, public spending classification, old-client write
   rejection, shared-wallet concurrency, and cloud-stage authorization remain gates.
 
-Tests use a synthetic optimistic transaction fixture with read-before-write
+Baseline unit tests use a synthetic optimistic transaction fixture with read-before-write
 enforcement, conflict retries and failed commits. They are not Firestore rules,
-Admin SDK serialization or production Auth evidence. The existing 66-check
-emulator harness exercises older free care and was not run for this slice.
+Admin SDK serialization or production Auth evidence. Parent separately verified
+LR008 ownership and adapter with 12 real Auth/Firestore emulator check groups.
+The expanded LR009 harness exercises the actual paid service with injected
+synthetic request auth; parent passed14 check groups in11,754ms, including its
+new fractional/replay cases. Backend85 runner entries (84 tests plus fixture)
+passed340.596ms and lint passed. See the central rollout log for retained logs.
+The historical 66-check emulator harness exercises older free care, was not run
+for this slice, and is not paid-service verification evidence.

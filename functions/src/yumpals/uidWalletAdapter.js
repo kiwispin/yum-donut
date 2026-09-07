@@ -1,6 +1,7 @@
 // Internal only. Resolvers and mapping storage MUST be server-owned dependencies.
 // No name lookup, bootstrap, balance repair, callable export or live default paths.
-const { requireValue, integer } = require('./paidCareEngine');
+const { requireValue } = require('./paidCareEngine');
+const { walletNumber, debitAfter } = require('./walletNumber');
 
 function validId(value) {
   return typeof value === 'string' && value.length > 0 && value.length <= 1500
@@ -33,7 +34,7 @@ function createUidWalletAdapter({ refs }) {
       for (const data of [publicData, privateData]) {
         // ownerUid is a protected bootstrap assertion; legacy uid alone is NOT authority.
         requireValue(data?.ownerUid === uid && (!Object.hasOwn(data, 'uid') || data.uid === uid), 'WALLET_OWNER_CONFLICT');
-        requireValue(integer(data.balance), 'INVALID_WALLET_BALANCE');
+        requireValue(walletNumber(data.balance), 'INVALID_WALLET_BALANCE');
       }
       requireValue(publicData.balance === privateData.balance, 'WALLET_BALANCE_CONFLICT');
       const wallet = Object.freeze({ ownerUid: uid, balance: privateData.balance });
@@ -43,9 +44,9 @@ function createUidWalletAdapter({ refs }) {
     async debit(transaction, wallet, amount) {
       const context = contexts.get(wallet);
       requireValue(context && context.transaction === transaction, 'INVALID_WALLET_CONTEXT');
-      requireValue(integer(amount, 1) && amount <= wallet.balance, 'INVALID_WALLET_DEBIT');
+      const balance = debitAfter(wallet.balance, amount);
+      requireValue(balance !== null, 'INVALID_WALLET_DEBIT');
       contexts.delete(wallet); // A read can authorize only one debit in this attempt.
-      const balance = wallet.balance - amount;
       // All reads finished. Spread retains opaque SDK values and unrelated fields.
       transaction.set(context.publicRef, { ...context.publicData, balance });
       transaction.set(context.privateRef, { ...context.privateData, balance });

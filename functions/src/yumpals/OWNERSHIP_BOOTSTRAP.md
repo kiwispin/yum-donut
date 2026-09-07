@@ -44,9 +44,10 @@ REFUSED draft used whole-profile canonical hashing, which unnecessarily blocked
 unrelated cosmetic/progress changes. The corrected projection explicitly tests
 that these changes do not block application and their opaque values survive.
 
-Both existing wallets must be equal nonnegative safe integers, matching the
-current paid-care adapter. Fractional legacy wallets require a separate reviewed
-money-domain decision; no rounding is performed. Bank fields must both exist,
+LR009 supersedes the earlier integer-wallet refusal: both existing wallets must
+be exactly equal finite numbers from zero through Number.MAX_SAFE_INTEGER,
+including existing fractions. No rounding, conversion or migration is performed.
+Bank fields must both exist,
 be valid finite nonnegative values and agree; unlike legacy compatibility this
 migration does not apply missing-bank defaults. Zero is valid only when actually
 present and reviewed. Existing public profiles must already have `uid` equal to
@@ -139,3 +140,22 @@ runner entries (77 tests plus fixture load) in318.042ms; backend lint passed.
 Local deny-all REST tests are evidence only for these synthetic rules, not
 production authorization or release readiness. Auth/Firestore atomicity,
 reviewed live ownership, shared-writer and paid UI integration gates remain open.
+
+LR009 adds fractional ownership followed by actual paid-service adoption,
+config/pet/receipt and duplicate replay through the real UID adapter, plus an
+abort after all paid writes are staged. Whole-profile comparisons verify savings,
+Given and SDK data stay unchanged. Parent passed the expanded14 check groups in
+11,754ms with exit0 and both cleanup/verification markers. Prior12-check evidence
+is historical; the new run covers the added numeric-domain verification.
+Use the same guarded command above.
+The internal paid-service request uses injected synthetic auth context. Earlier
+real Auth eligibility checks are separate; this is not evidence of deployed
+callable token verification or live endpoint authorization.
+The harness obtains its paid quote through getState after saving config, then
+replays the actual Firestore receipt. Saved request maps are validated and
+reconstructed in the original binding order; global digest/calendar hashes are
+unchanged. Config key reordering still conservatively requires reconfirmation.
+Synthetic reordering reproduced a failure before this narrow correction; the
+parent's expanded real paid-service run verified corrected purchase/replay.
+Backend85 runner entries (84 tests plus fixture) passed340.596ms; lint passed.
+This acceptance remains local/internal, not live ownership approval or rollout.

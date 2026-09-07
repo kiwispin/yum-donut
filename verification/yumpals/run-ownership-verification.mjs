@@ -75,6 +75,8 @@ async function verify() {
   const admin = require('firebase-admin');
   const { createOwnershipBootstrap, snapshotFingerprint, manifestFingerprint } = require('./src/yumpals/ownershipBootstrap');
   const { createUidWalletAdapter } = require('./src/yumpals/uidWalletAdapter');
+  const { createPaidCareService } = require('./src/yumpals/paidCareService');
+  const { defaultConfig } = require('./src/yumpals/paidCareEngine');
   // Recheck immediately before SDK initialization. No ADC or real service account:
   // this ephemeral certificate exists only in memory and is never logged/saved.
   guard();
@@ -105,11 +107,11 @@ async function verify() {
     });
     assert.equal(anonResponse.status, 200); const anonymous = await anonResponse.json();
     const opaque = { stamp: admin.firestore.Timestamp.fromMillis(123456), point: new admin.firestore.GeoPoint(-36, 174), ref: db.doc('ownershipFixture/main') };
-    async function seed(uid, record) {
-      await refs.publicProfile(record).set({ name: 'Same Name', uid, claimed: true, balance: 30, bank_balance: 100.5, lifetime_given: 9, lifetime_received: 50, opaque });
-      await refs.privateProfile(uid).set({ name: 'Same Name', balance: 30, bank_balance: 100.5, given_today: 2, progress: ['keep'], opaque });
+    async function seed(uid, record, balance = 30) {
+      await refs.publicProfile(record).set({ name: 'Same Name', uid, claimed: true, balance, bank_balance: 100.5, lifetime_given: 9, lifetime_received: 50, opaque });
+      await refs.privateProfile(uid).set({ name: 'Same Name', balance, bank_balance: 100.5, given_today: 2, progress: ['keep'], opaque });
     }
-    await seed('synthetic-a', 'record-a'); await seed('synthetic-b', 'record-b');
+    await seed('synthetic-a', 'record-a'); await seed('synthetic-b', 'record-b', 30.5);
     async function approve(reviewId, entries) {
       const reviewed = [];
       for (const [uid, publicProfileId] of entries) reviewed.push({ uid, publicProfileId,
@@ -167,6 +169,44 @@ async function verify() {
     }
     assert.deepEqual((await refs.audit('initial').get()).data(), auditBefore);
     assert.equal((await service.apply('initial')).duplicate, true); pass('real adapter atomic mirror debit preserves audit and replay');
+    const careRefs = { config: (uid) => db.doc(`ownershipFixture/main/careConfigs/${uid}`),
+      pet: (uid) => db.doc(`ownershipFixture/main/pets/${uid}`),
+      receipt: (uid, id) => db.doc(`ownershipFixture/main/paidReceipts/${uid}_${id}`),
+      migration: (uid) => db.doc(`ownershipFixture/main/migrations/${uid}`) };
+    const config = { ...defaultConfig('2026-01-01'), enabled: true };
+    await careRefs.config('synthetic-b').set(config);
+    const careOptions = { refs: careRefs, walletAdapter: adapter, now: () => Date.parse('2026-09-07T00:00:00Z') };
+    const careService = createPaidCareService({ ...careOptions, db });
+    const careAuth = { uid: 'synthetic-b', token: { firebase: { sign_in_provider: 'password' } } };
+    const quote = await careService.getState({ auth: careAuth, data: {} });
+    // Injected internal auth context, NOT deployed callable/token verification.
+    // Real Auth eligibility was checked separately during ownership application.
+    const purchase = { auth: careAuth, data: {
+      action: 'adoption', operationId: 'fractional-adoption', expectedConfigVersion: quote.configVersion, expectedConfigHash: quote.configHash,
+      adoption: { name: 'Niblet', species: 'mossbit', casing: 'berry', color: '#d94878' },
+    } };
+    const fractionalRefs = [refs.publicProfile('record-b'), refs.privateProfile('synthetic-b')];
+    const fractionalBefore = await Promise.all(fractionalRefs.map(async (ref) => (await ref.get()).data()));
+    const abortDb = { runTransaction: (callback) => db.runTransaction(async (transaction) => {
+      await callback(transaction); // Real mirror, pet and receipt writes have all been staged.
+      throw new Error('PAID_SERVICE_STAGED_ABORT');
+    }) };
+    await assert.rejects(createPaidCareService({ ...careOptions, db: abortDb }).purchase(purchase), /PAID_SERVICE_STAGED_ABORT/);
+    for (const [index, ref] of fractionalRefs.entries()) assert.deepEqual((await ref.get()).data(), fractionalBefore[index]);
+    assert.equal((await careRefs.pet('synthetic-b').get()).exists, false);
+    assert.equal((await careRefs.receipt('synthetic-b', purchase.data.operationId).get()).exists, false);
+    pass('real fractional paid-service abort rolls back mirrors, new pet and receipt');
+    const paid = await careService.purchase(purchase);
+    const petAfter = (await careRefs.pet('synthetic-b').get()).data();
+    assert.equal(paid.receipt.walletBefore, 30.5); assert.equal(paid.receipt.walletAfter, 25.5); assert.equal(paid.receipt.amount, 5);
+    assert.deepEqual(petAfter.paidCare.needs, { hunger: 4, happiness: 4, cleanliness: 4, health: 4 });
+    const duplicatePaid = await careService.purchase(purchase);
+    assert.equal(duplicatePaid.duplicate, true); assert.deepEqual(duplicatePaid.receipt, paid.receipt);
+    assert.deepEqual((await careRefs.pet('synthetic-b').get()).data(), petAfter);
+    assert.deepEqual((await careRefs.receipt('synthetic-b', purchase.data.operationId).get()).data(), paid.receipt);
+    for (const [index, ref] of fractionalRefs.entries()) assert.deepEqual((await ref.get()).data(), { ...fractionalBefore[index], balance: 25.5 });
+    assert.deepEqual((await refs.audit('initial').get()).data(), auditBefore);
+    pass('real fractional ownership-to-paid-service adoption and replay charge once, preserve savings/Given/SDK data');
     await approve('drift', [['synthetic-a', 'record-a']]);
     await refs.publicProfile('record-a').update({ balance: 27 }); await refs.privateProfile('synthetic-a').update({ balance: 27 });
     assert.equal((await service.dryRun('drift')).ok, false); await assert.rejects(service.apply('drift')); pass('reviewed financial drift refuses without rewriting');

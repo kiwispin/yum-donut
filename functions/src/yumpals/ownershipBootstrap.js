@@ -5,7 +5,7 @@ class ReviewConflict extends Error { constructor(code, conflicts) { super(code);
 const check = (condition, code) => { if (!condition) throw new ReviewConflict(code); };
 const id = (value) => typeof value === 'string' && value.trim().length > 0 && value.length <= 128 && !value.includes('/') && value !== '.' && value !== '..';
 const hash = (value) => typeof value === 'string' && /^[a-f0-9]{64}$/u.test(value);
-const money = (value) => Number.isSafeInteger(value) && value >= 0;
+const { walletNumber: money } = require('./walletNumber');
 
 // Plain manifest/audit canonicalization. Never pass entire profiles here.
 function canonical(value) {
@@ -52,7 +52,7 @@ function validateProfiles(a, b, uid) {
   for (const data of [a, b]) {
     check(!Object.hasOwn(data, 'ownerUid') || data.ownerUid === uid, 'OWNER_CONFLICT');
     check(!Object.hasOwn(data, 'uid') || data.uid === uid, 'LEGACY_UID_CONFLICT');
-    // Adapter requires integer wallets; fractional legacy wallets require separate review.
+    // Preserve the existing numeric wallet domain without rounding or conversion.
     check(money(data.balance), 'INVALID_WALLET');
     check(typeof data.bank_balance === 'number' && Number.isFinite(data.bank_balance)
       && data.bank_balance >= 0 && data.bank_balance <= Number.MAX_SAFE_INTEGER, 'INVALID_BANK');

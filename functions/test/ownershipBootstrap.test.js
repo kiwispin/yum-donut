@@ -3,6 +3,9 @@ const assert = require('node:assert/strict');
 const { Timestamp, GeoPoint } = require('firebase-admin/firestore');
 const { createOwnershipBootstrap, snapshotFingerprint, manifestFingerprint } = require('../src/yumpals/ownershipBootstrap');
 const { createUidWalletAdapter } = require('../src/yumpals/uidWalletAdapter');
+const { createPaidCareService } = require('../src/yumpals/paidCareService');
+const { defaultConfig, digest, migrateLegacyPet } = require('../src/yumpals/paidCareEngine');
+const { legacy, request } = require('./paidCareFixture');
 
 // Read snapshots retain SDK values; transactional patch writes preserve their identity.
 class Db {
@@ -30,6 +33,38 @@ const refs = { publicProfile: (id) => `fixture/public/${id}`, privateProfile: (u
   mapping: (uid) => `fixture/mapping/${uid}`, reverse: (id) => `fixture/reverse/${id}`, audit: (review) => `fixture/audit/${review}` };
 const gate = () => { let resolve; const promise = new Promise((r) => { resolve = r; }); return { resolve, promise }; };
 const saved = (db) => new Map(db.values);
+
+test('reviewed fractional ownership flows through real adapter/service, exact receipt and replay without changing other fields', async () => {
+  for (const balance of [1.1, 10.3, 30.5, Number.MAX_SAFE_INTEGER]) {
+    const f = fixture();
+    for (const path of [refs.publicProfile('record-a'), refs.privateProfile('a')]) f.db.seed(path, { ...f.db.values.get(path), balance });
+    f.approve();
+    assert.equal((await f.service.dryRun('review-1')).ok, true);
+    await f.service.apply('review-1');
+    const before = saved(f.db);
+    let now = Date.parse('2026-09-07T00:00:00Z');
+    const config = { ...defaultConfig('2026-01-01'), enabled: true };
+    const pet = migrateLegacyPet(legacy('a'), 'a', config, now);
+    pet.paidCare.needs.hunger = 0;
+    const careRefs = { config: () => 'care/config', pet: () => 'care/pet', receipt: () => 'care/receipt', migration: () => 'care/migration' };
+    f.db.seed(careRefs.config(), config); f.db.seed(careRefs.pet(), pet);
+    const service = createPaidCareService({ db: f.db, refs: careRefs, walletAdapter: createUidWalletAdapter({ refs }), now: () => now });
+    const req = request('a', { action: 'snack', operationId: 'fraction', expectedConfigVersion: config.version, expectedConfigHash: digest(config) });
+    const result = await service.purchase(req);
+    assert.equal(result.receipt.walletBefore, balance); assert.equal(result.receipt.walletAfter, balance - 1);
+    assert.equal(result.receipt.amount, 1); assert.equal(result.receipt.needsAfter.hunger, 1);
+    for (const path of [refs.publicProfile('record-a'), refs.privateProfile('a')]) {
+      assert.deepEqual(f.db.values.get(path), { ...before.get(path), balance: balance - 1 });
+      assert.equal(f.db.values.get(path).opaque, f.opaque);
+    }
+    now += 3 * 86400000;
+    f.db.seed(careRefs.config(), { ...config, version: 'changed-v2', enabled: false });
+    const after = saved(f.db);
+    const replay = await service.purchase(req);
+    assert.equal(replay.duplicate, true); assert.deepEqual(replay.receipt, result.receipt); assert.deepEqual(f.db.values, after);
+    assert.equal((await f.service.apply('review-1')).duplicate, true);
+  }
+});
 function fixture() {
   const db = new Db(); const manifests = new Map(); const authRecords = new Map();
   const opaque = Object.freeze({ timestamp: Timestamp.fromMillis(1234), location: new GeoPoint(-36, 174), progress: ['hat', 'milestone'] });

@@ -1,6 +1,7 @@
 // Internal service ONLY. No onCall export, legacy identity lookup or default adapter.
 // refs/config and walletAdapter are trusted server dependencies, never request data.
 const { PRICES, validateConfig, validatePet, advancePet, migrateLegacyPet, purchaseEffect, digest, requireValue, integer, aucklandNow, dayNumber } = require('./paidCareEngine');
+const { walletNumber, debitAfter } = require('./walletNumber');
 
 const ID = /^[A-Za-z0-9_-]{1,80}$/u;
 
@@ -30,11 +31,34 @@ function boundRequest(data) {
   return { operationId: data.operationId, action: data.action, expectedConfigVersion: data.expectedConfigVersion, expectedConfigHash: data.expectedConfigHash, adoption };
 }
 
+function savedBoundRequest(saved) {
+  // Firestore map ordering is not part of the stored schema. Reconstruct the
+  // original binding order only AFTER validating every stored key/value.
+  try {
+    const keys = ['operationId', 'action', 'expectedConfigVersion', 'expectedConfigHash', 'adoption'];
+    requireValue(saved && typeof saved === 'object' && !Array.isArray(saved)
+      && Object.keys(saved).length === keys.length && keys.every((key) => Object.hasOwn(saved, key)), 'CORRUPT_RECEIPT');
+    if (saved.action === 'adoption') {
+      const adoptionKeys = ['name', 'species', 'casing', 'color'];
+      requireValue(saved.adoption && typeof saved.adoption === 'object' && !Array.isArray(saved.adoption)
+        && Object.keys(saved.adoption).length === adoptionKeys.length
+        && adoptionKeys.every((key) => Object.hasOwn(saved.adoption, key)), 'CORRUPT_RECEIPT');
+      return boundRequest(saved);
+    }
+    requireValue(saved.adoption === null, 'CORRUPT_RECEIPT');
+    return boundRequest({ operationId: saved.operationId, action: saved.action,
+      expectedConfigVersion: saved.expectedConfigVersion, expectedConfigHash: saved.expectedConfigHash });
+  } catch {
+    requireValue(false, 'CORRUPT_RECEIPT');
+  }
+}
+
 function validateReceipt(receipt, uid, operationId) {
   requireValue(receipt && receipt.schemaVersion === 1 && receipt.ownerUid === uid && receipt.operationId === operationId, 'CORRUPT_RECEIPT');
-  requireValue(receipt.status === 'COMMITTED' && integer(receipt.amount, 1) && integer(receipt.walletBefore) && integer(receipt.walletAfter)
-    && receipt.walletBefore - receipt.walletAfter === receipt.amount, 'CORRUPT_RECEIPT');
-  requireValue(receipt.request && receipt.binding === digest(receipt.request) && receipt.action === receipt.request.action
+  requireValue(receipt.status === 'COMMITTED' && integer(receipt.amount, 1) && walletNumber(receipt.walletBefore) && walletNumber(receipt.walletAfter)
+    && debitAfter(receipt.walletBefore, receipt.amount) === receipt.walletAfter, 'CORRUPT_RECEIPT');
+  const savedRequest = savedBoundRequest(receipt.request);
+  requireValue(receipt.binding === digest(savedRequest) && receipt.action === receipt.request.action
     && receipt.operationId === receipt.request.operationId && receipt.configVersion === receipt.request.expectedConfigVersion
     && receipt.configHash === receipt.request.expectedConfigHash && integer(receipt.committedAtMs), 'CORRUPT_RECEIPT');
   requireValue(receipt.category === 'pet_spend' && receipt.deliveryId === operationId, 'CORRUPT_RECEIPT');
@@ -134,16 +158,18 @@ function createPaidCareService({ db, refs, walletAdapter, now = Date.now }) {
         const snapshot = await transaction.get(petRef);
         const pet = snapshot.exists ? snapshot.data() : null;
         const wallet = await walletAdapter.read(transaction, uid);
-        requireValue(wallet && wallet.ownerUid === uid && integer(wallet.balance), 'CORRUPT_WALLET');
+        requireValue(wallet && wallet.ownerUid === uid && walletNumber(wallet.balance), 'CORRUPT_WALLET');
         const effect = purchaseEffect({ pet, uid, config, nowMs, action: data.action, operationId: data.operationId, adoption: data.adoption });
         requireValue(wallet.balance >= effect.amount, 'INSUFFICIENT_FUNDS');
+        const walletAfter = debitAfter(wallet.balance, effect.amount);
+        requireValue(walletAfter !== null, 'INVALID_WALLET_DEBIT');
         const receipt = { schemaVersion: 1, status: 'COMMITTED', ownerUid: uid, operationId: data.operationId,
           request: data, binding, action: data.action, category: 'pet_spend', amount: effect.amount,
-          configVersion: config.version, configHash: digest(config), walletBefore: wallet.balance, walletAfter: wallet.balance - effect.amount,
+          configVersion: config.version, configHash: digest(config), walletBefore: wallet.balance, walletAfter,
           benefit: effect.benefit, savedNeedsBefore: pet?.paidCare?.needs || null, needsBefore: effect.needsBefore, needsAfter: effect.pet.paidCare.needs,
           checkpoint: effect.pet.paidCare.checkpoint, deliveryId: data.operationId, committedAtMs: nowMs };
         // Adapter MUST stage writes in this transaction only, after all its reads.
-        // It owns any future mirror protocol; no legacy wallet implementation exists here.
+        // The internal UID mirror adapter exists; live resolvers/exports are not wired.
         await walletAdapter.debit(transaction, wallet, effect.amount);
         transaction.set(petRef, effect.pet);
         transaction.set(receiptRef, receipt);
