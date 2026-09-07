@@ -12,11 +12,12 @@ import {
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getBankBalance, resolveBankBalance } from './bankBalance';
 import { accountEmailCandidatesForName, accountEmailForName } from './authIdentity';
+import YumPalsView from './yumpals/YumPalsView';
 import {
     Trophy, Gift, Activity, MessageSquare,
     LogOut, UserPlus, Heart, Zap, Search, CheckCircle, Target, Sparkles,
 
-    Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock, Users, Skull, Trash2, Clock, Calendar, Edit2, RotateCcw, Landmark, PiggyBank, ArrowRight, ArrowLeft, UserCheck, Keyboard, Shield, Settings, Gamepad2, Cable, Monitor, ClipboardList
+    Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock, Users, Skull, Trash2, Clock, Calendar, Edit2, RotateCcw, Landmark, PiggyBank, ArrowRight, ArrowLeft, UserCheck, Keyboard, Shield, Settings, Gamepad2, Cable, Monitor, ClipboardList, PawPrint
 } from 'lucide-react';
 
 
@@ -522,6 +523,15 @@ const BANK_INTEREST_RATE = 0.02;
 
 // 3. Live Studio Configuration
 const ENABLE_LIVE_STUDIO = true;
+// YumPals callable traffic is deliberately opt-in until its scoped rules and claim setup are reviewed.
+const ENABLE_YUMPALS_CLOUD = import.meta.env.VITE_YUMPALS_CLOUD === 'enabled';
+const YUMPALS_CALLABLES = new Set([
+    'yumpalsGetState',
+    'yumpalsAdopt',
+    'yumpalsCare',
+    'yumpalsUpdatePet',
+    'yumpalsUpdateSettings',
+]);
 
 const AVATAR_COLORS = [
     '#F472B6', // Pink
@@ -1760,7 +1770,7 @@ function ArcadeView({ user, profile, onWinBonus, sponsorships, sponsorshipSlots 
     );
 }
 
-export default function YumDonutApp() {
+function YumDonutDashboard() {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [view, setView] = useState('give');
@@ -1782,6 +1792,67 @@ export default function YumDonutApp() {
     const [currentDateKey, setCurrentDateKey] = useState(() => getLocalDateKey());
     const [sponsorships, setSponsorships] = useState({});
     const [sponsorshipSlotOverrides, setSponsorshipSlotOverrides] = useState({});
+    const [yumpalsState, setYumpalsState] = useState(null);
+    const [yumpalsLoading, setYumpalsLoading] = useState(false);
+    const [yumpalsError, setYumpalsError] = useState(null);
+
+    const yumpalsRequestRef = useRef(0);
+
+    const loadYumPals = async () => {
+        const requestedUid = user?.uid;
+        if (!ENABLE_YUMPALS_CLOUD || isSandbox || !requestedUid || !auth.currentUser || auth.currentUser.isAnonymous || auth.currentUser.uid !== requestedUid) return null;
+        const requestId = ++yumpalsRequestRef.current;
+        setYumpalsLoading(true);
+        setYumpalsError(null);
+        try {
+            const result = await httpsCallable(functions, 'yumpalsGetState')({});
+            if (requestId !== yumpalsRequestRef.current || auth.currentUser?.uid !== requestedUid) return null;
+            setYumpalsState(result.data);
+            return result.data;
+        } catch (error) {
+            if (requestId === yumpalsRequestRef.current && auth.currentUser?.uid === requestedUid) setYumpalsError(error);
+            throw error;
+        } finally {
+            if (requestId === yumpalsRequestRef.current) setYumpalsLoading(false);
+        }
+    };
+
+    const callYumPals = async (callableName, data) => {
+        if (!YUMPALS_CALLABLES.has(callableName)) throw new Error('Unsupported YumPals operation.');
+        if (!ENABLE_YUMPALS_CLOUD || isSandbox || !user || !auth.currentUser || auth.currentUser.isAnonymous || auth.currentUser.uid !== user.uid) {
+            throw new Error('YumPals cloud actions are unavailable for this session.');
+        }
+        const result = await httpsCallable(functions, callableName)(data);
+        return result.data;
+    };
+
+    const yumpalsAvailable = Boolean(ENABLE_YUMPALS_CLOUD && !isSandbox && (yumpalsState?.settings?.enabled || yumpalsState?.isAdmin));
+
+    useEffect(() => {
+        yumpalsRequestRef.current += 1;
+        setYumpalsState(null);
+        setYumpalsError(null);
+        if (ENABLE_YUMPALS_CLOUD && !isSandbox && user) void loadYumPals().catch(() => {});
+        else setYumpalsLoading(false);
+    }, [user?.uid, isSandbox]);
+
+    useEffect(() => {
+        if (!ENABLE_YUMPALS_CLOUD || isSandbox || !user || view !== 'yumpals') return undefined;
+        void loadYumPals().catch(() => {});
+        const refreshOnFocus = () => {
+            if (!document.hidden) void loadYumPals().catch(() => {});
+        };
+        window.addEventListener('focus', refreshOnFocus);
+        document.addEventListener('visibilitychange', refreshOnFocus);
+        return () => {
+            window.removeEventListener('focus', refreshOnFocus);
+            document.removeEventListener('visibilitychange', refreshOnFocus);
+        };
+    }, [view, user?.uid, currentDateKey]);
+
+    useEffect(() => {
+        if (view === 'yumpals' && !yumpalsAvailable) setView('give');
+    }, [view, yumpalsAvailable]);
 
     useEffect(() => {
         const refreshDateKey = () => {
@@ -3856,6 +3927,16 @@ export default function YumDonutApp() {
                     onUpdateGoal={handleUpdateGoal}
                     onResetGoal={handleResetGoal}
                     onToggleGoalActive={handleToggleGoalActive}
+                    onOpenYumPals={() => {
+                        setIsAdminSettingsOpen(false);
+                        if (ENABLE_YUMPALS_CLOUD) {
+                            void loadYumPals().then((result) => {
+                                if (result?.isAdmin) setView('yumpals');
+                            }).catch(() => {});
+                        }
+                    }}
+                    yumpalsBuildEnabled={ENABLE_YUMPALS_CLOUD}
+                    yumpalsState={yumpalsState}
                 />
             )}
 
@@ -3880,7 +3961,7 @@ export default function YumDonutApp() {
                 )}
 
                 <div className="flex overflow-x-auto justify-between border-b border-slate-200 mb-4 pb-1 no-scrollbar">
-                    {['give', 'jobs', 'arcade', 'shop', 'bank', 'training', 'goal', 'feed', 'leaderboard'].map(tab => (
+                    {['give', 'jobs', 'arcade', 'shop', 'bank', 'training', 'goal', 'feed', 'leaderboard', ...(yumpalsAvailable ? ['yumpals'] : [])].map(tab => (
                         <button
                             key={tab}
                             onClick={() => setView(tab)}
@@ -4011,6 +4092,20 @@ export default function YumDonutApp() {
                     <LeaderboardView users={users} roster={roster} sponsorships={sponsorships} sponsorshipSlots={currentSponsorshipSlots} />
                 )}
 
+                {view === 'yumpals' && yumpalsAvailable && (
+                    <YumPalsView
+                        key={user.uid}
+                        error={yumpalsError}
+                        isSandbox={isSandbox}
+                        loading={yumpalsLoading}
+                        onCall={callYumPals}
+                        onExit={() => setView('give')}
+                        onRefresh={loadYumPals}
+                        onRetry={loadYumPals}
+                        state={yumpalsState}
+                    />
+                )}
+
             </div>
 
             <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-3 flex justify-between z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
@@ -4021,9 +4116,23 @@ export default function YumDonutApp() {
                 <NavBtn icon={Landmark} label="Bank" active={view === 'bank'} onClick={() => setView('bank')} />
                 <NavBtn icon={Keyboard} label="Train" active={view === 'training'} onClick={() => setView('training')} />
                 <NavBtn icon={Activity} label="Feed" active={view === 'feed'} onClick={() => setView('feed')} />
+                {yumpalsAvailable && <NavBtn icon={PawPrint} label="Pals" active={view === 'yumpals'} onClick={() => setView('yumpals')} />}
             </div>
         </div>
     );
+}
+
+function YumPalsStandaloneDemo() {
+    return (
+        <div className="yumpals-demo-shell">
+            <YumPalsView demoMode onExit={() => { window.location.href = window.location.pathname; }} />
+        </div>
+    );
+}
+
+export default function YumDonutApp() {
+    const isStandaloneYumPalsDemo = new URLSearchParams(window.location.search).get('yumpals') === 'demo';
+    return isStandaloneYumPalsDemo ? <YumPalsStandaloneDemo /> : <YumDonutDashboard />;
 }
 
 // --- Sub-Components (Defined BEFORE Main App to avoid ReferenceErrors) ---
@@ -5202,8 +5311,8 @@ function GoalSettingsTab({ goalData, onUpdateGoal, onResetGoal, onToggleGoalActi
     );
 }
 
-function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrices, shopItemOverrides, sponsorshipSlotOverrides, goalData, onUpdateGoal, onResetGoal, onToggleGoalActive }) {
-    const [activeTab, setActiveTab] = useState('general'); // general, roster, shop, sponsorships, goal
+function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrices, shopItemOverrides, sponsorshipSlotOverrides, goalData, onUpdateGoal, onResetGoal, onToggleGoalActive, onOpenYumPals, yumpalsBuildEnabled, yumpalsState }) {
+    const [activeTab, setActiveTab] = useState('general'); // general, roster, shop, sponsorships, goal, yumpals
     const [newName, setNewName] = useState("");
     const [error, setError] = useState("");
     const [auditUser, setAuditUser] = useState(null);
@@ -5635,6 +5744,12 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                     >
                         Goal
                     </button>
+                    <button
+                        onClick={() => setActiveTab('yumpals')}
+                        className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors shrink-0 ${activeTab === 'yumpals' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                    >
+                        YumPals
+                    </button>
                 </div>
 
                 {/* Content */}
@@ -5665,6 +5780,25 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                                     STATUS: {holidayMode ? 'ACTIVE (Students Locked Out)' : 'INACTIVE (Normal Access)'}
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'yumpals' && (
+                        <div className="bg-white p-6 rounded-xl border border-pink-100 shadow-sm">
+                            <h3 className="font-bold text-pink-700 text-sm mb-2 flex items-center gap-2"><PawPrint size={16} /> YumPals rollout</h3>
+                            <p className="text-sm text-slate-600 mb-4">
+                                YumPals is disabled by default. Its teacher controls use a server-verified <code>yumpalsAdmin</code> claim; this existing display-name admin screen does not grant that privilege.
+                            </p>
+                            {!yumpalsBuildEnabled && <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs mb-4">Cloud callables are build-gated off. Set <code>VITE_YUMPALS_CLOUD=enabled</code> only after the scoped rules and teacher claim prerequisites are reviewed.</div>}
+                            {yumpalsBuildEnabled && !yumpalsState?.isAdmin && <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 text-xs mb-4">The current signed-in account has not returned the trusted YumPals teacher claim. No settings write is available.</div>}
+                            <button
+                                className="px-4 py-2 rounded-lg bg-pink-600 text-white font-bold text-sm disabled:opacity-50"
+                                disabled={!yumpalsBuildEnabled || !yumpalsState?.isAdmin}
+                                onClick={onOpenYumPals}
+                                type="button"
+                            >
+                                Open YumPals teacher controls
+                            </button>
                         </div>
                     )}
 

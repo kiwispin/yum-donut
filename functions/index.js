@@ -1,8 +1,9 @@
 const admin = require('firebase-admin');
-const { onRequest } = require('firebase-functions/v2/https');
+const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { CloudAdapter, ConfigurationBotFrameworkAuthentication } = require('botbuilder');
 const { handleTeamsTurn } = require('./src/teamsBot');
+const { createYumPalsHandlers } = require('./src/yumpals/callables');
 
 admin.initializeApp();
 
@@ -45,3 +46,15 @@ exports.teamsBot = onRequest({
     });
   });
 });
+
+const yumPalsHandlers = createYumPalsHandlers({
+  db: admin.firestore(),
+  FieldValue: admin.firestore.FieldValue,
+  HttpsError,
+});
+
+exports.yumpalsGetState = onCall({ region: 'us-central1' }, yumPalsHandlers.getState);
+exports.yumpalsAdopt = onCall({ region: 'us-central1' }, yumPalsHandlers.adopt);
+exports.yumpalsCare = onCall({ region: 'us-central1' }, yumPalsHandlers.care);
+exports.yumpalsUpdatePet = onCall({ region: 'us-central1' }, yumPalsHandlers.updatePet);
+exports.yumpalsUpdateSettings = onCall({ region: 'us-central1' }, yumPalsHandlers.updateSettings);

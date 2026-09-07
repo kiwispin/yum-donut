@@ -29,3 +29,7 @@ Teams writes into the same Firestore users and transactions used by the web app,
 See [functions/README.md](functions/README.md) for bot setup, mapping, and deployment notes.
 
 The Teams app manifest template lives in [teams-app-manifest](teams-app-manifest).
+
+## YumPals (review-gated)
+
+YumPals is an additive virtual-pet module with a local no-Firebase demo. Cloud rollout is disabled by default and remains pending callable, Auth-claim, scoped-rules, emulator, and staging review. See [YUMPALS_ROLLOUT.md](YUMPALS_ROLLOUT.md) for the demo URL and exact prerequisites.
