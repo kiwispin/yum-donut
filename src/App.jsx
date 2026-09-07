@@ -15,6 +15,7 @@ import { assertWalletSession, readWalletMirrors, reconcileLegacyWallet, walletBa
 import { payBountyTransaction, payInterestTransaction, prepareInterestRun, completeInterestRun } from './rewardCompatibility.js';
 import { bankTransferFields, giveDonutsTransaction } from './bankGiftCompatibility.js';
 import { arcadeOutcome, trainingOutcome, awardGameTransaction, munchTransaction } from './gameCompatibility.js';
+import { bootstrapProfile, watchAuthProfile } from './accountCompatibility.js';
 import { accountEmailCandidatesForName, accountEmailForName } from './authIdentity';
 import YumPalsView from './yumpals/YumPalsView';
 import YumPalsHandheldDemo from './yumpals/YumPalsHandheldDemo';
@@ -1806,6 +1807,7 @@ function YumDonutDashboard() {
     const yumpalsRequestRef = useRef(0);
     const interestRunRef = useRef(null);
     const interestBusyRef = useRef(false);
+    const loginAttemptRef = useRef(0);
 
     const loadYumPals = async () => {
         const requestedUid = user?.uid;
@@ -1944,28 +1946,14 @@ function YumDonutDashboard() {
         }
         initAuth();
 
-        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-            setUser(currentUser);
-            if (currentUser) {
-                const userRef = doc(db, 'artifacts', APP_ID, 'users', currentUser.uid, 'profile', 'data');
-                const unsubProfile = onSnapshot(userRef, async (docSnap) => {
-                    if (docSnap.exists()) {
-                        const privateData = docSnap.data();
-                        setMyProfile(privateData);
-                    } else {
-                        // Profile is missing (could be deleted or new user)
-                        setMyProfile(null);
-                    }
-                    setLoading(false);
-                }, (error) => {
-                    console.error("Profile snapshot error", error);
-                    setLoading(false);
-                    showNotification("Connection issue. Please refresh.", "error");
-                });
-                return () => unsubProfile();
-            } else {
-                setLoading(false);
-            }
+        const unsubscribe = watchAuthProfile({
+            auth, onAuthStateChanged, onSnapshot,
+            profileRef: (uid) => doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data'),
+            setUser, setMyProfile, setLoading,
+            onError: (error) => {
+                console.error("Profile snapshot error", error);
+                showNotification("Connection issue. Please refresh.", "error");
+            },
         });
 
         // Safety Valve: If loading takes too long (e.g. firewall blocking Firestore), force stop.
@@ -2280,76 +2268,32 @@ function YumDonutDashboard() {
     // --- Actions ---
 
     const createProfile = async (uid, name) => {
-        const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', name);
-        const publicDoc = await getDoc(publicRef);
-
-        let currentBalance = 0;
-        let currentBankBalance = 0;
-        let currentGiven = 0;
-        let lifetimeReceived = 0;
-        let avatarColor = `hsl(${Math.random() * 360}, 70%, 50%)`;
-        let rainbowName = false;
-
-        // Live Studio Defaults
-        const randomColor = AVATAR_COLORS[uid.charCodeAt(0) % AVATAR_COLORS.length];
-        const randomEmoji = MEDIA_EMOJIS[uid.charCodeAt(uid.length - 1) % MEDIA_EMOJIS.length];
-
-        if (publicDoc.exists()) {
-            const data = publicDoc.data();
-            currentBalance = getDonutBalance(data.balance);
-            currentBankBalance = getDonutBalance(data.bank_balance);
-            currentGiven = data.lifetime_given || 0;
-            lifetimeReceived = data.lifetime_received || currentBalance;
-            if (data.avatar_color) avatarColor = data.avatar_color;
-            if (data.rainbow_name) rainbowName = data.rainbow_name;
-        }
-
-        const initialPrivateData = {
-            name: name,
-            balance: currentBalance,
-            bank_balance: currentBankBalance,
-            given_today: 0,
-            last_given_date: new Date().toDateString(),
-            last_training_date: null,
-            last_training_date_sudden_death: null,
-            last_training_date_ninja: null,
-            training_earned_today: 0,
-            training_last_earned_date: new Date().toDateString(),
-            sudden_death_won: false,
-            typing_license: false,
-            avatar_color: avatarColor,
-            // Pixel Avatar Fields
-            avatar_pixels: [],
-            avatar_grid_size: 8,
-            // Live Studio Fields
-            live_avatar_color: randomColor,
-            live_avatar_icon: randomEmoji,
-            last_seen: serverTimestamp()
-        };
-
-        await setDoc(doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data'), initialPrivateData);
-
-        await setDoc(publicRef, {
-            name: name,
-            balance: currentBalance,
-            bank_balance: currentBankBalance,
-            lifetime_given: currentGiven,
-            lifetime_received: lifetimeReceived,
-            avatar_color: avatarColor,
-            rainbow_name: rainbowName,
-            claimed: true,
-            uid: uid,
-            typing_license: false,
-            // Live Studio Fields
-            live_avatar_color: randomColor,
-            live_avatar_icon: randomEmoji,
-            last_seen: serverTimestamp()
-        }, { merge: true });
+        const isActive = () => Boolean(uid && auth.currentUser?.uid === uid && !auth.currentUser?.isAnonymous);
+        assertWalletSession(isActive);
+        return runTransaction(db, (transaction) => bootstrapProfile(transaction, {
+            uid, name, isActive,
+            publicRef: doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', name),
+            privateRef: doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data'),
+            rosterRef: doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'roster'),
+            defaults: {
+                given_today: 0, last_given_date: new Date().toDateString(),
+                last_training_date: null, last_training_date_sudden_death: null, last_training_date_ninja: null,
+                training_earned_today: 0, training_last_earned_date: new Date().toDateString(),
+                sudden_death_won: false, typing_license: false,
+                avatar_color: `hsl(${Math.random() * 360}, 70%, 50%)`, avatar_pixels: [], avatar_grid_size: 8,
+                live_avatar_color: AVATAR_COLORS[uid.charCodeAt(0) % AVATAR_COLORS.length],
+                live_avatar_icon: MEDIA_EMOJIS[uid.charCodeAt(uid.length - 1) % MEDIA_EMOJIS.length],
+                last_seen: serverTimestamp(),
+            },
+        }));
     };
 
     // --- AUTHENTICATION ---
     const handleLoginOrRegister = async (name, password, sandboxMode = false, createAccount = false) => {
         if (!name || !password) return;
+        const attempt = ++loginAttemptRef.current;
+        const isCurrentAttempt = () => loginAttemptRef.current === attempt;
+        let authAccountCreated = false;
         setLoading(true);
         try {
             if (sandboxMode) {
@@ -2361,6 +2305,7 @@ function YumDonutDashboard() {
                     // We need to fetch profile manually since onAuthStateChanged won't trigger
                     const userRef = doc(db, 'artifacts', APP_ID, 'users', existing.uid, 'profile', 'data');
                     const userSnap = await getDoc(userRef);
+                    if (!isCurrentAttempt()) return;
                     if (userSnap.exists()) {
                         setMyProfile(userSnap.data());
                     } else {
@@ -2391,6 +2336,7 @@ function YumDonutDashboard() {
             if (createAccount) {
                 const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', name);
                 const publicSnap = await getDoc(publicRef);
+                if (!isCurrentAttempt()) return;
                 const publicData = publicSnap.exists() ? publicSnap.data() : null;
                 if (publicData?.claimed && publicData.uid) {
                     throw new Error("ACCOUNT_EXISTS");
@@ -2398,8 +2344,13 @@ function YumDonutDashboard() {
 
                 const email = accountEmailForName(name);
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                authAccountCreated = true;
+                const isActive = () => isCurrentAttempt() && auth.currentUser?.uid === userCredential.user.uid && !auth.currentUser?.isAnonymous;
+                assertWalletSession(isActive);
                 await updateProfile(userCredential.user, { displayName: name });
+                assertWalletSession(isActive);
                 await createProfile(userCredential.user.uid, name);
+                assertWalletSession(isActive);
                 showNotification(`Account created for ${name}!`);
             } else {
                 let userCredential = null;
@@ -2408,8 +2359,10 @@ function YumDonutDashboard() {
                 for (const email of accountEmailCandidatesForName(name)) {
                     try {
                         userCredential = await signInWithEmailAndPassword(auth, email, password);
+                        if (!isCurrentAttempt()) return;
                         break;
                     } catch (error) {
+                        if (!isCurrentAttempt()) return;
                         lastError = error;
                     }
                 }
@@ -2417,20 +2370,29 @@ function YumDonutDashboard() {
                 if (!userCredential) throw lastError || new Error("LOGIN_FAILED");
 
                 const uid = userCredential.user.uid;
+                const isActive = () => isCurrentAttempt() && auth.currentUser?.uid === uid && !auth.currentUser?.isAnonymous;
+                assertWalletSession(isActive);
                 const userRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data');
                 const docSnap = await getDoc(userRef);
-                if (!docSnap.exists()) {
-                    await createProfile(uid, name);
-                    showNotification(`Welcome back, ${name}! Profile restored.`);
-                } else if (docSnap.data().name && docSnap.data().name !== name) {
+                assertWalletSession(isActive);
+                if (docSnap.exists() && docSnap.data().name !== name) {
                     await signOut(auth);
                     throw new Error("PROFILE_NAME_MISMATCH");
                 } else {
+                    await createProfile(uid, name);
+                    assertWalletSession(isActive);
                     showNotification(`Welcome back, ${name}!`);
                 }
             }
         } catch (error) {
-            if (error?.message === "ACCOUNT_EXISTS" || error?.code === 'auth/email-already-in-use') {
+            if (!isCurrentAttempt()) return;
+            if (authAccountCreated) {
+                showNotification('Your sign-in account was created, but profile setup was not confirmed. Sign in with the same password to retry, or ask your teacher to check it. No account was deleted.', 'error');
+            } else if (['PROFILE_REPAIR_REQUIRED', 'PROFILE_LINK_CONFLICT', 'PROFILE_NOT_ACTIVE', 'WALLET_OWNER_CONFLICT', 'WALLET_BALANCE_CONFLICT', 'CORRUPT_BALANCE'].includes(error?.message)) {
+                showNotification('Your sign-in worked, but your school profile needs checking. Ask your teacher; existing balances and progress were not reset.', 'error');
+            } else if (error?.message === 'WALLET_SESSION_CHANGED') {
+                showNotification('The signed-in account changed. Please sign in again.', 'error');
+            } else if (error?.message === "ACCOUNT_EXISTS" || error?.code === 'auth/email-already-in-use') {
                 showNotification("This name already has an account. Sign in instead.", "error");
             } else if (error?.message === "PROFILE_NAME_MISMATCH") {
                 showNotification("That account belongs to a different Yum Donut name.", "error");
@@ -2441,10 +2403,11 @@ function YumDonutDashboard() {
                 showNotification(createAccount ? "Could not create account." : "Login failed. Check password.", "error");
             }
         }
-        setLoading(false);
+        if (isCurrentAttempt()) setLoading(false);
     };
 
     const handleLogout = () => {
+        loginAttemptRef.current += 1;
         setYumpalsPreviewUid(null);
         signOut(auth);
         setIsSandbox(false); // Reset sandbox mode on logout
