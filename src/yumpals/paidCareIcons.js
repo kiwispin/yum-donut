@@ -30,14 +30,14 @@ export const PAID_CARE_ICON_MENU_IDS = Object.freeze({
 });
 
 export const PAID_CARE_ICON_HELP = Object.freeze({
-    food: 'Give a meal or snack to fill hunger hearts.',
-    lights: 'Set bedtime lights for the fake night; lights return at 7 am.',
-    game: 'Play three direction guesses or give a pat for happiness hearts.',
-    medicine: 'Give medicine to restore health hearts.',
-    clean: 'Clean up to restore cleanliness hearts.',
-    status: 'Check four heart meters and recent receipts. No charge.',
-    discipline: 'Give a gentle reminder to clear the attention flag.',
-    attention: 'Check whether your pal needs attention. No charge.',
+    food: 'Give a meal or snack to fill your pal’s tummy. Food hearts show how well fed your pal is.',
+    lights: 'Set lights out for bedtime. They come back on at 7 am in the demo.',
+    game: 'Guess which way your pal will look, or give a pat to add happy hearts.',
+    medicine: 'Help your pal feel better with medicine.',
+    clean: 'Clean up your pal’s mess.',
+    status: 'See how fed, happy, clean and healthy your pal is, and what you spent. No charge.',
+    discipline: 'Help your pal settle down with a gentle reminder.',
+    attention: 'Check whether your pal needs a gentle reminder. No charge.',
 });
 
 export function paidCareHelpIcon(selected, hovered, focused) {

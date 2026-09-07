@@ -192,19 +192,36 @@ export function getActionBenefit(state, action) {
     return { key: null, amount: 0, label: 'no effect' };
 }
 
+export const PAID_CARE_NOT_NEEDED = Object.freeze({
+    meal: 'I’m full! No meal needed. No donuts spent.',
+    snack: 'I’m full! No snack needed. No donuts spent.',
+    game: 'I’m already happy! No game needed. No donuts spent.',
+    pat: 'I’m already happy! No pat needed. No donuts spent.',
+    clean: 'I’m already clean! No clean-up needed. No donuts spent.',
+    medicine: 'I’m feeling healthy! No medicine needed. No donuts spent.',
+    reminder: 'I’m settled! No reminder needed. No donuts spent.',
+});
+
+export function careEffectText(benefit) {
+    if (benefit.key === 'sleep') return 'Lights out at night; on at 7 am';
+    if (benefit.key === 'attention') return 'A gentle reminder to settle down';
+    const names = { hunger: 'Food', happiness: 'Happy', cleanliness: 'Clean', health: 'Health' };
+    return `+${benefit.amount} ${names[benefit.key] || ''} heart${benefit.amount === 1 ? '' : 's'}`;
+}
+
 export function getCareValidation(state, action) {
-    if (!state.pet) return { code: 'NO_PET', message: 'Adopt a YumPal first.' };
-    if (!PAID_CARE_PRICES[action]) return { code: 'UNKNOWN_ACTION', message: 'That care action is not available.' };
-    if (state.gameSession) return { code: 'GAME_ACTIVE', message: 'Finish or resume the paid game first.' };
+    if (!state.pet) return { code: 'NO_PET', message: 'Adopt a pal first. No donuts spent.' };
+    if (!PAID_CARE_PRICES[action]) return { code: 'UNKNOWN_ACTION', message: 'That choice is not available. No donuts spent.' };
+    if (state.gameSession) return { code: 'GAME_ACTIVE', message: 'Your game is paused. Open Game to finish it first. No extra donuts needed.' };
     const benefit = getActionBenefit(state, action);
-    if (benefit.amount <= 0 && action !== 'bedtime') return { code: 'NOOP_FULL', message: `${PAID_CARE_LABELS[action]} would not change a full meter.` };
-    if (action === 'bedtime' && (state.bedtimeDates.includes(state.dateKey) || isBedtimeSessionActive(state))) return { code: 'DUPLICATE_DAY', message: 'Bedtime is already active for this sleep session.' };
+    if (benefit.amount <= 0 && action !== 'bedtime') return { code: 'NOOP_FULL', message: PAID_CARE_NOT_NEEDED[action] };
+    if (action === 'bedtime' && (state.bedtimeDates.includes(state.dateKey) || isBedtimeSessionActive(state))) return { code: 'DUPLICATE_DAY', message: 'Bedtime lights are already set. No donuts spent.' };
     const spentToday = state.dailySpend[state.dateKey] || 0;
-    if (spentToday + PAID_CARE_PRICES[action] > PAID_CARE_DAILY_CAP) return { code: 'CAP', message: 'The 25-donut demo care cap is reached for this day.' };
+    if (spentToday + PAID_CARE_PRICES[action] > PAID_CARE_DAILY_CAP) return { code: 'CAP', message: `You have ${Math.max(0, PAID_CARE_DAILY_CAP - spentToday)} donut${PAID_CARE_DAILY_CAP - spentToday === 1 ? '' : 's'} left to spend on care today. This costs ${PAID_CARE_PRICES[action]}. No donuts spent.` };
     if (state.balance < PAID_CARE_PRICES[action]) {
         return {
             code: 'INSUFFICIENT',
-            message: `Not enough pretend donuts. Need ${PAID_CARE_PRICES[action]}, have ${state.balance}.`,
+            message: `This costs ${PAID_CARE_PRICES[action]} pretend donut${PAID_CARE_PRICES[action] === 1 ? '' : 's'}. You have ${state.balance}. No donuts spent.`,
         };
     }
     return { code: 'OK', benefit, price: PAID_CARE_PRICES[action] };

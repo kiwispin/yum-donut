@@ -11,6 +11,7 @@ import {
     createPaidCareDemo,
     formatDemoClock,
     getActionBenefit,
+    careEffectText,
     getCareValidation,
     isBedtimeSessionActive,
     isDemoNight,
@@ -43,9 +44,9 @@ const SUBMENUS = {
         { id: 'back', label: 'BACK' },
     ],
     clean: [{ id: 'clean', label: 'CLEAN' }, { id: 'back', label: 'BACK' }],
-    medicine: [{ id: 'medicine', label: 'MEDIC' }, { id: 'back', label: 'BACK' }],
+    medicine: [{ id: 'medicine', label: 'MEDICINE' }, { id: 'back', label: 'BACK' }],
     lights: [{ id: 'bedtime', label: 'BEDTIME' }, { id: 'back', label: 'BACK' }],
-    reminder: [{ id: 'reminder', label: 'REMIND' }, { id: 'back', label: 'BACK' }],
+    reminder: [{ id: 'reminder', label: 'REMINDER' }, { id: 'back', label: 'BACK' }],
 };
 
 const PROP_PIXELS = PAID_CARE_PROP_PIXELS;
@@ -152,7 +153,7 @@ function DemoSprite({ animationState, forceAnimation, idleBlink = false, reduced
 }
 
 function receiptLine(receipt) {
-    return `${receipt.label.toUpperCase()} -${receipt.amount} ${receipt.status}`;
+    return `${receipt.label.toUpperCase()} -${receipt.amount} DONUT${receipt.amount === 1 ? '' : 'S'}`;
 }
 
 export default function YumPalsHandheldDemo() {
@@ -312,7 +313,7 @@ export default function YumPalsHandheldDemo() {
         const operationId = nextOperationId();
         const result = beginPaidCare(state, selectedAction, operationId);
         if (result.code !== 'OK') {
-            showNotice(result.message || 'That purchase was not made. No donuts changed.', 'error');
+            showNotice(result.message || 'That did not go through. No donuts spent.', 'error');
             return;
         }
         setDemoState(result.state);
@@ -323,19 +324,19 @@ export default function YumPalsHandheldDemo() {
             setScreen('game');
         } else {
             setScreen('room');
-            showNotice(`${PAID_CARE_LABELS[selectedAction]} delivered. Wallet: ${result.state.balance} pretend donuts.`);
+            showNotice(`${careEffectText(result.benefit)}. You have ${result.state.balance} pretend donuts left.`);
         }
     };
 
     const adopt = () => {
         const result = adoptPaidCareDemo(state, { name: 'Niblet', operationId: nextOperationId() });
         if (result.code !== 'OK') {
-            showNotice(result.code === 'INSUFFICIENT' ? 'Adoption needs 5 pretend donuts. No charge was made.' : 'Adoption was not made.', 'error');
+            showNotice(result.code === 'INSUFFICIENT' ? 'You need 5 pretend donuts to adopt. No donuts spent.' : 'You could not adopt this time. No donuts spent.', 'error');
             return;
         }
         setDemoState({ ...result.state, scenario: 'post-adoption' });
         setScreen('room');
-        showNotice('Niblet joined. Adoption cost 5 pretend donuts; needs start full.');
+        showNotice('Welcome, Niblet! Adoption cost 5 pretend donuts. Your pal is fed, happy, clean and healthy.');
     };
 
     const gameChoice = (choice) => {
@@ -349,7 +350,7 @@ export default function YumPalsHandheldDemo() {
         if (result.complete) {
             setGameOutcome({ target: result.target, correct: result.correct });
             setScreen('game-result');
-            showNotice(`Game complete: happiness +${result.happinessGain} was already delivered. No prize or payout.`);
+            showNotice(`All done! You gained ${result.happinessGain} happy hearts when you started. No more donuts spent.`);
         } else {
             showNotice(result.correct ? 'Correct direction.' : 'Different direction. Keep going.');
             gameRevealTimerRef.current = window.setTimeout(() => setGameReveal(null), reducedMotion ? 220 : 520);
@@ -364,7 +365,7 @@ export default function YumPalsHandheldDemo() {
         }
         if (screen === 'game') {
             setScreen('room');
-            showNotice('Game paused. Press A, then B on PLAY to resume; no second fee.');
+            showNotice('Game paused. Select the Game icon, then choose Game to keep playing. No extra donuts needed.');
             return;
         }
         if (screen === 'game-result') {
@@ -387,7 +388,7 @@ export default function YumPalsHandheldDemo() {
         else if (screen === 'game-result') setScreen('room');
         else if (screen === 'settings') {
             setReducedMotion((current) => !current);
-            showNotice(`Reduced motion ${reducedMotion ? 'off' : 'on'}; setting is uncharged.`);
+            showNotice(`Less movement ${reducedMotion ? 'off' : 'on'}. This is free.`);
         }
     };
 
@@ -433,40 +434,40 @@ export default function YumPalsHandheldDemo() {
         setSelectedIcon(0);
         setSelectedMenu(null);
         setSelectedAction(null);
-        showNotice('Local scenario changed. No account or wallet was touched.');
+        showNotice('Demo example changed. Your real donuts are unchanged.');
     };
 
     const advanceClock = () => {
         setDemoState((current) => advanceDemoClock(current, 60));
-        showNotice('Fake clock advanced 1 hour. It is not the device or school clock.');
+        showNotice('The demo clock moved forward one hour.');
     };
 
     const advanceDay = () => {
         setDemoState((current) => advanceLocalDay(current));
         setScreen('room');
-        showNotice('Local day advanced. Rest days freeze decline; meters stay between 0 and 4.');
+        showNotice('The demo moved to the next day. Your pal rests on days off.');
     };
 
     const selectedBenefit = selectedAction ? getActionBenefit(state, selectedAction) : null;
     const actionProp = visualAction && ['clean', 'medicine', 'reminder', 'bedtime'].includes(visualAction) ? visualAction : null;
-    const roomCue = pet && pet.needs.cleanliness <= 1 ? 'MESS' : pet && pet.needs.health <= 1 ? 'SICK' : pet?.attention ? 'ATTN' : null;
-    const growthStage = pet?.ageDays >= 20 ? 'GROWN' : pet?.ageDays >= 10 ? 'JUNIOR' : pet?.ageDays >= 3 ? 'BUDDING' : 'HATCH';
+    const roomCue = pet && pet.needs.cleanliness <= 1 ? 'MESS' : pet && pet.needs.health <= 1 ? 'SICK' : pet?.attention ? 'REMINDER' : null;
+    const growthStage = pet?.ageDays >= 20 ? 'GROWN' : pet?.ageDays >= 10 ? 'JUNIOR' : pet?.ageDays >= 3 ? 'BUDDING' : 'BABY';
 
     const gameInputLocked = screen === 'game' && Boolean(gameReveal);
 
     return (
         <main className="paid-demo-shell">
-            <section className="paid-demo-page" aria-label="YumPals paid-care local demo">
+            <section className="paid-demo-page" aria-label="YumPals pet care demo">
                 <header className="paid-demo-header">
                     <div>
-                        <p className="paid-demo-kicker">YUMPALS / STAGE 2</p>
+                        <p className="paid-demo-kicker">YUMPALS</p>
                         <h1>Handheld care demo</h1>
-                        <p>SEE / TRY preview · pretend donuts only</p>
+                        <p>Try caring for a pal · pretend donuts only</p>
                     </div>
-                    <span className="paid-demo-badge">LOCAL ONLY</span>
+                    <span className="paid-demo-badge">DEMO</span>
                 </header>
 
-                <p className="paid-demo-warning">Pet actions use pretend donuts only; this demo makes no pet or account database writes. Reload resets this temporary demo; game resume works within this open session.</p>
+                <p className="paid-demo-warning">This is a temporary demo with pretend donuts. Your real donuts and saved pet stay unchanged. Refreshing starts over. You can pause and resume a game while this page stays open.</p>
 
                 <div className="paid-demo-device-wrap">
                     <div className={`paid-demo-device ${sleeping ? 'is-sleeping' : ''}`}>
@@ -477,7 +478,7 @@ export default function YumPalsHandheldDemo() {
                                 <div className="paid-lcd-content">
                                 {screen === 'room' && pet && (
                                     <div className="paid-lcd-room">
-                                        <div className="paid-lcd-top"><span>{pet.name.toUpperCase()}</span><span>D{state.balance}</span></div>
+                                        <div className="paid-lcd-top"><span>{pet.name.toUpperCase()}</span><span>{state.balance} DONUTS</span></div>
                                         <div className="paid-lcd-stage">
                                             <DemoSprite animationState={animationState} idleBlink={idleBlink} reducedMotion={reducedMotion} sleeping={sleeping} visualAction={visualAction} />
                                             {actionProp && <PixelProp type={actionProp} variant={actionProp === 'clean' ? String(cleanFrame || 1) : ''} />}
@@ -496,7 +497,7 @@ export default function YumPalsHandheldDemo() {
                                 )}
 
                                 {screen === 'adopt' && (
-                                    <div className="paid-lcd-message"><strong>ADOPT?</strong><span>NIBLET</span><span>COST {PAID_CARE_ADOPTION_PRICE}</span><small>B CONFIRM · C CANCEL</small></div>
+                                    <div className="paid-lcd-message"><strong>ADOPT?</strong><span>NIBLET</span><span>COST {PAID_CARE_ADOPTION_PRICE} DONUTS</span><span>FED, HAPPY, CLEAN, HEALTHY</span><small>B CONFIRM · C CANCEL</small></div>
                                 )}
 
                                 {screen === 'submenu' && (
@@ -504,23 +505,23 @@ export default function YumPalsHandheldDemo() {
                                 )}
 
                                 {screen === 'confirm' && selectedAction && (
-                                    <div className="paid-lcd-message"><strong>BUY {PAID_CARE_LABELS[selectedAction]?.toUpperCase()}</strong><span>COST {PAID_CARE_PRICES[selectedAction]} DONUT{PAID_CARE_PRICES[selectedAction] === 1 ? '' : 'S'}</span><span>WALLET AFTER {state.balance - PAID_CARE_PRICES[selectedAction]}</span><span>+{selectedBenefit?.amount || 1} {selectedBenefit?.label?.toUpperCase()}</span><small>B CONFIRM PAYMENT · C CANCEL</small></div>
+                                    <div className="paid-lcd-message"><strong>BUY {PAID_CARE_LABELS[selectedAction]?.toUpperCase()}</strong><span>COST {PAID_CARE_PRICES[selectedAction]} DONUT{PAID_CARE_PRICES[selectedAction] === 1 ? '' : 'S'}</span><span>DONUTS LEFT {state.balance - PAID_CARE_PRICES[selectedAction]}</span><span>{careEffectText(selectedBenefit)}</span><small>B CONFIRM PAYMENT · C CANCEL</small></div>
                                 )}
 
                                 {screen === 'status' && pet && (
-                                    <div className="paid-lcd-status"><span className="paid-lcd-title">{statusMode === 'attention' ? 'ATTENTION' : 'STATUS'} / {pet.ageDays}D / {growthStage}</span><MeterRow label="HUN" value={pet.needs.hunger} /><MeterRow label="HAP" value={pet.needs.happiness} /><MeterRow label="CLN" value={pet.needs.cleanliness} /><MeterRow label="HP" value={pet.needs.health} /><span className="paid-status-attention">{pet.attention ? 'ATTENTION FLAG' : 'NO ATTENTION'}</span><div className="paid-receipt-list">{state.receipts.slice(-3).reverse().map((receipt) => <span key={receipt.receiptId}>{receiptLine(receipt)}</span>)}</div><span className="paid-lcd-help">C CANCEL</span></div>
+                                    <div className="paid-lcd-status"><span className="paid-lcd-title">{statusMode === 'attention' ? 'ATTENTION' : 'STATUS'} / {pet.ageDays} DAYS / {growthStage}</span><MeterRow label="FOOD" value={pet.needs.hunger} /><MeterRow label="HAPPY" value={pet.needs.happiness} /><MeterRow label="CLEAN" value={pet.needs.cleanliness} /><MeterRow label="HEALTH" value={pet.needs.health} /><span className="paid-status-attention">{pet.attention ? 'NEEDS A REMINDER' : 'FEELING SETTLED'}</span><div className="paid-receipt-list">{state.receipts.slice(-3).reverse().map((receipt) => <span key={receipt.receiptId}>{receiptLine(receipt)}</span>)}</div><span className="paid-lcd-help">C CANCEL</span></div>
                                 )}
 
                                 {screen === 'settings' && (
-                                    <div className="paid-lcd-message"><strong>SETTINGS</strong><span>MOTION {reducedMotion ? 'REDUCED' : 'FULL'}</span><span>B TOGGLE</span><small>C CANCEL · NO COST</small></div>
+                                    <div className="paid-lcd-message"><strong>SETTINGS</strong><span>LESS MOVEMENT {reducedMotion ? 'ON' : 'OFF'}</span><span>B CHANGE</span><small>C CANCEL · NO COST</small></div>
                                 )}
 
                                 {screen === 'game' && state.gameSession && (
-                                    <div className="paid-lcd-game"><span className="paid-lcd-title">DIRECTION GAME</span><div className="paid-game-visual"><DemoSprite animationState={animationState} forceAnimation={gameReveal ? gameReveal.target === 'left' ? 'lookLeft' : 'lookRight' : null} reducedMotion={reducedMotion} sleeping={false} visualAction={gameReveal ? 'game' : null} /></div><strong>ROUND {(gameReveal ? gameReveal.round : state.gameSession.round) + 1} / 3</strong><span>{gameReveal ? `REVEAL ${(gameReveal.target || '?').toUpperCase()} · ${gameReveal.correct ? 'MATCH' : 'MISS'}` : 'A = LEFT · B = RIGHT'}</span><small>C CANCEL / PAUSE · NO PAYOUTS</small></div>
+                                    <div className="paid-lcd-game"><span className="paid-lcd-title">DIRECTION GAME</span><div className="paid-game-visual"><DemoSprite animationState={animationState} forceAnimation={gameReveal ? gameReveal.target === 'left' ? 'lookLeft' : 'lookRight' : null} reducedMotion={reducedMotion} sleeping={false} visualAction={gameReveal ? 'game' : null} /></div><strong>ROUND {(gameReveal ? gameReveal.round : state.gameSession.round) + 1} / 3</strong><span>{gameReveal ? `LOOKED ${(gameReveal.target || '?').toUpperCase()} · ${gameReveal.correct ? 'CORRECT!' : 'NICE TRY'}` : 'A = LEFT · B = RIGHT'}</span><small>C CANCEL / PAUSE · JUST FOR FUN</small></div>
                                 )}
 
                                 {screen === 'game-result' && gameOutcome && (
-                                    <div className="paid-lcd-game"><span className="paid-lcd-title">FINAL DIRECTION</span><div className="paid-game-visual"><DemoSprite animationState={animationState} forceAnimation={gameOutcome.target === 'left' ? 'lookLeft' : 'lookRight'} reducedMotion={reducedMotion} sleeping={false} visualAction="game" /></div><strong>ROUND 3 TARGET {(gameOutcome.target || '?').toUpperCase()}</strong><span>{gameOutcome.correct ? 'MATCH' : 'MISS'} · BENEFIT KEPT</span><small>B CONFIRM · C CANCEL · NO SECOND FEE</small></div>
+                                    <div className="paid-lcd-game"><span className="paid-lcd-title">FINAL DIRECTION</span><div className="paid-game-visual"><DemoSprite animationState={animationState} forceAnimation={gameOutcome.target === 'left' ? 'lookLeft' : 'lookRight'} reducedMotion={reducedMotion} sleeping={false} visualAction="game" /></div><strong>ROUND 3 LOOKED {(gameOutcome.target || '?').toUpperCase()}</strong><span>{gameOutcome.correct ? 'CORRECT!' : 'NICE TRY'} · GAME FINISHED</span><small>B CONFIRM · C CANCEL · NO EXTRA COST</small></div>
                                 )}
                                 </div>
                                 <IconRail position="bottom" selectedIcon={selectedIcon} onSelect={setSelectedIcon} onHover={setHoveredIcon} onFocusIcon={setFocusedIcon} disabled={!pet} />
@@ -538,7 +539,7 @@ export default function YumPalsHandheldDemo() {
 
                 {notice && <div className={`paid-demo-notice ${notice.type === 'error' ? 'is-error' : ''}`} role="status">{notice.message}</div>}
 
-                <div className="paid-demo-meta" aria-label="Demo economy summary"><span>START 30</span><span>WALLET {state.balance}</span><span>SPENT {state.spentTotal}</span><span>CAP {state.dailySpend[state.dateKey] || 0}/{25}</span></div>
+                <div className="paid-demo-meta" aria-label="Pretend donuts"><span>STARTED WITH 30</span><span>LEFT {state.balance}</span><span>SPENT {state.spentTotal}</span><span>CARE TODAY {state.dailySpend[state.dateKey] || 0}/{25}</span></div>
                 <p className="paid-demo-hint" role="status">{helpIcon ? `${PAID_CARE_ICON_LABELS[helpIcon]} — ${PAID_CARE_ICON_HELP[helpIcon]}` : 'Press A SELECT to choose an icon.'}</p>
                 {PAID_CARE_ICON_ORDER.map((id) => <span className="paid-help-accessible" id={`paid-icon-help-${id}`} key={id}>{PAID_CARE_ICON_HELP[id]}</span>)}
                 <details className="paid-demo-inspector">
@@ -546,10 +547,10 @@ export default function YumPalsHandheldDemo() {
                     <p>A SELECT moves through icons or choices. B CONFIRM opens your choice. C CANCEL clears a selection or returns; in a game it pauses.</p>
                     <p>Choosing an icon costs nothing. Pretend donuts are charged only when you confirm the displayed price. Health and status and Attention are free to check.</p>
                     <dl className="paid-help-guide">{PAID_CARE_ICON_ORDER.map((id) => <div key={id}><dt><span className="paid-help-icon"><PaidCareIcon id={id} selected={false} /></span>{PAID_CARE_ICON_LABELS[id]}</dt><dd>{PAID_CARE_ICON_HELP[id]}</dd></div>)}</dl>
-                    <p>Needs start full. To try care, open Demo controls below and choose Needs care. During the game, follow the left/right instructions inside the screen; C CANCEL pauses and you can resume without paying again.</p>
+                    <p>Your pal starts fed, happy, clean and healthy. To try care, open Demo controls below and choose Needs care. During the game, follow the left/right instructions inside the screen; C CANCEL pauses and you can resume without paying again.</p>
                 </details>
 
-                <button className="paid-demo-utility" onClick={() => setScreen('settings')} type="button">Preferences · reduced motion (uncharged)</button>
+                <button className="paid-demo-utility" onClick={() => setScreen('settings')} type="button">Settings · less movement (free)</button>
 
                 <details className="paid-demo-inspector">
                     <summary>Demo controls · needs, school day and fake clock</summary>
