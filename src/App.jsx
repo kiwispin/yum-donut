@@ -10,6 +10,8 @@ import {
     signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInAnonymously, updateProfile
 } from 'firebase/auth';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { getBankBalance, resolveBankBalance } from './bankBalance';
+import { accountEmailCandidatesForName, accountEmailForName } from './authIdentity';
 import {
     Trophy, Gift, Activity, MessageSquare,
     LogOut, UserPlus, Heart, Zap, Search, CheckCircle, Target, Sparkles,
@@ -656,6 +658,18 @@ const normaliseDailyLimit = (value, fallback = null) => {
     return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const isFiniteDonutBalance = (value) => (
+    typeof value === 'number' && Number.isFinite(value) && value >= 0
+);
+
+const getDonutBalance = (value, fallback = 0) => (
+    isFiniteDonutBalance(value) ? value : fallback
+);
+
+const isValidDonutAmount = (value) => (
+    Number.isInteger(value) && value > 0
+);
+
 const getTimestampMillis = (value) => {
     if (!value) return 0;
     if (typeof value.toMillis === 'function') return value.toMillis();
@@ -973,10 +987,13 @@ const LiveDock = ({ users, currentUser, onEditPixels }) => {
 
 // --- Main Application ---
 
-function BankView({ user, onDeposit, onWithdraw, onPayInterest, isAdmin, allUsers }) {
+function BankView({ user, onDeposit, onWithdraw, onPayInterest, isAdmin, allUsers, balanceRepairRequired = false }) {
     const [amount, setAmount] = useState("");
-    const walletBalance = user.balance || 0;
-    const bankBalance = user.bank_balance || 0;
+    const walletBalance = getDonutBalance(user.balance);
+    const bankBalance = getDonutBalance(user.bank_balance);
+    const amountValue = Number(amount);
+    const hasValidAmount = isValidDonutAmount(amountValue);
+    const canUseBank = !balanceRepairRequired;
     const interestRate = BANK_INTEREST_RATE;
     const interestPercent = Math.round(interestRate * 100);
     const interestUnit = Math.ceil(1 / interestRate);
@@ -985,8 +1002,8 @@ function BankView({ user, onDeposit, onWithdraw, onPayInterest, isAdmin, allUser
     const neededForNext = nextMilestone - bankBalance;
 
     // Admin Calc
-    const totalBanked = allUsers.reduce((sum, u) => sum + (u.bank_balance || 0), 0);
-    const totalInterestPayout = allUsers.reduce((sum, u) => sum + Math.floor((u.bank_balance || 0) * interestRate), 0);
+    const totalBanked = allUsers.reduce((sum, u) => sum + getDonutBalance(u.bank_balance), 0);
+    const totalInterestPayout = allUsers.reduce((sum, u) => sum + Math.floor(getDonutBalance(u.bank_balance) * interestRate), 0);
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -999,6 +1016,12 @@ function BankView({ user, onDeposit, onWithdraw, onPayInterest, isAdmin, allUser
                         <Landmark className="text-yellow-400" /> The Donut Bank
                     </h2>
                     <p className="text-slate-400 text-sm mb-6">Secure your sweets. Earn interest.</p>
+
+                    {balanceRepairRequired && (
+                        <div className="mb-4 rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-sm text-amber-200">
+                            Your donut balance needs repair before the bank can be used. Your existing records have been preserved.
+                        </div>
+                    )}
 
                     <div className="grid grid-cols-2 gap-4 mb-6">
                         <div className="bg-white/10 p-4 rounded-xl backdrop-blur-sm">
@@ -1048,16 +1071,16 @@ function BankView({ user, onDeposit, onWithdraw, onPayInterest, isAdmin, allUser
 
                     <div className="grid grid-cols-2 gap-3">
                         <Button
-                            onClick={() => { onDeposit(parseInt(amount)); setAmount(""); }}
-                            disabled={!amount || parseInt(amount) <= 0 || parseInt(amount) > walletBalance}
+                            onClick={() => { onDeposit(amountValue); setAmount(""); }}
+                            disabled={!canUseBank || !hasValidAmount || amountValue > walletBalance}
                             className="w-full py-3"
                         >
                             Deposit
                         </Button>
                         <Button
                             variant="outline"
-                            onClick={() => { onWithdraw(parseInt(amount)); setAmount(""); }}
-                            disabled={!amount || parseInt(amount) <= 0 || parseInt(amount) > bankBalance}
+                            onClick={() => { onWithdraw(amountValue); setAmount(""); }}
+                            disabled={!canUseBank || !hasValidAmount || amountValue > bankBalance}
                             className="w-full py-3"
                         >
                             Withdraw
@@ -1065,8 +1088,8 @@ function BankView({ user, onDeposit, onWithdraw, onPayInterest, isAdmin, allUser
                     </div>
 
                     <div className="flex justify-center gap-4 text-xs text-slate-400">
-                        <button onClick={() => setAmount(walletBalance)} className="hover:text-pink-500">Max Deposit</button>
-                        <button onClick={() => setAmount(bankBalance)} className="hover:text-pink-500">Max Withdraw</button>
+                        <button disabled={!canUseBank} onClick={() => setAmount(walletBalance)} className="hover:text-pink-500 disabled:opacity-50">Max Deposit</button>
+                        <button disabled={!canUseBank} onClick={() => setAmount(bankBalance)} className="hover:text-pink-500 disabled:opacity-50">Max Withdraw</button>
                     </div>
                 </div>
             </Card>
@@ -1105,19 +1128,19 @@ function BankView({ user, onDeposit, onWithdraw, onPayInterest, isAdmin, allUser
                         </h4>
                         <div className="space-y-1 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                             {allUsers
-                                .filter(u => (u.bank_balance || 0) > 0)
-                                .sort((a, b) => (b.bank_balance || 0) - (a.bank_balance || 0))
+                                .filter(u => getDonutBalance(u.bank_balance) > 0)
+                                .sort((a, b) => getDonutBalance(b.bank_balance) - getDonutBalance(a.bank_balance))
                                 .map((u, i) => (
                                     <div key={u.id} className="flex justify-between items-center text-sm p-2 rounded hover:bg-white/5 transition-colors">
                                         <div className="flex items-center gap-2">
                                             <span className="text-slate-500 font-mono text-xs w-4">{i + 1}.</span>
                                             <span className="font-bold text-slate-200">{u.name}</span>
                                         </div>
-                                        <span className="font-mono text-yellow-400 font-bold">{u.bank_balance} {EMOJI}</span>
+                                        <span className="font-mono text-yellow-400 font-bold">{getDonutBalance(u.bank_balance)} {EMOJI}</span>
                                     </div>
                                 ))
                             }
-                            {allUsers.filter(u => (u.bank_balance || 0) > 0).length === 0 && (
+                            {allUsers.filter(u => getDonutBalance(u.bank_balance) > 0).length === 0 && (
                                 <p className="text-slate-500 text-xs italic text-center py-4">The vault is empty.</p>
                             )}
                         </div>
@@ -1883,12 +1906,18 @@ export default function YumDonutApp() {
         const unsubSync = onSnapshot(publicRef, async (publicSnap) => {
             if (!publicSnap.exists()) return;
 
-            const publicBalance = publicSnap.data().balance || 0;
+            const publicBalance = getDonutBalance(publicSnap.data().balance, null);
+            if (publicBalance === null) {
+                console.warn(`[WALLET SYNC] ${myProfile.name} has an invalid public balance; leaving it untouched for repair.`);
+                return;
+            }
 
             // Read ACTUAL private balance from Firestore (not stale state)
             try {
                 const privateSnap = await getDoc(privateRef);
-                const privateBalance = privateSnap.exists() ? (privateSnap.data().balance || 0) : 0;
+                const privateBalance = privateSnap.exists()
+                    ? getDonutBalance(privateSnap.data().balance)
+                    : 0;
 
                 if (publicBalance !== privateBalance) {
                     console.log(`[WALLET SYNC] ${myProfile.name}: ${privateBalance} -> ${publicBalance}`);
@@ -2091,7 +2120,19 @@ export default function YumDonutApp() {
 
         const usersQuery = query(collection(db, 'artifacts', APP_ID, 'public', 'data', 'users'));
         const unsubUsers = onSnapshot(usersQuery, (snapshot) => {
-            const usersList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const usersList = snapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    ...data,
+                    balance_invalid: !isFiniteDonutBalance(data.balance),
+                    bank_balance_invalid: getBankBalance(data.bank_balance) === null,
+                    balance: getDonutBalance(data.balance),
+                    bank_balance: getDonutBalance(data.bank_balance),
+                    lifetime_received: getDonutBalance(data.lifetime_received),
+                    lifetime_given: getDonutBalance(data.lifetime_given),
+                };
+            });
             setUsers(usersList);
         }, (e) => console.error("Users error", e));
 
@@ -2164,6 +2205,7 @@ export default function YumDonutApp() {
         const publicDoc = await getDoc(publicRef);
 
         let currentBalance = 0;
+        let currentBankBalance = 0;
         let currentGiven = 0;
         let lifetimeReceived = 0;
         let avatarColor = `hsl(${Math.random() * 360}, 70%, 50%)`;
@@ -2175,7 +2217,8 @@ export default function YumDonutApp() {
 
         if (publicDoc.exists()) {
             const data = publicDoc.data();
-            currentBalance = data.balance || 0;
+            currentBalance = getDonutBalance(data.balance);
+            currentBankBalance = getDonutBalance(data.bank_balance);
             currentGiven = data.lifetime_given || 0;
             lifetimeReceived = data.lifetime_received || currentBalance;
             if (data.avatar_color) avatarColor = data.avatar_color;
@@ -2185,7 +2228,7 @@ export default function YumDonutApp() {
         const initialPrivateData = {
             name: name,
             balance: currentBalance,
-            bank_balance: 0,
+            bank_balance: currentBankBalance,
             given_today: 0,
             last_given_date: new Date().toDateString(),
             last_training_date: null,
@@ -2210,6 +2253,7 @@ export default function YumDonutApp() {
         await setDoc(publicRef, {
             name: name,
             balance: currentBalance,
+            bank_balance: currentBankBalance,
             lifetime_given: currentGiven,
             lifetime_received: lifetimeReceived,
             avatar_color: avatarColor,
@@ -2225,7 +2269,7 @@ export default function YumDonutApp() {
     };
 
     // --- AUTHENTICATION ---
-    const handleLoginOrRegister = async (name, password, sandboxMode = false) => {
+    const handleLoginOrRegister = async (name, password, sandboxMode = false, createAccount = false) => {
         if (!name || !password) return;
         setLoading(true);
         try {
@@ -2244,8 +2288,8 @@ export default function YumDonutApp() {
                         // If profile doesn't exist for sandbox user, create a mock one
                         setMyProfile({
                             name: existing.name,
-                            balance: existing.balance || 0,
-                            bank_balance: existing.bank_balance || 0,
+                            balance: getDonutBalance(existing.balance),
+                            bank_balance: getDonutBalance(existing.bank_balance),
                             given_today: 0,
                             last_given_date: new Date().toDateString(),
                             last_training_date: null, // Always allow training in sandbox
@@ -2265,32 +2309,57 @@ export default function YumDonutApp() {
 
             // Real Login Logic
             setIsSandbox(false);
-            const email = `${name.replace(/\s+/g, '').toLowerCase()}@yumdonut.school`;
-            const userCredential = await signInWithEmailAndPassword(auth, email, password);
-            const uid = userCredential.user.uid;
-            const userRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data');
-            const docSnap = await getDoc(userRef);
-            if (!docSnap.exists()) {
-                await createProfile(uid, name);
-                showNotification(`Welcome back, ${name}! Profile restored.`);
+            if (createAccount) {
+                const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', name);
+                const publicSnap = await getDoc(publicRef);
+                const publicData = publicSnap.exists() ? publicSnap.data() : null;
+                if (publicData?.claimed && publicData.uid) {
+                    throw new Error("ACCOUNT_EXISTS");
+                }
+
+                const email = accountEmailForName(name);
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                await updateProfile(userCredential.user, { displayName: name });
+                await createProfile(userCredential.user.uid, name);
+                showNotification(`Account created for ${name}!`);
             } else {
-                showNotification(`Welcome back, ${name}!`);
+                let userCredential = null;
+                let lastError = null;
+
+                for (const email of accountEmailCandidatesForName(name)) {
+                    try {
+                        userCredential = await signInWithEmailAndPassword(auth, email, password);
+                        break;
+                    } catch (error) {
+                        lastError = error;
+                    }
+                }
+
+                if (!userCredential) throw lastError || new Error("LOGIN_FAILED");
+
+                const uid = userCredential.user.uid;
+                const userRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data');
+                const docSnap = await getDoc(userRef);
+                if (!docSnap.exists()) {
+                    await createProfile(uid, name);
+                    showNotification(`Welcome back, ${name}! Profile restored.`);
+                } else if (docSnap.data().name && docSnap.data().name !== name) {
+                    await signOut(auth);
+                    throw new Error("PROFILE_NAME_MISMATCH");
+                } else {
+                    showNotification(`Welcome back, ${name}!`);
+                }
             }
         } catch (error) {
-            if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/invalid-email') {
-                try {
-                    const email = `${name.replace(/\s+/g, '').toLowerCase()}@yumdonut.school`;
-                    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                    await updateProfile(userCredential.user, { displayName: name });
-                    await createProfile(userCredential.user.uid, name);
-                    showNotification(`Account created for ${name}!`);
-                } catch (createError) {
-                    console.error(createError);
-                    showNotification("Could not create account.", "error");
-                }
+            if (error?.message === "ACCOUNT_EXISTS" || error?.code === 'auth/email-already-in-use') {
+                showNotification("This name already has an account. Sign in instead.", "error");
+            } else if (error?.message === "PROFILE_NAME_MISMATCH") {
+                showNotification("That account belongs to a different Yum Donut name.", "error");
+            } else if (!createAccount && (error?.code === 'auth/invalid-credential' || error?.code === 'auth/user-not-found' || error?.code === 'auth/invalid-email')) {
+                showNotification("Login failed. Check the password, or choose Create account if this is a new user.", "error");
             } else {
                 console.error(error);
-                showNotification("Login failed. Check password.", "error");
+                showNotification(createAccount ? "Could not create account." : "Login failed. Check password.", "error");
             }
         }
         setLoading(false);
@@ -2376,9 +2445,13 @@ export default function YumDonutApp() {
 
                     if (recipientDoc.exists()) {
                         const recipientData = recipientDoc.data();
+                        const recipientBalance = getDonutBalance(recipientData.balance, null);
+                        const recipientLifetimeReceived = getDonutBalance(recipientData.lifetime_received, null);
+                        if (recipientBalance === null || recipientLifetimeReceived === null) throw new Error("CORRUPT_BALANCE");
+
                         transaction.update(recipientRef, {
-                            balance: increment(amountEach),
-                            lifetime_received: increment(amountEach)
+                            balance: recipientBalance + amountEach,
+                            lifetime_received: recipientLifetimeReceived + amountEach
                         });
                         // Update recipient's PRIVATE profile (wallet) if they have claimed their account
                         if (recipientData.uid && recipientData.claimed) {
@@ -2394,6 +2467,7 @@ export default function YumDonutApp() {
                             lifetime_given: 0,
                             lifetime_received: amountEach,
                             avatar_color: `hsl(${Math.random() * 360}, 60%, 80%)`,
+                            bank_balance: 0,
                             claimed: false,
                             last_training_date: null, // New field for Typing Dojo
                         });
@@ -2410,6 +2484,8 @@ export default function YumDonutApp() {
             if (e?.message === "DAILY_LIMIT") {
                 const currentGiven = myProfile.last_given_date === today ? (myProfile.given_today || 0) : 0;
                 showNotification(`You only have ${DAILY_LIMIT - currentGiven} ${EMOJI} left!`, "error");
+            } else if (e?.message === "CORRUPT_BALANCE") {
+                showNotification("That account's donut balance needs repair before it can receive donuts.", "error");
             } else {
                 showNotification("Failed to send donut.", "error");
             }
@@ -2432,8 +2508,13 @@ export default function YumDonutApp() {
                 return;
             }
 
-            const currentBal = recipientDoc.data().balance || 0;
-            const currentBank = recipientDoc.data().bank_balance || 0;
+            const currentBal = getDonutBalance(recipientDoc.data().balance, null);
+            const currentBank = getDonutBalance(recipientDoc.data().bank_balance, null);
+
+            if (currentBal === null || currentBank === null) {
+                showNotification("That account's donut balance needs repair before it can be munched.", "error");
+                return;
+            }
 
             let updateData = {};
             let munchSource = "";
@@ -2483,9 +2564,18 @@ export default function YumDonutApp() {
         try {
             await runTransaction(db, async (transaction) => {
                 const userDoc = await transaction.get(userRef);
+                const publicDoc = await transaction.get(publicRef);
                 if (!userDoc.exists()) throw "User profile not found";
+                if (!publicDoc.exists()) throw "Public profile not found";
 
                 const data = userDoc.data();
+                const publicData = publicDoc.data();
+                const currentPrivateBalance = getDonutBalance(data.balance, null);
+                const currentPublicBalance = getDonutBalance(publicData.balance, null);
+                const currentPublicLifetimeReceived = getDonutBalance(publicData.lifetime_received, null);
+                if (currentPrivateBalance === null || currentPublicBalance === null || currentPublicLifetimeReceived === null) {
+                    throw "CORRUPT_BALANCE";
+                }
 
                 // 1. Server-Side Cooldown Check
                 if (cooldownField) {
@@ -2511,13 +2601,15 @@ export default function YumDonutApp() {
                     amount = 10; // Golden Ticket
                 }
 
-                updates.balance = (data.balance || 0) + amount;
+                // The public profile is the wallet source of truth. Repair a small
+                // private/public drift as part of the same atomic reward.
+                updates.balance = currentPublicBalance + amount;
 
                 // 3. Atomic Update (Private & Public)
                 transaction.update(userRef, updates);
                 transaction.update(publicRef, {
-                    balance: increment(amount),
-                    lifetime_received: increment(amount)
+                    balance: currentPublicBalance + amount,
+                    lifetime_received: currentPublicLifetimeReceived + amount
                 });
             });
 
@@ -2551,6 +2643,8 @@ export default function YumDonutApp() {
                 if (gameName.includes("Typing")) localStorage.setItem(`typing_defence_lock_${today}`, 'true');
                 if (gameName.includes("Rushes")) localStorage.setItem(`daily_rushes_lock_${user.uid}_${today}`, 'true');
                 if (gameName.includes("Memory")) localStorage.setItem(`memory_match_lock_${user.uid}_${today}`, 'true');
+            } else if (error === "CORRUPT_BALANCE") {
+                showNotification("Your donut balance needs repair before claiming prizes.", "error");
             } else {
                 showNotification("Error claiming prize. Please try again.");
             }
@@ -2601,7 +2695,12 @@ export default function YumDonutApp() {
     };
 
     const handleContributeToGoal = async (amount = 1) => {
-        if (!myProfile || myProfile.balance < amount) {
+        const availableBalance = getDonutBalance(myProfile?.balance, null);
+        if (!myProfile || availableBalance === null) {
+            showNotification("Your donut balance needs repair before you can contribute.", "error");
+            return;
+        }
+        if (!isValidDonutAmount(amount) || availableBalance < amount) {
             showNotification("Not enough donuts!", "error");
             return;
         }
@@ -2612,7 +2711,9 @@ export default function YumDonutApp() {
                 const userDoc = await transaction.get(publicUserRef);
                 const goalDoc = await transaction.get(goalRef);
                 if (!userDoc.exists()) throw "User missing";
-                const newBalance = (userDoc.data().balance || 0) - amount;
+                const currentBalance = getDonutBalance(userDoc.data().balance, null);
+                if (currentBalance === null) throw "CORRUPT_BALANCE";
+                const newBalance = currentBalance - amount;
                 if (newBalance < 0) throw "Not enough donuts!";
 
                 const goalCurrent = (goalDoc.data()?.current || 0) + amount;
@@ -2636,7 +2737,9 @@ export default function YumDonutApp() {
             triggerConfetti();
         } catch (e) {
             console.error(e);
-            showNotification("Contribution failed.", "error");
+            showNotification(e === "CORRUPT_BALANCE"
+                ? "Your donut balance needs repair before you can contribute."
+                : "Contribution failed.", "error");
         }
     };
 
@@ -2728,7 +2831,12 @@ export default function YumDonutApp() {
     };
 
     const handlePurchase = async (item) => {
-        if (!myProfile || myProfile.balance < item.cost) {
+        const availableBalance = getDonutBalance(myProfile?.balance, null);
+        if (!myProfile || availableBalance === null) {
+            showNotification("Your donut balance needs repair before you can shop.", "error");
+            return;
+        }
+        if (!Number.isFinite(item.cost) || item.cost < 0 || availableBalance < item.cost) {
             showNotification("Not enough donuts!", "error");
             return;
         }
@@ -2783,7 +2891,8 @@ export default function YumDonutApp() {
                     raffleDoc = await transaction.get(raffleRef);
                 }
 
-                const currentBal = userDoc.data().balance || 0;
+                const currentBal = getDonutBalance(userDoc.data().balance, null);
+                if (currentBal === null) throw "CORRUPT_BALANCE";
                 if (currentBal < item.cost) throw "Not enough funds";
 
                 const purchasedToday = dailyPurchaseDoc?.exists() ? (Number(dailyPurchaseDoc.data().count) || 0) : 0;
@@ -2822,7 +2931,15 @@ export default function YumDonutApp() {
                 }
 
                 const txRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
-                transaction.set(txRef, { fromName: myProfile.name, toName: "The Shop", message: `Purchased: ${item.name}`, timestamp: serverTimestamp(), emoji: "🛍️", likes: [] });
+                transaction.set(txRef, {
+                    fromName: myProfile.name,
+                    toName: "The Shop",
+                    message: `Purchased: ${item.name}`,
+                    timestamp: serverTimestamp(),
+                    emoji: "🛍️",
+                    amount: item.cost,
+                    likes: []
+                });
             });
             const privateUserRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
             await updateDoc(privateUserRef, { balance: myProfile.balance - item.cost });
@@ -2832,6 +2949,8 @@ export default function YumDonutApp() {
             console.error(e);
             if (e?.message === "DAILY_SHOP_LIMIT") {
                 showNotification(`Daily limit reached for ${item.name}.`, "error");
+            } else if (e === "CORRUPT_BALANCE") {
+                showNotification("Your donut balance needs repair before you can shop.", "error");
             } else {
                 showNotification("Purchase failed.", "error");
             }
@@ -2839,7 +2958,12 @@ export default function YumDonutApp() {
     };
 
     const handlePurchaseSponsorship = async (slot) => {
-        if (!myProfile || myProfile.balance < slot.cost) {
+        const availableBalance = getDonutBalance(myProfile?.balance, null);
+        if (!myProfile || availableBalance === null) {
+            showNotification("Your donut balance needs repair before you can sponsor.", "error");
+            return;
+        }
+        if (!Number.isFinite(slot.cost) || slot.cost < 0 || availableBalance < slot.cost) {
             showNotification("Not enough donuts!", "error");
             return;
         }
@@ -2859,7 +2983,8 @@ export default function YumDonutApp() {
 
                 if (!userDoc.exists()) throw "User missing";
 
-                const currentBal = userDoc.data().balance || 0;
+                const currentBal = getDonutBalance(userDoc.data().balance, null);
+                if (currentBal === null) throw "CORRUPT_BALANCE";
                 if (currentBal < slot.cost) throw "Not enough funds";
 
                 if (sponsorshipDoc.exists() && getTimestampMillis(sponsorshipDoc.data().expiresAt) > Date.now()) {
@@ -2885,6 +3010,7 @@ export default function YumDonutApp() {
                     message: `Sponsored the ${slot.sectionLabel}`,
                     timestamp: serverTimestamp(),
                     emoji: "📣",
+                    amount: slot.cost,
                     likes: []
                 });
             });
@@ -2897,6 +3023,8 @@ export default function YumDonutApp() {
             console.error(e);
             if (e?.message === "SPONSORSHIP_ACTIVE") {
                 showNotification("That sponsorship is already active.", "error");
+            } else if (e === "CORRUPT_BALANCE") {
+                showNotification("Your donut balance needs repair before you can sponsor.", "error");
             } else {
                 showNotification("Sponsorship failed.", "error");
             }
@@ -3115,8 +3243,9 @@ export default function YumDonutApp() {
             const recipientRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', claimantName);
             const recipientDoc = await getDoc(recipientRef);
             if (recipientDoc.exists()) {
-                const currentBal = recipientDoc.data().balance || 0;
-                const currentLifetime = recipientDoc.data().lifetime_received || currentBal;
+                const currentBal = getDonutBalance(recipientDoc.data().balance, null);
+                const currentLifetime = getDonutBalance(recipientDoc.data().lifetime_received, null);
+                if (currentBal === null || currentLifetime === null) throw "CORRUPT_BALANCE";
 
                 await updateDoc(recipientRef, {
                     balance: currentBal + reward,
@@ -3137,14 +3266,21 @@ export default function YumDonutApp() {
             showNotification("Bounty Paid!");
         } catch (e) {
             console.error(e);
-            showNotification("Payment failed", "error");
+            showNotification(e === "CORRUPT_BALANCE"
+                ? "That claimant's donut balance needs repair before payment."
+                : "Payment failed", "error");
         }
     };
 
     // --- BANK ACTIONS ---
     const handleDeposit = async (amount) => {
-        if (!myProfile || amount <= 0) return;
-        if (myProfile.balance < amount) {
+        if (!myProfile || !isValidDonutAmount(amount)) return;
+        const displayedWallet = getDonutBalance(myProfile.balance, null);
+        if (displayedWallet === null) {
+            showNotification("Your donut balance needs repair before you can use the bank.", "error");
+            return;
+        }
+        if (displayedWallet < amount) {
             showNotification("Not enough donuts in wallet!", "error");
             return;
         }
@@ -3157,8 +3293,14 @@ export default function YumDonutApp() {
                 const publicDoc = await transaction.get(publicRef);
                 if (!userDoc.exists() || !publicDoc.exists()) throw "User missing";
 
-                const currentWallet = userDoc.data().balance || 0;
-                const currentBank = userDoc.data().bank_balance || 0;
+                const currentWallet = getDonutBalance(userDoc.data().balance, null);
+                const currentBank = resolveBankBalance(userDoc.data().bank_balance, publicDoc.data().bank_balance);
+                const publicWallet = getDonutBalance(publicDoc.data().balance, null);
+                const publicBank = getBankBalance(publicDoc.data().bank_balance);
+
+                if ([currentWallet, currentBank, publicWallet, publicBank].some(value => value === null)) {
+                    throw "CORRUPT_BALANCE";
+                }
 
                 if (currentWallet < amount) throw "Insufficient funds";
 
@@ -3175,17 +3317,33 @@ export default function YumDonutApp() {
                     balance: currentWallet - amount,
                     bank_balance: currentBank + amount
                 });
+                const txRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
+                transaction.set(txRef, {
+                    fromName: myProfile.name,
+                    toName: "The Bank",
+                    message: `Deposited ${amount} donut${amount === 1 ? '' : 's'} into the bank.`,
+                    timestamp: serverTimestamp(),
+                    emoji: "🏦",
+                    amount,
+                    likes: []
+                });
             });
             showNotification(`Deposited ${amount} donuts!`);
         } catch (e) {
             console.error(e);
-            showNotification("Deposit failed.", "error");
+            showNotification(e === "CORRUPT_BALANCE"
+                ? "Your donut balance needs repair before you can use the bank."
+                : "Deposit failed.", "error");
         }
     };
 
     const handleWithdraw = async (amount) => {
-        if (!myProfile || amount <= 0) return;
-        const currentBank = myProfile.bank_balance || 0;
+        if (!myProfile || !isValidDonutAmount(amount)) return;
+        const currentBank = getBankBalance(myProfile.bank_balance);
+        if (currentBank === null) {
+            showNotification("Your bank balance needs repair before you can withdraw.", "error");
+            return;
+        }
         if (currentBank < amount) {
             showNotification("Not enough donuts in bank!", "error");
             return;
@@ -3196,10 +3354,19 @@ export default function YumDonutApp() {
 
             await runTransaction(db, async (transaction) => {
                 const userDoc = await transaction.get(userRef);
-                const currentWallet = userDoc.data().balance || 0;
-                const currentBank = userDoc.data().bank_balance || 0;
+                const publicDoc = await transaction.get(publicRef);
+                if (!userDoc.exists() || !publicDoc.exists()) throw "User missing";
 
-                if (currentBank < amount) throw "Insufficient bank funds";
+                const currentWallet = getDonutBalance(userDoc.data().balance, null);
+                const privateBank = resolveBankBalance(userDoc.data().bank_balance, publicDoc.data().bank_balance);
+                const publicWallet = getDonutBalance(publicDoc.data().balance, null);
+                const publicBank = getBankBalance(publicDoc.data().bank_balance);
+
+                if ([currentWallet, privateBank, publicWallet, publicBank].some(value => value === null)) {
+                    throw "CORRUPT_BALANCE";
+                }
+
+                if (privateBank < amount) throw "Insufficient bank funds";
 
                 if (isSandbox) {
                     showNotification(`Sandbox: Withdrew ${amount} donuts (Simulated)`, "info");
@@ -3208,17 +3375,29 @@ export default function YumDonutApp() {
 
                 transaction.update(userRef, {
                     balance: currentWallet + amount,
-                    bank_balance: currentBank - amount
+                    bank_balance: privateBank - amount
                 });
                 transaction.update(publicRef, {
                     balance: currentWallet + amount,
-                    bank_balance: currentBank - amount
+                    bank_balance: privateBank - amount
+                });
+                const txRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
+                transaction.set(txRef, {
+                    fromName: "The Bank",
+                    toName: myProfile.name,
+                    message: `Withdrew ${amount} donut${amount === 1 ? '' : 's'} from the bank.`,
+                    timestamp: serverTimestamp(),
+                    emoji: "🏦",
+                    amount,
+                    likes: []
                 });
             });
             showNotification(`Withdrew ${amount} donuts!`);
         } catch (e) {
             console.error(e);
-            showNotification("Withdrawal failed.", "error");
+            showNotification(e === "CORRUPT_BALANCE"
+                ? "Your donut balance needs repair before you can use the bank."
+                : "Withdrawal failed.", "error");
         }
     };
 
@@ -3235,7 +3414,7 @@ export default function YumDonutApp() {
             let totalPaid = 0;
 
             for (const u of users) {
-                const bBalance = u.bank_balance || 0;
+                const bBalance = getDonutBalance(u.bank_balance);
                 if (bBalance < Math.ceil(1 / BANK_INTEREST_RATE)) continue;
 
                 const interest = Math.floor(bBalance * BANK_INTEREST_RATE);
@@ -3251,6 +3430,16 @@ export default function YumDonutApp() {
 
                         await updateDoc(userPrivateRef, {
                             bank_balance: bBalance + interest
+                        });
+
+                        await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
+                            fromName: "The Bank",
+                            toName: u.name,
+                            message: `Interest payout: +${interest} donut${interest === 1 ? '' : 's'}.`,
+                            timestamp: serverTimestamp(),
+                            emoji: "💸",
+                            amount: interest,
+                            likes: []
                         });
 
                         totalPaid += interest;
@@ -3372,12 +3561,17 @@ export default function YumDonutApp() {
 
                 if (!userDoc.exists() || !publicDoc.exists()) throw "User missing";
 
-                const currentBal = userDoc.data().balance || 0;
-                const currentLifetime = userDoc.data().lifetime_received || currentBal;
+                const currentPrivateBalance = getDonutBalance(userDoc.data().balance, null);
+                const publicData = publicDoc.data();
+                const currentPublicBalance = getDonutBalance(publicData.balance, null);
+                const currentPublicLifetime = getDonutBalance(publicData.lifetime_received, null);
+                if (currentPrivateBalance === null || currentPublicBalance === null || currentPublicLifetime === null) {
+                    throw "CORRUPT_BALANCE";
+                }
 
                 const updateData = {
-                    balance: currentBal + finalReward,
-                    lifetime_received: currentLifetime + finalReward,
+                    balance: currentPublicBalance + finalReward,
+                    lifetime_received: currentPublicLifetime + finalReward,
                     [dateField]: today,
                     training_earned_today: earnedToday + finalReward,
                     training_last_earned_date: today
@@ -3417,7 +3611,7 @@ export default function YumDonutApp() {
             triggerConfetti();
             showNotification(`Earned ${finalReward} donut(s)!`, "success");
             // Update local state immediately for UI responsiveness
-            setUser(prev => ({ ...prev, balance: (prev.balance || 0) + finalReward }));
+            setUser(prev => ({ ...prev, balance: getDonutBalance(prev?.balance) + finalReward }));
 
             let msg = `Training Complete! +${finalReward} Donut${finalReward > 1 ? 's' : ''} 🍩`;
             if (isFirstTimeSuddenDeath) msg += " & JACKPOT! 🎯";
@@ -3425,7 +3619,9 @@ export default function YumDonutApp() {
             showNotification(msg);
         } catch (e) {
             console.error(e);
-            showNotification("Reward failed.", "error");
+            showNotification(e === "CORRUPT_BALANCE"
+                ? "Your donut balance needs repair before claiming training rewards."
+                : "Reward failed.", "error");
         }
     };
 
@@ -3766,6 +3962,12 @@ export default function YumDonutApp() {
                         onPayInterest={handlePayInterest}
                         isAdmin={myProfile.name === "Mr Rayner"}
                         allUsers={users.filter(u => roster.includes(u.name))}
+                        balanceRepairRequired={Boolean(
+                            !isFiniteDonutBalance(myProfile.balance)
+                            || getBankBalance(myProfile.bank_balance) === null
+                            || users.find(u => u.name === myProfile.name)?.balance_invalid
+                            || users.find(u => u.name === myProfile.name)?.bank_balance_invalid
+                        )}
                     />
                 )}
 
@@ -4602,6 +4804,7 @@ function LoginScreen({ onLogin, roster }) {
     const [search, setSearch] = useState("");
     const [selectedName, setSelectedName] = useState(null);
     const [password, setPassword] = useState("");
+    const [isCreating, setIsCreating] = useState(false);
     const [showPatchNotes, setShowPatchNotes] = useState(false);
 
     const availableNames = (roster || []).filter(name => {
@@ -4610,7 +4813,7 @@ function LoginScreen({ onLogin, roster }) {
 
     const handleLogin = () => {
         if (selectedName && password) {
-            onLogin(selectedName, password);
+            onLogin(selectedName, password, false, isCreating);
         }
     };
 
@@ -4667,11 +4870,11 @@ function LoginScreen({ onLogin, roster }) {
                             <div className="flex items-center gap-2">
                                 <span className="font-bold text-pink-700">{selectedName}</span>
                             </div>
-                            <button onClick={() => { setSelectedName(null); setPassword(""); }} className="text-xs text-pink-400 hover:text-pink-600">Change</button>
+                            <button onClick={() => { setSelectedName(null); setPassword(""); setIsCreating(false); }} className="text-xs text-pink-400 hover:text-pink-600">Change</button>
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">
-                                Password
+                                {isCreating ? 'Create password' : 'Password'}
                             </label>
                             <div className="relative">
                                 <Lock className="absolute left-3 top-3 text-slate-400" size={18} />
@@ -4684,11 +4887,20 @@ function LoginScreen({ onLogin, roster }) {
                                     onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
                                 />
                             </div>
-                            <p className="text-xs text-slate-400 mt-1">First time? Create a password. Returning? Login.</p>
+                            <p className="text-xs text-slate-400 mt-1">
+                                {isCreating ? 'Use a new password for this name.' : 'Returning user? Sign in with your existing password.'}
+                            </p>
                         </div>
                         <Button variant="primary" className="w-full py-3 text-lg" onClick={handleLogin} disabled={!password}>
-                            Continue
+                            {isCreating ? 'Create account' : 'Sign in'}
                         </Button>
+                        <button
+                            type="button"
+                            onClick={() => { setIsCreating(prev => !prev); setPassword(""); }}
+                            className="w-full text-xs font-bold text-pink-500 hover:text-pink-700"
+                        >
+                            {isCreating ? 'I already have an account — sign in' : 'New user? Create an account'}
+                        </button>
                     </div>
                 )}
 
@@ -5002,7 +5214,6 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
     const [resettingPassword, setResettingPassword] = useState(null); // Name currently being reset
 
     const handleResetPassword = async (name) => {
-        const email = `${name.replace(/\s+/g, '').toLowerCase()}@yumdonut.school`;
         const newPassword = prompt(`Enter a new password for ${name} (min 6 chars):`);
         if (!newPassword) return;
         if (newPassword.length < 6) {
@@ -5013,8 +5224,18 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
         setResettingPassword(name);
         try {
             const resetPassFn = httpsCallable(functions, 'resetStudentPassword');
-            const result = await resetPassFn({ email, newPassword });
-            alert(`✅ Success: ${result.data.message}`);
+            let lastError = null;
+            for (const email of accountEmailCandidatesForName(name)) {
+                try {
+                    const result = await resetPassFn({ email, newPassword });
+                    alert(`✅ Success: ${result.data.message}`);
+                    lastError = null;
+                    break;
+                } catch (error) {
+                    lastError = error;
+                }
+            }
+            if (lastError) throw lastError;
         } catch (e) {
             console.error(e);
             alert(`❌ Failed to reset password: ${e.message}`);
@@ -5064,7 +5285,7 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
     const handleAddUser = async () => {
         const name = newName.trim();
         if (!name) return;
-        if (roster.includes(name)) {
+        if (roster.some(existingName => existingName.trim().toLowerCase() === name.toLowerCase())) {
             setError("Name already exists.");
             return;
         }
@@ -5914,8 +6135,8 @@ function UserAuditModal({ userToCheck, onClose }) {
                 setLogs(dailyLogs);
                 setStats({
                     won, given, received, spent,
-                    balance: currentData.balance || 0,
-                    bank: currentData.bank_balance || 0
+                    balance: getDonutBalance(currentData.balance),
+                    bank: getDonutBalance(currentData.bank_balance)
                 });
 
             } catch (e) {

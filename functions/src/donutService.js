@@ -11,10 +11,15 @@ const { DAILY_LIMIT, DONUT_EMOJI } = require('./config');
 const { localDateKey, localDateLabel } = require('./dateKeys');
 const { mappingKeyForTeamsUser, stableTeamsId, displayNameForTeamsUser } = require('./identity');
 
+function getFiniteDonutBalance(value, fallback = null) {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
 function defaultPublicProfile(name, amountReceived = 0) {
   return {
     name,
     balance: amountReceived,
+    bank_balance: 0,
     lifetime_given: 0,
     lifetime_received: amountReceived,
     avatar_color: `hsl(${Math.floor(Math.random() * 360)}, 60%, 80%)`,
@@ -162,11 +167,21 @@ async function giveDonutsFromTeams({
       const txRef = transactionsCollection(db).doc();
 
       if (recipientSnap.exists) {
-        transaction.update(recipientRef, {
-          balance: FieldValue.increment(donutCount),
-          lifetime_received: FieldValue.increment(donutCount),
-        });
         const recipientData = recipientSnap.data();
+        const currentBalance = getFiniteDonutBalance(recipientData.balance);
+        const currentLifetimeReceived = getFiniteDonutBalance(recipientData.lifetime_received);
+        if (currentBalance === null || currentLifetimeReceived === null) {
+          return {
+            ok: false,
+            code: 'RECIPIENT_BALANCE_CORRUPT',
+            yumName: mapping.yumName,
+          };
+        }
+
+        transaction.update(recipientRef, {
+          balance: currentBalance + donutCount,
+          lifetime_received: currentLifetimeReceived + donutCount,
+        });
         if (recipientData.uid && recipientData.claimed) {
           transaction.set(privateProfileDoc(db, recipientData.uid), {
             balance: FieldValue.increment(donutCount),

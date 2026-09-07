@@ -27,6 +27,8 @@ function failureReply(code, details = {}) {
       return `I could not match ${details.displayName || 'one of those people'} to the Yum Donut roster.`;
     case 'RECIPIENT_NOT_ACTIVE':
       return `${details.yumName || 'That person'} is not currently active in the Yum Donut roster.`;
+    case 'RECIPIENT_BALANCE_CORRUPT':
+      return `${details.yumName || 'That person'} has a corrupted donut balance. Ask Mr Rayner to repair it first.`;
     case 'SELF_GIVE':
       return 'Nice try, but you cannot give donuts to yourself.';
     case 'DAILY_LIMIT':
