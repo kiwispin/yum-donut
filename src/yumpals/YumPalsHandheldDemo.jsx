@@ -443,7 +443,7 @@ export default function YumPalsHandheldDemo() {
     const actionProp = visualAction && ['clean', 'medicine', 'reminder', 'bedtime'].includes(visualAction) ? visualAction : null;
     const roomCue = pet && pet.needs.cleanliness <= 1 ? 'MESS' : pet && pet.needs.health <= 1 ? 'SICK' : pet?.attention ? 'ATTN' : null;
     const growthStage = pet?.ageDays >= 20 ? 'GROWN' : pet?.ageDays >= 10 ? 'JUNIOR' : pet?.ageDays >= 3 ? 'BUDDING' : 'HATCH';
-    const hardwareBLabel = screen === 'game' ? 'RIGHT' : screen === 'room' ? 'SELECT' : 'OK';
+
     const gameInputLocked = screen === 'game' && Boolean(gameReveal);
 
     return (
@@ -479,49 +479,49 @@ export default function YumPalsHandheldDemo() {
                                             {!actionProp && pet.attention && <PixelProp type="reminder" />}
                                         </div>
                                         <div className="paid-lcd-bottom"><span>{sleeping ? 'SLEEP' : visualAction ? PAID_CARE_LABELS[visualAction]?.toUpperCase() : bedtimeScheduled ? 'LIGHTS SET' : roomCue || 'READY'}</span><span>{growthStage}</span></div>
-                                        <div className="paid-lcd-help">A CYCLE ICON · B USE · C CLEAR</div>
+                                        <div className="paid-lcd-help">A SELECT · B CONFIRM · C CANCEL</div>
                                     </div>
                                 )}
 
                                 {screen === 'room' && !pet && (
-                                    <div className="paid-lcd-message"><strong>NO PAL</strong><span>B TO ADOPT</span><span>5 DONUTS</span><small>C BACK</small></div>
+                                    <div className="paid-lcd-message"><strong>NO PAL</strong><span>B TO ADOPT</span><span>5 DONUTS</span><small>C CANCEL</small></div>
                                 )}
 
                                 {screen === 'adopt' && (
-                                    <div className="paid-lcd-message"><strong>ADOPT?</strong><span>NIBLET</span><span>COST {PAID_CARE_ADOPTION_PRICE}</span><small>B YES · C NO</small></div>
+                                    <div className="paid-lcd-message"><strong>ADOPT?</strong><span>NIBLET</span><span>COST {PAID_CARE_ADOPTION_PRICE}</span><small>B CONFIRM · C CANCEL</small></div>
                                 )}
 
                                 {screen === 'submenu' && (
-                                    <div className="paid-lcd-menu"><span className="paid-lcd-title">{selectedMenu?.toUpperCase()}</span>{submenu.map((item, index) => <button aria-current={index === subMenuIndex ? 'true' : undefined} aria-label={`Select ${item.label}`} className={`paid-menu-row ${index === subMenuIndex ? 'selected' : ''}`} key={`${item.id}-${index}`} onClick={() => setSubMenuIndex(index)} type="button"><span className="paid-menu-arrow">{index === subMenuIndex ? '▶' : ' '}</span><span>{item.label}</span>{item.id !== 'back' && <small>{PAID_CARE_PRICES[item.id]}</small>}</button>)}<span className="paid-lcd-help">A NEXT · B OK · C BACK</span></div>
+                                    <div className="paid-lcd-menu"><span className="paid-lcd-title">{selectedMenu?.toUpperCase()}</span>{submenu.map((item, index) => <button aria-current={index === subMenuIndex ? 'true' : undefined} aria-label={`Select ${item.label}`} className={`paid-menu-row ${index === subMenuIndex ? 'selected' : ''}`} key={`${item.id}-${index}`} onClick={() => setSubMenuIndex(index)} type="button"><span className="paid-menu-arrow">{index === subMenuIndex ? '▶' : ' '}</span><span>{item.label}</span>{item.id !== 'back' && <small>{PAID_CARE_PRICES[item.id]}</small>}</button>)}<span className="paid-lcd-help">A SELECT · B CONFIRM · C CANCEL</span></div>
                                 )}
 
                                 {screen === 'confirm' && selectedAction && (
-                                    <div className="paid-lcd-message"><strong>BUY {PAID_CARE_LABELS[selectedAction]?.toUpperCase()}</strong><span>COST {PAID_CARE_PRICES[selectedAction]} DONUT{PAID_CARE_PRICES[selectedAction] === 1 ? '' : 'S'}</span><span>WALLET AFTER {state.balance - PAID_CARE_PRICES[selectedAction]}</span><span>+{selectedBenefit?.amount || 1} {selectedBenefit?.label?.toUpperCase()}</span><small>B PAY · C CANCEL</small></div>
+                                    <div className="paid-lcd-message"><strong>BUY {PAID_CARE_LABELS[selectedAction]?.toUpperCase()}</strong><span>COST {PAID_CARE_PRICES[selectedAction]} DONUT{PAID_CARE_PRICES[selectedAction] === 1 ? '' : 'S'}</span><span>WALLET AFTER {state.balance - PAID_CARE_PRICES[selectedAction]}</span><span>+{selectedBenefit?.amount || 1} {selectedBenefit?.label?.toUpperCase()}</span><small>B CONFIRM PAYMENT · C CANCEL</small></div>
                                 )}
 
                                 {screen === 'status' && pet && (
-                                    <div className="paid-lcd-status"><span className="paid-lcd-title">{statusMode === 'attention' ? 'ATTENTION' : 'STATUS'} / {pet.ageDays}D / {growthStage}</span><MeterRow label="HUN" value={pet.needs.hunger} /><MeterRow label="HAP" value={pet.needs.happiness} /><MeterRow label="CLN" value={pet.needs.cleanliness} /><MeterRow label="HP" value={pet.needs.health} /><span className="paid-status-attention">{pet.attention ? 'ATTENTION FLAG' : 'NO ATTENTION'}</span><div className="paid-receipt-list">{state.receipts.slice(-3).reverse().map((receipt) => <span key={receipt.receiptId}>{receiptLine(receipt)}</span>)}</div><span className="paid-lcd-help">C BACK</span></div>
+                                    <div className="paid-lcd-status"><span className="paid-lcd-title">{statusMode === 'attention' ? 'ATTENTION' : 'STATUS'} / {pet.ageDays}D / {growthStage}</span><MeterRow label="HUN" value={pet.needs.hunger} /><MeterRow label="HAP" value={pet.needs.happiness} /><MeterRow label="CLN" value={pet.needs.cleanliness} /><MeterRow label="HP" value={pet.needs.health} /><span className="paid-status-attention">{pet.attention ? 'ATTENTION FLAG' : 'NO ATTENTION'}</span><div className="paid-receipt-list">{state.receipts.slice(-3).reverse().map((receipt) => <span key={receipt.receiptId}>{receiptLine(receipt)}</span>)}</div><span className="paid-lcd-help">C CANCEL</span></div>
                                 )}
 
                                 {screen === 'settings' && (
-                                    <div className="paid-lcd-message"><strong>SETTINGS</strong><span>MOTION {reducedMotion ? 'REDUCED' : 'FULL'}</span><span>B TOGGLE</span><small>C BACK · NO COST</small></div>
+                                    <div className="paid-lcd-message"><strong>SETTINGS</strong><span>MOTION {reducedMotion ? 'REDUCED' : 'FULL'}</span><span>B TOGGLE</span><small>C CANCEL · NO COST</small></div>
                                 )}
 
                                 {screen === 'game' && state.gameSession && (
-                                    <div className="paid-lcd-game"><span className="paid-lcd-title">DIRECTION GAME</span><div className="paid-game-visual"><DemoSprite animationState={animationState} forceAnimation={gameReveal ? gameReveal.target === 'left' ? 'lookLeft' : 'lookRight' : null} reducedMotion={reducedMotion} sleeping={false} visualAction={gameReveal ? 'game' : null} /></div><strong>ROUND {(gameReveal ? gameReveal.round : state.gameSession.round) + 1} / 3</strong><span>{gameReveal ? `REVEAL ${(gameReveal.target || '?').toUpperCase()} · ${gameReveal.correct ? 'MATCH' : 'MISS'}` : 'A = LEFT · B = RIGHT'}</span><small>C PAUSE · NO PAYOUTS</small></div>
+                                    <div className="paid-lcd-game"><span className="paid-lcd-title">DIRECTION GAME</span><div className="paid-game-visual"><DemoSprite animationState={animationState} forceAnimation={gameReveal ? gameReveal.target === 'left' ? 'lookLeft' : 'lookRight' : null} reducedMotion={reducedMotion} sleeping={false} visualAction={gameReveal ? 'game' : null} /></div><strong>ROUND {(gameReveal ? gameReveal.round : state.gameSession.round) + 1} / 3</strong><span>{gameReveal ? `REVEAL ${(gameReveal.target || '?').toUpperCase()} · ${gameReveal.correct ? 'MATCH' : 'MISS'}` : 'A = LEFT · B = RIGHT'}</span><small>C CANCEL / PAUSE · NO PAYOUTS</small></div>
                                 )}
 
                                 {screen === 'game-result' && gameOutcome && (
-                                    <div className="paid-lcd-game"><span className="paid-lcd-title">FINAL DIRECTION</span><div className="paid-game-visual"><DemoSprite animationState={animationState} forceAnimation={gameOutcome.target === 'left' ? 'lookLeft' : 'lookRight'} reducedMotion={reducedMotion} sleeping={false} visualAction="game" /></div><strong>ROUND 3 TARGET {(gameOutcome.target || '?').toUpperCase()}</strong><span>{gameOutcome.correct ? 'MATCH' : 'MISS'} · BENEFIT KEPT</span><small>B OR C RETURN · NO SECOND FEE</small></div>
+                                    <div className="paid-lcd-game"><span className="paid-lcd-title">FINAL DIRECTION</span><div className="paid-game-visual"><DemoSprite animationState={animationState} forceAnimation={gameOutcome.target === 'left' ? 'lookLeft' : 'lookRight'} reducedMotion={reducedMotion} sleeping={false} visualAction="game" /></div><strong>ROUND 3 TARGET {(gameOutcome.target || '?').toUpperCase()}</strong><span>{gameOutcome.correct ? 'MATCH' : 'MISS'} · BENEFIT KEPT</span><small>B CONFIRM · C CANCEL · NO SECOND FEE</small></div>
                                 )}
                                 </div>
                                 <IconRail position="bottom" selectedIcon={selectedIcon} onSelect={setSelectedIcon} disabled={!pet} />
                             </div>
                         </div>
                         <div className="paid-hardware" aria-label="YumPals hardware controls">
-                            <button className="paid-hardware-button" disabled={Boolean((visualAction && screen === 'room') || gameInputLocked)} onClick={screen === 'game' ? () => gameChoice('left') : cycle} type="button" aria-label={`A ${screen === 'game' ? 'choose left' : 'cycle menu'}`}><strong>A</strong><span>{gameInputLocked ? 'WAIT' : screen === 'game' ? 'LEFT' : 'CYCLE'}</span></button>
-                            <button className="paid-hardware-button paid-hardware-select" disabled={Boolean((visualAction && screen === 'room') || gameInputLocked)} onClick={screen === 'game' ? () => gameChoice('right') : confirm} type="button" aria-label={`B ${hardwareBLabel.toLowerCase()}`}><strong>B</strong><span>{gameInputLocked ? 'WAIT' : hardwareBLabel}</span></button>
-                            <button className="paid-hardware-button" disabled={Boolean(visualAction && screen === 'room')} onClick={cancel} type="button" aria-label="C cancel or go back"><strong>C</strong><span>BACK</span></button>
+                            <button className="paid-hardware-button" disabled={Boolean((visualAction && screen === 'room') || gameInputLocked)} onClick={screen === 'game' ? () => gameChoice('left') : cycle} type="button" aria-label="A SELECT"><strong>A</strong><span>SELECT</span></button>
+                            <button className="paid-hardware-button paid-hardware-select" disabled={Boolean((visualAction && screen === 'room') || gameInputLocked)} onClick={screen === 'game' ? () => gameChoice('right') : confirm} type="button" aria-label="B CONFIRM"><strong>B</strong><span>CONFIRM</span></button>
+                            <button className="paid-hardware-button" disabled={Boolean(visualAction && screen === 'room')} onClick={cancel} type="button" aria-label="C CANCEL"><strong>C</strong><span>CANCEL</span></button>
                         </div>
                         <div className="paid-device-screw screw-left" />
                         <div className="paid-device-screw screw-right" />
