@@ -19,6 +19,8 @@ import { bootstrapProfile, watchAuthProfile } from './accountCompatibility.js';
 import { accountEmailCandidatesForName, accountEmailForName } from './authIdentity';
 import YumPalsView from './yumpals/YumPalsView';
 import YumPalsHandheldDemo from './yumpals/YumPalsHandheldDemo';
+import YumPalsTeacherSettings from './yumpals/YumPalsTeacherSettings.jsx';
+import { createPaidSettingsTransport } from './yumpals/paidSettingsTransport.js';
 import { canShowYumPalsPreview } from './yumpals/previewGate.js';
 import {
     Trophy, Gift, Activity, MessageSquare,
@@ -532,6 +534,9 @@ const BANK_INTEREST_RATE = 0.02;
 const ENABLE_LIVE_STUDIO = true;
 // YumPals callable traffic is deliberately opt-in until its scoped rules and claim setup are reviewed.
 const ENABLE_YUMPALS_CLOUD = import.meta.env.VITE_YUMPALS_CLOUD === 'enabled';
+const ENABLE_YUMPALS_PAID_CONTROLS = import.meta.env.VITE_YUMPALS_PAID_CONTROLS === 'enabled';
+const paidSettingsTransport = createPaidSettingsTransport({ projectId: firebaseConfig.projectId,
+    enabled: ENABLE_YUMPALS_PAID_CONTROLS, getCurrentUser: () => auth.currentUser });
 const YUMPALS_CALLABLES = new Set([
     'yumpalsGetState',
     'yumpalsAdopt',
@@ -3566,16 +3571,7 @@ function YumDonutDashboard() {
                     onUpdateGoal={handleUpdateGoal}
                     onResetGoal={handleResetGoal}
                     onToggleGoalActive={handleToggleGoalActive}
-                    onOpenYumPals={() => {
-                        setIsAdminSettingsOpen(false);
-                        if (ENABLE_YUMPALS_CLOUD) {
-                            void loadYumPals().then((result) => {
-                                if (result?.isAdmin) setView('yumpals');
-                            }).catch(() => {});
-                        }
-                    }}
-                    yumpalsBuildEnabled={ENABLE_YUMPALS_CLOUD}
-                    yumpalsState={yumpalsState}
+                    yumpalsOwnerUid={user?.uid}
                     yumpalsPreviewEnabled={yumpalsPreviewAvailable}
                     onToggleYumPalsPreview={(enabled) => setYumpalsPreviewUid(enabled && isAdmin && !isSandbox ? user?.uid : null)}
                 />
@@ -4960,7 +4956,8 @@ function GoalSettingsTab({ goalData, onUpdateGoal, onResetGoal, onToggleGoalActi
     );
 }
 
-function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrices, shopItemOverrides, sponsorshipSlotOverrides, goalData, onUpdateGoal, onResetGoal, onToggleGoalActive, onOpenYumPals, yumpalsBuildEnabled, yumpalsState, yumpalsPreviewEnabled, onToggleYumPalsPreview }) {
+function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrices, shopItemOverrides, sponsorshipSlotOverrides, goalData, onUpdateGoal, onResetGoal, onToggleGoalActive, yumpalsOwnerUid, yumpalsPreviewEnabled, onToggleYumPalsPreview }) {
+    const paidSettingsIdentity = useMemo(() => () => ({ uid: auth.currentUser?.uid, isAnonymous: auth.currentUser?.isAnonymous, sandbox: isSandbox }), [isSandbox]);
     const [activeTab, setActiveTab] = useState('general'); // general, roster, shop, sponsorships, goal, yumpals
     const [newName, setNewName] = useState("");
     const [error, setError] = useState("");
@@ -5441,20 +5438,8 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                                 </label>
                                 <p id="yumpals-preview-help" className="text-sm text-slate-600 mt-2">Adds a YumPals preview tab for this session. Try a temporary pet with pretend donuts; your real donuts stay untouched. Off by default. This does not turn on YumPals for students.</p>
                             </div>
-                            <h3 className="font-bold text-pink-700 text-sm mb-2 flex items-center gap-2"><PawPrint size={16} /> YumPals rollout</h3>
-                            <p className="text-sm text-slate-600 mb-4">
-                                YumPals is disabled by default. Its teacher controls use a server-verified <code>yumpalsAdmin</code> claim; this existing display-name admin screen does not grant that privilege.
-                            </p>
-                            {!yumpalsBuildEnabled && <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs mb-4">Cloud callables are build-gated off. Set <code>VITE_YUMPALS_CLOUD=enabled</code> only after the scoped rules and teacher claim prerequisites are reviewed.</div>}
-                            {yumpalsBuildEnabled && !yumpalsState?.isAdmin && <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 text-xs mb-4">The current signed-in account has not returned the trusted YumPals teacher claim. No settings write is available.</div>}
-                            <button
-                                className="px-4 py-2 rounded-lg bg-pink-600 text-white font-bold text-sm disabled:opacity-50"
-                                disabled={!yumpalsBuildEnabled || !yumpalsState?.isAdmin}
-                                onClick={onOpenYumPals}
-                                type="button"
-                            >
-                                Open YumPals teacher controls
-                            </button>
+                            <YumPalsTeacherSettings ownerUid={yumpalsOwnerUid} projectId={firebaseConfig.projectId}
+                                enabled={ENABLE_YUMPALS_PAID_CONTROLS} getIdentity={paidSettingsIdentity} transport={paidSettingsTransport} />
                         </div>
                     )}
 

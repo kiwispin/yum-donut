@@ -1,6 +1,8 @@
 # LR010 internal teacher controls and permanent legacy cutover
 
-Not exported, deployed or wired to UI/live paths. The parent owns production
+LR011 adds separately gated callable exports, trusted path resolvers and an
+AdminSettings client connection; see SETTINGS_CONNECTION.md. They are not
+deployed or enabled. The parent owns production
 approval and the central rollout log. Request auth in these unit/emulator tests
 is injected context, not proof of callable token verification.
 

@@ -3,7 +3,10 @@
 LR010 adds internal teacher controls and permanent legacy-route cutover; see
 TEACHER_CONTROLS.md for the injected API, audit/replay semantics, deployment
 ordering and separate pause-history compatibility. No live endpoints or UI are
-wired. Parent LR010 emulator passed 17 groups in 11258ms, exit0, with
+wired at LR010. LR011 adds a separately gated teacher Settings screen, pinned
+transport and two additive Settings callable exports; see SETTINGS_CONNECTION.md.
+They remain disabled and undeployed; paid-pet endpoints/client are still unwired.
+Parent LR010 emulator passed 17 groups in 11258ms, exit0, with
 OWNERSHIP_EMULATOR_CLEANUP_PASS. Logs:
 `/var/folders/2d/gft75_193hj9vpjv06mb63qh0000gq/T/yumpals-ownership-verification-mTbUj2`.
 Internal request auth is injected synthetic context and deny-all fixture rules
