@@ -28,7 +28,7 @@ import {
     getYumPalsFrame,
     startYumPalsAnimation,
 } from './yumpalsSprites.js';
-import { PAID_CARE_ICON_LABELS, PAID_CARE_ICON_MENU_IDS, PAID_CARE_ICON_ORDER, PAID_CARE_ICON_PIXELS } from './paidCareIcons.js';
+import { PAID_CARE_ICON_HELP, PAID_CARE_ICON_LABELS, PAID_CARE_ICON_MENU_IDS, PAID_CARE_ICON_ORDER, PAID_CARE_ICON_PIXELS, paidCareHelpIcon } from './paidCareIcons.js';
 import './paidCareDemo.css';
 
 const SUBMENUS = {
@@ -101,7 +101,7 @@ function PaidCareIcon({ id, selected }) {
     return <PixelGrid className="paid-pixel-grid paid-icon-grid" palette={{ a: selected ? '#f5efac' : '#304837' }} pixels={PAID_CARE_ICON_PIXELS[id]} />;
 }
 
-function IconRail({ position, selectedIcon, onSelect, disabled = false }) {
+function IconRail({ position, selectedIcon, onSelect, onHover, onFocusIcon, disabled = false }) {
     const startIndex = position === 'top' ? 0 : 4;
     const iconIds = PAID_CARE_ICON_ORDER.slice(startIndex, startIndex + 4);
     return (
@@ -112,12 +112,17 @@ function IconRail({ position, selectedIcon, onSelect, disabled = false }) {
                 return (
                     <button
                         aria-label={PAID_CARE_ICON_LABELS[id]}
+                        aria-describedby={`paid-icon-help-${id}`}
                         aria-pressed={selected}
                         className={`paid-icon-button ${selected ? 'selected' : ''}`}
                         disabled={disabled}
                         key={id}
                         onClick={() => onSelect(absoluteIndex)}
-                        title={PAID_CARE_ICON_LABELS[id]}
+                        onMouseEnter={() => onHover(absoluteIndex)}
+                        onMouseLeave={() => onHover(null)}
+                        onFocus={() => { onHover(null); onFocusIcon(absoluteIndex); }}
+                        onBlur={() => onFocusIcon(null)}
+                        title={`${PAID_CARE_ICON_LABELS[id]} — ${PAID_CARE_ICON_HELP[id]}`}
                         type="button"
                     >
                         <PaidCareIcon id={id} selected={selected} />
@@ -154,6 +159,9 @@ export default function YumPalsHandheldDemo() {
     const [demoState, setDemoState] = useState(() => createPaidCareDemo(new Date(), { postAdoption: true }));
     const [screen, setScreen] = useState('room');
     const [selectedIcon, setSelectedIcon] = useState(0);
+    const [hoveredIcon, setHoveredIcon] = useState(null);
+    const [focusedIcon, setFocusedIcon] = useState(null);
+    const helpIcon = paidCareHelpIcon(selectedIcon, hoveredIcon, focusedIcon);
     const [statusMode, setStatusMode] = useState('status');
     const [subMenuIndex, setSubMenuIndex] = useState(0);
     const [selectedMenu, setSelectedMenu] = useState(null);
@@ -465,7 +473,7 @@ export default function YumPalsHandheldDemo() {
                         <div className="paid-demo-brand">YUMPALS</div>
                         <div className="paid-demo-screen-frame">
                             <div className={`paid-demo-lcd ${sleeping ? 'is-sleeping' : ''} ${bedtimeScheduled ? 'is-bedtime-set' : ''}`} aria-live="polite">
-                                <IconRail position="top" selectedIcon={selectedIcon} onSelect={setSelectedIcon} disabled={!pet} />
+                                <IconRail position="top" selectedIcon={selectedIcon} onSelect={setSelectedIcon} onHover={setHoveredIcon} onFocusIcon={setFocusedIcon} disabled={!pet} />
                                 <div className="paid-lcd-content">
                                 {screen === 'room' && pet && (
                                     <div className="paid-lcd-room">
@@ -515,7 +523,7 @@ export default function YumPalsHandheldDemo() {
                                     <div className="paid-lcd-game"><span className="paid-lcd-title">FINAL DIRECTION</span><div className="paid-game-visual"><DemoSprite animationState={animationState} forceAnimation={gameOutcome.target === 'left' ? 'lookLeft' : 'lookRight'} reducedMotion={reducedMotion} sleeping={false} visualAction="game" /></div><strong>ROUND 3 TARGET {(gameOutcome.target || '?').toUpperCase()}</strong><span>{gameOutcome.correct ? 'MATCH' : 'MISS'} · BENEFIT KEPT</span><small>B CONFIRM · C CANCEL · NO SECOND FEE</small></div>
                                 )}
                                 </div>
-                                <IconRail position="bottom" selectedIcon={selectedIcon} onSelect={setSelectedIcon} disabled={!pet} />
+                                <IconRail position="bottom" selectedIcon={selectedIcon} onSelect={setSelectedIcon} onHover={setHoveredIcon} onFocusIcon={setFocusedIcon} disabled={!pet} />
                             </div>
                         </div>
                         <div className="paid-hardware" aria-label="YumPals hardware controls">
@@ -531,7 +539,15 @@ export default function YumPalsHandheldDemo() {
                 {notice && <div className={`paid-demo-notice ${notice.type === 'error' ? 'is-error' : ''}`} role="status">{notice.message}</div>}
 
                 <div className="paid-demo-meta" aria-label="Demo economy summary"><span>START 30</span><span>WALLET {state.balance}</span><span>SPENT {state.spentTotal}</span><span>CAP {state.dailySpend[state.dateKey] || 0}/{25}</span></div>
-                <p className="paid-demo-hint">First try: A cycles the icon strip while Niblet stays visible; B opens the selected care icon, then choose a small secondary option and confirm the price. C clears or returns. Full needs intentionally block care until a demo scenario makes a need visible.</p>
+                <p className="paid-demo-hint" role="status">{helpIcon ? `${PAID_CARE_ICON_LABELS[helpIcon]} — ${PAID_CARE_ICON_HELP[helpIcon]}` : 'Press A SELECT to choose an icon.'}</p>
+                {PAID_CARE_ICON_ORDER.map((id) => <span className="paid-help-accessible" id={`paid-icon-help-${id}`} key={id}>{PAID_CARE_ICON_HELP[id]}</span>)}
+                <details className="paid-demo-inspector">
+                    <summary>How to play</summary>
+                    <p>A SELECT moves through icons or choices. B CONFIRM opens your choice. C CANCEL clears a selection or returns; in a game it pauses.</p>
+                    <p>Choosing an icon costs nothing. Pretend donuts are charged only when you confirm the displayed price. Health and status and Attention are free to check.</p>
+                    <dl className="paid-help-guide">{PAID_CARE_ICON_ORDER.map((id) => <div key={id}><dt><span className="paid-help-icon"><PaidCareIcon id={id} selected={false} /></span>{PAID_CARE_ICON_LABELS[id]}</dt><dd>{PAID_CARE_ICON_HELP[id]}</dd></div>)}</dl>
+                    <p>Needs start full. To try care, open Demo controls below and choose Needs care. During the game, follow the left/right instructions inside the screen; C CANCEL pauses and you can resume without paying again.</p>
+                </details>
 
                 <button className="paid-demo-utility" onClick={() => setScreen('settings')} type="button">Preferences · reduced motion (uncharged)</button>
 

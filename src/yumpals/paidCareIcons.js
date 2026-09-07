@@ -29,6 +29,21 @@ export const PAID_CARE_ICON_MENU_IDS = Object.freeze({
     discipline: 'reminder',
 });
 
+export const PAID_CARE_ICON_HELP = Object.freeze({
+    food: 'Give a meal or snack to fill hunger hearts.',
+    lights: 'Set bedtime lights for the fake night; lights return at 7 am.',
+    game: 'Play three direction guesses or give a pat for happiness hearts.',
+    medicine: 'Give medicine to restore health hearts.',
+    clean: 'Clean up to restore cleanliness hearts.',
+    status: 'Check four heart meters and recent receipts. No charge.',
+    discipline: 'Give a gentle reminder to clear the attention flag.',
+    attention: 'Check whether your pal needs attention. No charge.',
+});
+
+export function paidCareHelpIcon(selected, hovered, focused) {
+    return PAID_CARE_ICON_ORDER[hovered ?? focused ?? selected] || null;
+}
+
 export const PAID_CARE_ICON_PIXELS = Object.freeze({
     food: ['a..a..a.', 'a..a..a.', 'a..a..a.', 'aaa...a.', '..a..a..', '..a..a..', '..a..a..', '..a..a..'],
     lights: ['...aa...', '..aaaa..', '.aaaaaa.', '.aaaaaa.', '..aaaa..', '...aa...', '...aa...', '..aaaa..'],

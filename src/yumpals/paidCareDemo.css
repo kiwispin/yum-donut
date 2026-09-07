@@ -592,6 +592,20 @@
     text-align: center;
 }
 
+.paid-help-accessible {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.paid-help-guide > div { margin: 0.5rem 0; }
+.paid-help-guide dt { display: flex; align-items: center; gap: 0.5rem; font-weight: 700; }
+.paid-help-icon { position: relative; display: inline-flex; flex: 0 0 24px; width: 24px; height: 24px; }
+.paid-help-guide dd { margin: 0.15rem 0 0; line-height: 1.4; }
+
 .paid-demo-utility {
     background: transparent;
     border: 1px solid #bbc7cb;
