@@ -28,7 +28,15 @@ function failureReply(code, details = {}) {
     case 'RECIPIENT_NOT_ACTIVE':
       return `${details.yumName || 'That person'} is not currently active in the Yum Donut roster.`;
     case 'RECIPIENT_BALANCE_CORRUPT':
-      return `${details.yumName || 'That person'} has a corrupted donut balance. Ask Mr Rayner to repair it first.`;
+    case 'SENDER_BALANCE_CORRUPT':
+    case 'ACCOUNT_LINK_CONFLICT':
+    case 'ACCOUNT_BALANCE_CONFLICT':
+    case 'RECIPIENT_ALIAS':
+      return 'Please ask Mr Rayner to check the linked accounts and donut balances. No donuts were sent.';
+    case 'ACTIVITY_ID_REQUIRED':
+      return 'This Teams message is missing its message ID. No donuts were sent. Please send a new message.';
+    case 'ACTIVITY_CONFLICT':
+      return 'This message was already counted with different details. It has not been counted again.';
     case 'SELF_GIVE':
       return 'Nice try, but you cannot give donuts to yourself.';
     case 'DAILY_LIMIT':

@@ -156,5 +156,5 @@ test('formats Auckland date keys', () => {
 test('formats bot replies', () => {
   assert.equal(successReply({ recipients: ['Alice', 'Bob'], amountEach: 2 }), '🍩 Sent 2 donuts each to Alice and Bob. Sweet shout-out!');
   assert.equal(failureReply('DAILY_LIMIT', { remaining: 1, requested: 4 }), 'You have 1 donut left today, but this would send 4.');
-  assert.equal(failureReply('RECIPIENT_BALANCE_CORRUPT', { yumName: 'Lara' }), 'Lara has a corrupted donut balance. Ask Mr Rayner to repair it first.');
+  assert.equal(failureReply('RECIPIENT_BALANCE_CORRUPT', { yumName: 'Lara' }), 'Please ask Mr Rayner to check the linked accounts and donut balances. No donuts were sent.');
 });
