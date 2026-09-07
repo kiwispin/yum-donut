@@ -40,10 +40,18 @@ This stage does not finish paid gameplay, growth, configurable decline/sleep set
 
 ## Release gates still open
 
-1. User-selected/authorised separate staging project; ask separately before enabling billing. Production and unrelated projects must not be used for test purchases.
+1. Staging project `yum-donut-staging` created with user approval on2026-09-08; billing verified disabled. Backend staging deployment still requires separately approved billing and service/security setup. Production and unrelated projects must not be used for test purchases.
 2. Verified server-owned UID-to-wallet mapping and coordinated legacy writer/sync migration; preserve all balances, Given totals and account separation.
 3. Deny bypass writes across all overlapping rules while providing compatible replacements for legitimate bank, gifting, Arcade, shop and Teams operations.
 4. Export/wire paid endpoints, durable client request IDs/reconciliation, persistent handheld state and teacher settings only after boundaries are reviewed.
 5. Real emulator/cloud concurrency, calendar, identity, privacy, migration and rollback tests; explicitly approved limited pilot before broad activation.
 
 Rollback must pause new charges and deterioration, preserve receipts and newer transactions, and never restore an old database over post-launch spending.
+
+## PI-003 — Separate Firebase staging project — ACCEPTED creation only
+
+- User explicitly approved creating a separate project and required asking before enabling billing.
+- Created through the existing school Firebase login: projectID `yum-donut-staging`, display name `YumDonut Staging`, project number `356720371643`. Creation and Firebase-resource provisioning succeeded; independent project listing reports ACTIVE.
+- Read-only Cloud Billing API check using the same Firebase account returned `billingEnabled: false`. No billing account was linked. The separate gcloud login belongs to another account and was not used for project creation or billing checks.
+- Production project `yum-donut-school` and unrelated `tap-dash-de913` unchanged. `.firebaserc` default remains production; all future staging commands MUST explicitly target `--project yum-donut-staging`. No deployment, database creation, test-user creation, student-data copy, or app configuration switch occurred.
+- Firebase Functions deployment requires the Blaze plan per https://firebase.google.com/docs/functions/get-started . Do not link billing without a separate user approval and exact account selection. Project creation is not backend staging verification.
