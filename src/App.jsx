@@ -14,6 +14,7 @@ import { getBankBalance } from './bankBalance';
 import { assertWalletSession, readWalletMirrors, reconcileLegacyWallet, walletBalanceAfterDebit, walletErrorMessage } from './walletCompatibility.js';
 import { payBountyTransaction, payInterestTransaction, prepareInterestRun, completeInterestRun } from './rewardCompatibility.js';
 import { bankTransferFields, giveDonutsTransaction } from './bankGiftCompatibility.js';
+import { arcadeOutcome, trainingOutcome, awardGameTransaction, munchTransaction } from './gameCompatibility.js';
 import { accountEmailCandidatesForName, accountEmailForName } from './authIdentity';
 import YumPalsView from './yumpals/YumPalsView';
 import YumPalsHandheldDemo from './yumpals/YumPalsHandheldDemo';
@@ -2503,59 +2504,27 @@ function YumDonutDashboard() {
     };
 
     const handleMunchDonut = async (victimName, reason, amount = 1) => {
-        if (!myProfile) return;
-
-        if (isSandbox) {
-            showNotification(`Sandbox: Munched ${amount} donut${amount > 1 ? 's' : ''} from ${victimName} (Simulated)`, "info");
-            return;
-        }
-
+        if (!myProfile || !isAdmin) return;
+        if (isSandbox) { showNotification('Sandbox: Munch simulated; no donuts removed.', 'info'); return; }
+        if (!victimName || victimName === myProfile.name || !reason) return;
         try {
-            const recipientRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', victimName);
-            const recipientDoc = await getDoc(recipientRef);
-            if (!recipientDoc.exists()) {
-                showNotification("User has no wallet to munch!", "error");
-                return;
-            }
-
-            const currentBal = getDonutBalance(recipientDoc.data().balance, null);
-            const currentBank = getDonutBalance(recipientDoc.data().bank_balance, null);
-
-            if (currentBal === null || currentBank === null) {
-                showNotification("That account's donut balance needs repair before it can be munched.", "error");
-                return;
-            }
-
-            let updateData = {};
-            let munchSource = "";
-
-            if (currentBal >= amount) {
-                updateData = { balance: currentBal - amount };
-                munchSource = "wallet";
-            } else if (currentBank >= amount) {
-                updateData = { bank_balance: currentBank - amount };
-                munchSource = "bank";
-            } else {
-                showNotification(`The Muncher goes hungry (not enough donuts for ${amount}).`, "error");
-                return;
-            }
-
-            await updateDoc(recipientRef, updateData);
-
-            await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
-                fromName: "The Donut Muncher",
-                toName: "Someone",
-                message: `Nom nom! Ate a donut from ${munchSource === 'bank' ? 'the BANK' : 'wallet'} because: ${reason}`,
-                timestamp: serverTimestamp(),
-                emoji: "👾",
-                amount: amount,
-                likes: []
-            });
-            showNotification(`Munched ${amount} donut${amount > 1 ? 's' : ''} from ${victimName}'s ${munchSource}!`);
+            const uid = user?.uid;
+            const isActive = () => Boolean(uid && auth.currentUser?.uid === uid && !auth.currentUser?.isAnonymous);
+            assertWalletSession(isActive);
+            const source = await runTransaction(db, (transaction) => munchTransaction(transaction, {
+                publicRef: doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', victimName),
+                privateRefFor: (targetUid) => doc(db, 'artifacts', APP_ID, 'users', targetUid, 'profile', 'data'),
+                feedRef: doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions')),
+                amount, isActive,
+                feed: (source) => ({ fromName: 'The Donut Muncher', toName: 'Someone',
+                    message: `Nom nom! Ate a donut from ${source === 'bank' ? 'the BANK' : 'wallet'} because: ${reason}`,
+                    timestamp: serverTimestamp(), emoji: '👾', likes: [] }),
+            }));
+            showNotification(`Munched ${amount} donut${amount > 1 ? 's' : ''} from ${victimName}'s ${source}!`);
             setView('feed');
-        } catch (e) {
-            console.error(e);
-            showNotification("Munch failed.", "error");
+        } catch (error) {
+            console.error(error);
+            showNotification(walletErrorMessage(error) || 'Munch failed.', 'error');
         }
     };
 
@@ -2567,97 +2536,26 @@ function YumDonutDashboard() {
 
     const handleWinBonus = async (prize, cooldownField = 'last_daily_bonus', gameName = "the Claw Machine") => {
         if (!user || !myProfile) return;
-
-        const userRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
-        const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
-
+        if (isSandbox) { showNotification('Sandbox: Arcade prize simulated; wallet unchanged.', 'info'); return; }
         try {
-            await runTransaction(db, async (transaction) => {
-                const userDoc = await transaction.get(userRef);
-                const publicDoc = await transaction.get(publicRef);
-                if (!userDoc.exists()) throw "User profile not found";
-                if (!publicDoc.exists()) throw "Public profile not found";
-
-                const data = userDoc.data();
-                const publicData = publicDoc.data();
-                const currentPrivateBalance = getDonutBalance(data.balance, null);
-                const currentPublicBalance = getDonutBalance(publicData.balance, null);
-                const currentPublicLifetimeReceived = getDonutBalance(publicData.lifetime_received, null);
-                if (currentPrivateBalance === null || currentPublicBalance === null || currentPublicLifetimeReceived === null) {
-                    throw "CORRUPT_BALANCE";
-                }
-
-                // 1. Server-Side Cooldown Check
-                if (cooldownField) {
-                    const lastPlayed = data[cooldownField];
-                    if (lastPlayed) {
-                        const today = new Date().toDateString();
-                        const lastDate = lastPlayed.toDate().toDateString();
-                        if (lastDate === today) {
-                            throw "Daily Limit Reached";
-                        }
-                    }
-                }
-
-                // 2. Prepare Updates
-                const updates = {
-                    [cooldownField]: serverTimestamp()
-                };
-
-                let amount = 0;
-                if (prize.type === 'donut') {
-                    amount = prize.amount;
-                } else if (prize.type === 'item') {
-                    amount = 10; // Golden Ticket
-                }
-
-                // The public profile is the wallet source of truth. Repair a small
-                // private/public drift as part of the same atomic reward.
-                updates.balance = currentPublicBalance + amount;
-
-                // 3. Atomic Update (Private & Public)
-                transaction.update(userRef, updates);
-                transaction.update(publicRef, {
-                    balance: currentPublicBalance + amount,
-                    lifetime_received: currentPublicLifetimeReceived + amount
-                });
-            });
-
-            // 4. Post-Transaction UI & Logs
-            const amount = prize.type === 'donut' ? prize.amount : 10;
-
-            if (prize.type === 'donut') {
-                showNotification(`You won ${amount} Donut${amount > 1 ? 's' : ''}! Added to wallet.`);
-            } else {
-                showNotification("GOLDEN TICKET! You won 10 Donuts!");
-            }
-
-            // 4. Log Transaction
-            await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
-                fromName: "The Arcade",
-                toName: myProfile.name,
-                message: `Won a ${prize.label} playing ${gameName}!`,
-                timestamp: serverTimestamp(),
-                emoji: "🕹️",
-                amount: amount,
-                likes: []
-            });
-
+            const uid = user.uid;
+            const isActive = () => Boolean(auth.currentUser?.uid === uid && !auth.currentUser?.isAnonymous);
+            assertWalletSession(isActive);
+            const result = await runTransaction(db, (transaction) => awardGameTransaction(transaction, {
+                publicRef: doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name),
+                privateRef: doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data'),
+                feedRef: doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions')),
+                uid, isActive, training: false,
+                outcome: (data) => arcadeOutcome(data, { prize, cooldownField, gameName, today: new Date().toDateString(), timestamp: serverTimestamp }),
+                feed: () => ({ fromName: 'The Arcade', toName: myProfile.name,
+                    message: `Won a ${prize.label} playing ${gameName}!`, timestamp: serverTimestamp(), emoji: '🕹️', likes: [] }),
+            }));
+            showNotification(prize.type === 'item' ? 'GOLDEN TICKET! You won 10 Donuts!'
+                : `You won ${result.amount} Donut${result.amount > 1 ? 's' : ''}! Added to wallet.`);
         } catch (error) {
-            console.error("Transaction failed: ", error);
-            if (error === "Daily Limit Reached") {
-                showNotification("Daily Limit Reached! Come back tomorrow.");
-                // Ensure local lock is set if it wasn't (double safety)
-                const today = new Date().toDateString();
-                if (gameName.includes("Claw")) localStorage.setItem(`claw_lock_${user.uid}_${today}`, 'true');
-                if (gameName.includes("Typing")) localStorage.setItem(`typing_defence_lock_${today}`, 'true');
-                if (gameName.includes("Rushes")) localStorage.setItem(`daily_rushes_lock_${user.uid}_${today}`, 'true');
-                if (gameName.includes("Memory")) localStorage.setItem(`memory_match_lock_${user.uid}_${today}`, 'true');
-            } else if (error === "CORRUPT_BALANCE") {
-                showNotification("Your donut balance needs repair before claiming prizes.", "error");
-            } else {
-                showNotification("Error claiming prize. Please try again.");
-            }
+            console.error(error);
+            showNotification(error?.message === 'DAILY_LIMIT' ? 'Daily Limit Reached! Come back tomorrow.'
+                : walletErrorMessage(error) || 'Error claiming prize. Please try again.', 'error');
         }
     };
 
@@ -3445,143 +3343,32 @@ function YumDonutDashboard() {
     // --- TYPING DOJO REWARD ---
     const handleTrainingReward = async (wpm, accuracy, rewardAmount = 1, badgeToGrant = null, mode = 'scriptwriter', ninjaCombo = 0) => {
         if (!myProfile) return;
-
-        if (isSandbox) {
-            showNotification(`Sandbox: Earned ${rewardAmount} donut(s) (Simulated)`, "info");
-            return;
-        }
-
-        if (!myProfile.typing_license) {
-            showNotification("Practice complete! Get your license from Mr Rayner to earn donuts.", "info");
-            return;
-        }
-
-        const today = new Date().toDateString();
-
-        // Determine which date field to check/update based on mode
-        let dateField = 'last_training_date'; // Default for Scriptwriter
-        if (mode === 'sudden_death') dateField = 'last_training_date_sudden_death';
-        if (mode === 'shortcut_ninja') dateField = 'last_training_date_ninja';
-
-        if (myProfile[dateField] === today) {
-            showNotification(`You've already trained in ${mode === 'scriptwriter' ? 'Scriptwriter' : mode === 'sudden_death' ? 'Sudden Death' : 'Ninja'} mode today!`, "error");
-            return;
-        }
-
-        if (mode !== 'shortcut_ninja') {
-            if (wpm < 30 || accuracy < 95) {
-                showNotification("Goal not met. Keep practicing!", "error");
-                return;
-            }
-        }
-
-        // --- REWARD LOGIC & DAILY CAP ---
-        let finalReward = 1; // Default
-        let isFirstTimeSuddenDeath = false;
-
-        if (mode === 'sudden_death') {
-            if (!myProfile.sudden_death_won) {
-                finalReward = 10;
-                isFirstTimeSuddenDeath = true;
-                badgeToGrant = 'perfectionist_badge';
-            } else {
-                finalReward = 2;
-            }
-        } else if (mode === 'shortcut_ninja') {
-            if (ninjaCombo >= 20) {
-                finalReward = 2;
-            } else {
-                finalReward = 1;
-            }
-        } else {
-            // Scriptwriter / Standard
-            finalReward = rewardAmount;
-        }
-
-        // Check Daily Cap
-        // Reset daily tracker if new day
-        let earnedToday = myProfile.training_earned_today || 0;
-        if (myProfile.training_last_earned_date !== today) {
-            earnedToday = 0;
-        }
-
-        // Cap Check (Exempt First Time Sudden Death)
-        if (!isFirstTimeSuddenDeath && (earnedToday + finalReward > 3)) {
-            showNotification(`Daily Training Cap Reached (3/3). Come back tomorrow!`, "error");
-            return;
-        }
-
+        if (isSandbox) { showNotification('Sandbox: Training reward simulated; wallet unchanged.', 'info'); return; }
         try {
-            const userRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
-            const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
-
-            await runTransaction(db, async (transaction) => {
-                const userDoc = await transaction.get(userRef);
-                const publicDoc = await transaction.get(publicRef);
-
-                if (!userDoc.exists() || !publicDoc.exists()) throw "User missing";
-
-                const currentPrivateBalance = getDonutBalance(userDoc.data().balance, null);
-                const publicData = publicDoc.data();
-                const currentPublicBalance = getDonutBalance(publicData.balance, null);
-                const currentPublicLifetime = getDonutBalance(publicData.lifetime_received, null);
-                if (currentPrivateBalance === null || currentPublicBalance === null || currentPublicLifetime === null) {
-                    throw "CORRUPT_BALANCE";
-                }
-
-                const updateData = {
-                    balance: currentPublicBalance + finalReward,
-                    lifetime_received: currentPublicLifetime + finalReward,
-                    [dateField]: today,
-                    training_earned_today: earnedToday + finalReward,
-                    training_last_earned_date: today
-                };
-
-                if (isFirstTimeSuddenDeath) {
-                    updateData.sudden_death_won = true;
-                }
-
-                if (badgeToGrant) {
-                    updateData[badgeToGrant] = true;
-                }
-
-                // WPM Tiers (The Flex)
-                if (wpm >= 50) updateData.silver_border = true;
-                if (wpm >= 70) updateData.gold_border = true;
-                if (wpm >= 90) updateData.flame_name = true;
-
-                transaction.update(userRef, updateData);
-                transaction.update(publicRef, updateData);
-
-                // Add to Feed
-                const feedRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
-                transaction.set(feedRef, {
-                    fromName: "Typing Dojo",
-                    toName: myProfile.name,
-                    message: `Earned ${finalReward} donut(s) in ${mode === 'sudden_death' ? 'Sudden Death' : mode === 'shortcut_ninja' ? 'Ninja Mode' : 'Training'}! (${mode === 'shortcut_ninja' ? `Streak: ${ninjaCombo}` : `${wpm} WPM`})`,
-                    timestamp: serverTimestamp(),
-                    emoji: mode === 'sudden_death' ? "💀" : mode === 'shortcut_ninja' ? "⚡" : "🥋",
-                    amount: finalReward,
-                    likes: []
-                });
-
-
-            });
-
+            const uid = user?.uid;
+            const isActive = () => Boolean(uid && auth.currentUser?.uid === uid && !auth.currentUser?.isAnonymous);
+            assertWalletSession(isActive);
+            const result = await runTransaction(db, (transaction) => awardGameTransaction(transaction, {
+                publicRef: doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name),
+                privateRef: doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data'),
+                feedRef: doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions')),
+                uid, isActive, training: true,
+                outcome: (data) => trainingOutcome(data, { wpm, accuracy, rewardAmount, badgeToGrant, mode, ninjaCombo, today: new Date().toDateString() }),
+                feed: (result) => ({ fromName: 'Typing Dojo', toName: myProfile.name,
+                    message: `Earned ${result.amount} donut(s) in ${mode === 'sudden_death' ? 'Sudden Death' : mode === 'shortcut_ninja' ? 'Ninja Mode' : 'Training'}! (${mode === 'shortcut_ninja' ? `Streak: ${ninjaCombo}` : `${wpm} WPM`})`,
+                    timestamp: serverTimestamp(), emoji: mode === 'sudden_death' ? '💀' : mode === 'shortcut_ninja' ? '⚡' : '🥋', likes: [] }),
+            }));
             triggerConfetti();
-            showNotification(`Earned ${finalReward} donut(s)!`, "success");
-            // Update local state immediately for UI responsiveness
-            setUser(prev => ({ ...prev, balance: getDonutBalance(prev?.balance) + finalReward }));
-
-            let msg = `Training Complete! +${finalReward} Donut${finalReward > 1 ? 's' : ''} 🍩`;
-            if (isFirstTimeSuddenDeath) msg += " & JACKPOT! 🎯";
-
-            showNotification(msg);
-        } catch (e) {
-            console.error(e);
-            showNotification(e === "CORRUPT_BALANCE"
-                ? "Your donut balance needs repair before claiming training rewards."
-                : "Reward failed.", "error");
+            showNotification(`Training Complete! +${result.amount} Donut${result.amount > 1 ? 's' : ''} 🍩${result.first ? ' & JACKPOT! 🎯' : ''}`);
+        } catch (error) {
+            console.error(error);
+            const messages = {
+                LICENSE_REQUIRED: 'Practice complete! Get your license from Mr Rayner to earn donuts.',
+                DAILY_LIMIT: 'You have already trained in this mode today!',
+                TRAINING_GOAL: 'Goal not met. Keep practicing!',
+                TRAINING_CAP: 'Daily Training Cap Reached (3/3). Come back tomorrow!',
+            };
+            showNotification(messages[error?.message] || walletErrorMessage(error) || 'Reward failed.', 'error');
         }
     };
 
