@@ -2,6 +2,10 @@
 
 ## Paid-care release status — 2026-09-08
 
+Latest user decision supersedes the separate-staging requirement below: proceed through a controlled rollout inside the existing app, with extensive local testing, default-off teacher controls and rollback checkpoints. Leave `yum-donut-staging` unused and billing disabled. A separate project is no longer a release prerequisite. Real-wallet ownership, atomic receipts, regression and access checks remain prerequisites for real charges.
+
+The first in-app integration is a temporary pretend-donut preview in the existing teacher Settings screen. Its visibility toggle is a convenience control using the app's existing teacher UI, not a new security boundary; the same pretend demo is already publicly available by URL. It cannot activate paid cloud care. Real paid teacher operations must retain server-side authorisation.
+
 Separate Firebase project `yum-donut-staging` (YumDonut Staging,356720371643) now exists with user approval. Billing verified disabled. No functions, database, users or app have been deployed/configured there by this setup step. Historical statements below about an unavailable project refer to the earlier verification date. Use explicit staging project IDs; the repository default has not changed. Billing activation requires separate approval.
 
 The five-callable deployment instructions below describe the earlier free-care module, **not** a ready-to-deploy paid handheld. Do not use them to activate the current prototype. Paid-care integration is being built additively and remains disconnected from production exports and wallets. Track current work and gates in `YUMPALS_PRODUCTION_INTEGRATION_LOG.md` and `YUMPALS_PAID_CARE_PLAN.md`.

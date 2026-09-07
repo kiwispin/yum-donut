@@ -40,6 +40,8 @@ This stage does not finish paid gameplay, growth, configurable decline/sleep set
 
 ## Release gates still open
 
+Policy update: user subsequently chose controlled testing in the existing app rather than a separate staging environment. The separate-project requirement in item1 below is superseded; account separation, financial correctness and local/controlled verification requirements remain. No new staging billing or deployment is to be performed.
+
 1. Staging project `yum-donut-staging` created with user approval on2026-09-08; billing verified disabled. Backend staging deployment still requires separately approved billing and service/security setup. Production and unrelated projects must not be used for test purchases.
 2. Verified server-owned UID-to-wallet mapping and coordinated legacy writer/sync migration; preserve all balances, Given totals and account separation.
 3. Deny bypass writes across all overlapping rules while providing compatible replacements for legitimate bank, gifting, Arcade, shop and Teams operations.
@@ -55,3 +57,14 @@ Rollback must pause new charges and deterioration, preserve receipts and newer t
 - Read-only Cloud Billing API check using the same Firebase account returned `billingEnabled: false`. No billing account was linked. The separate gcloud login belongs to another account and was not used for project creation or billing checks.
 - Production project `yum-donut-school` and unrelated `tap-dash-de913` unchanged. `.firebaserc` default remains production; all future staging commands MUST explicitly target `--project yum-donut-staging`. No deployment, database creation, test-user creation, student-data copy, or app configuration switch occurred.
 - Firebase Functions deployment requires the Blaze plan per https://firebase.google.com/docs/functions/get-started . Do not link billing without a separate user approval and exact account selection. Project creation is not backend staging verification.
+
+## PI-004 — Controlled in-app preview — ACCEPTED locally; rollout incomplete
+
+- User approved continuing in the existing app, accepting iterative fixes after thorough testing. Separate staging remains unused and billing disabled. Baseline49cc3cc preserved as `checkpoint-before-yumpals-in-app-preview-2026-09-08`.
+- First UI slice: session-default-off preview switch under existing teacher Settings, a distinct preview route/nav entry and an explicit return-to-app control outside the casing. Existing cloud route and paid feature flag must remain untouched. Dummy care and purchases do not call cloud APIs or use actual balances.
+- Existing display-name-based teacher UI is sufficient for hiding a harmless preview but is NOT financial authorisation; do not claim that a hidden menu secures real purchases. No new claim setup should block trying the already-public pretend demo. Live paid teacher control remains a separate server-authorised integration.
+- Preserve A SELECT / B CONFIRM / C CANCEL, icon descriptions and animations. Reset preview visibility/state on account change/logout; do not carry another account's temporary pet into the next session.
+- Luna xhigh implemented the checkbox, separate preview view, scoped embedded styling and gate tests. Parent reviewed the diff: real wallet/cloud paths remain unchanged, preview is UID-bound and unmounts on exit or loss of eligibility. No new financial security claim is made.
+- Independent verification: 33/33 frontend tests passed in124.269125ms, lint exit0, build exit0 in794ms (1697 modules; JS840.05kB, CSS78.53kB). Existing browser-data and bundle-size warnings remain. Initial `npm test` invocation failed because no such script exists; corrected to the existing Node test runner, not a code defect.
+- Browser verification incomplete: review tab remained on a connection-error page and browser tooling rejected that error-page URL. Teacher Settings click-through is not claimed as tested. No deployment or production-data writes performed.
+- Full release still requires saved handheld state, real-wallet integration and financial/security verification listed above. This acceptance covers the local pretend-preview slice only.

@@ -13,6 +13,12 @@
     box-sizing: border-box;
 }
 
+.yumpals-embedded-preview .paid-demo-shell {
+    min-height: 0;
+    padding: 1rem 0 1.5rem;
+    border-radius: 0.75rem;
+}
+
 .paid-demo-page {
     margin: 0 auto;
     max-width: 660px;

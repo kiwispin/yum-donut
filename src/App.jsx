@@ -14,6 +14,7 @@ import { getBankBalance, resolveBankBalance } from './bankBalance';
 import { accountEmailCandidatesForName, accountEmailForName } from './authIdentity';
 import YumPalsView from './yumpals/YumPalsView';
 import YumPalsHandheldDemo from './yumpals/YumPalsHandheldDemo';
+import { canShowYumPalsPreview } from './yumpals/previewGate.js';
 import {
     Trophy, Gift, Activity, MessageSquare,
     LogOut, UserPlus, Heart, Zap, Search, CheckCircle, Target, Sparkles,
@@ -1796,6 +1797,7 @@ function YumDonutDashboard() {
     const [yumpalsState, setYumpalsState] = useState(null);
     const [yumpalsLoading, setYumpalsLoading] = useState(false);
     const [yumpalsError, setYumpalsError] = useState(null);
+    const [yumpalsPreviewUid, setYumpalsPreviewUid] = useState(null);
 
     const yumpalsRequestRef = useRef(0);
 
@@ -1905,6 +1907,17 @@ function YumDonutDashboard() {
     const [isPixelStudioOpen, setIsPixelStudioOpen] = useState(false);
 
     const isAdmin = myProfile?.name === "Mr Rayner";
+    const yumpalsPreviewAvailable = canShowYumPalsPreview({
+        uid: user?.uid, previewUid: yumpalsPreviewUid, isAdmin, isSandbox,
+    });
+
+    useEffect(() => {
+        setYumpalsPreviewUid(null);
+    }, [user?.uid, isSandbox]);
+
+    useEffect(() => {
+        if (!yumpalsPreviewAvailable && view === 'yumpals-preview') setView('give');
+    }, [yumpalsPreviewAvailable, view]);
 
     const showNotification = (msg, type = "success") => {
         setNotification({ msg, type });
@@ -2438,6 +2451,7 @@ function YumDonutDashboard() {
     };
 
     const handleLogout = () => {
+        setYumpalsPreviewUid(null);
         signOut(auth);
         setIsSandbox(false); // Reset sandbox mode on logout
         window.location.reload();
@@ -3938,6 +3952,8 @@ function YumDonutDashboard() {
                     }}
                     yumpalsBuildEnabled={ENABLE_YUMPALS_CLOUD}
                     yumpalsState={yumpalsState}
+                    yumpalsPreviewEnabled={yumpalsPreviewAvailable}
+                    onToggleYumPalsPreview={(enabled) => setYumpalsPreviewUid(enabled && isAdmin && !isSandbox ? user?.uid : null)}
                 />
             )}
 
@@ -3962,14 +3978,14 @@ function YumDonutDashboard() {
                 )}
 
                 <div className="flex overflow-x-auto justify-between border-b border-slate-200 mb-4 pb-1 no-scrollbar">
-                    {['give', 'jobs', 'arcade', 'shop', 'bank', 'training', 'goal', 'feed', 'leaderboard', ...(yumpalsAvailable ? ['yumpals'] : [])].map(tab => (
+                    {['give', 'jobs', 'arcade', 'shop', 'bank', 'training', 'goal', 'feed', 'leaderboard', ...(yumpalsAvailable ? ['yumpals'] : []), ...(yumpalsPreviewAvailable ? ['yumpals-preview'] : [])].map(tab => (
                         <button
                             key={tab}
                             onClick={() => setView(tab)}
                             className={`px-3 py-2 font-medium text-sm capitalize border-b-2 transition-colors whitespace-nowrap relative ${view === tab ? 'border-pink-500 text-pink-600' : 'border-transparent text-slate-500 hover:text-slate-700'
                                 }`}
                         >
-                            {tab}
+                            {tab === 'yumpals-preview' ? 'YumPals preview' : tab}
                             {tab === 'jobs' && openBountyCount > 0 && (
                                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm">
                                     {openBountyCount}
@@ -4105,6 +4121,14 @@ function YumDonutDashboard() {
                         onRetry={loadYumPals}
                         state={yumpalsState}
                     />
+                )}
+
+                {view === 'yumpals-preview' && yumpalsPreviewAvailable && (
+                    <section className="yumpals-embedded-preview" aria-label="YumPals pretend preview">
+                        <button type="button" className="mb-3 underline text-sm" onClick={() => setView('give')}>Back to app</button>
+                        <p className="text-sm text-slate-600 mb-3">Pretend donuts only. Your real donuts stay untouched. This temporary pet resets when you leave the preview.</p>
+                        <YumPalsHandheldDemo key={user.uid} />
+                    </section>
                 )}
 
             </div>
@@ -5312,7 +5336,7 @@ function GoalSettingsTab({ goalData, onUpdateGoal, onResetGoal, onToggleGoalActi
     );
 }
 
-function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrices, shopItemOverrides, sponsorshipSlotOverrides, goalData, onUpdateGoal, onResetGoal, onToggleGoalActive, onOpenYumPals, yumpalsBuildEnabled, yumpalsState }) {
+function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrices, shopItemOverrides, sponsorshipSlotOverrides, goalData, onUpdateGoal, onResetGoal, onToggleGoalActive, onOpenYumPals, yumpalsBuildEnabled, yumpalsState, yumpalsPreviewEnabled, onToggleYumPalsPreview }) {
     const [activeTab, setActiveTab] = useState('general'); // general, roster, shop, sponsorships, goal, yumpals
     const [newName, setNewName] = useState("");
     const [error, setError] = useState("");
@@ -5786,6 +5810,13 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
 
                     {activeTab === 'yumpals' && (
                         <div className="bg-white p-6 rounded-xl border border-pink-100 shadow-sm">
+                            <div className="mb-6 border-b border-slate-200 pb-4">
+                                <label className="flex items-center gap-2 font-bold text-sm">
+                                    <input type="checkbox" checked={yumpalsPreviewEnabled} disabled={isSandbox} onChange={(event) => onToggleYumPalsPreview(event.target.checked)} aria-describedby="yumpals-preview-help" />
+                                    Show YumPals preview
+                                </label>
+                                <p id="yumpals-preview-help" className="text-sm text-slate-600 mt-2">Adds a YumPals preview tab for this session. Try a temporary pet with pretend donuts; your real donuts stay untouched. Off by default. This does not turn on YumPals for students.</p>
+                            </div>
                             <h3 className="font-bold text-pink-700 text-sm mb-2 flex items-center gap-2"><PawPrint size={16} /> YumPals rollout</h3>
                             <p className="text-sm text-slate-600 mb-4">
                                 YumPals is disabled by default. Its teacher controls use a server-verified <code>yumpalsAdmin</code> claim; this existing display-name admin screen does not grant that privilege.
