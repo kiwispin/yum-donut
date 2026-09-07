@@ -1,5 +1,7 @@
 # YumPals implementation contract
 
+> Historical contract for the existing preview. The proposed next phase is now defined in [YUMPALS_PAID_CARE_PLAN.md](YUMPALS_PAID_CARE_PLAN.md). Its paid care, capped recovery, full activity set and stationary idle blob supersede the free-care/once-daily assumptions below once approved. This historical specification is retained to explain existing code; it must not be used as the next implementation brief.
+
 ## Approved experience
 
 An original pixel virtual pet in an egg-shaped handheld device: coloured frame, inset pixel screen, room, status icons, three real working pretend-hardware buttons (cycle/select/back). Also allow direct icon taps and accessible labels/keyboard use. As clarified by the user on 2026-09-07, use one simple original 16x16 blob shape with minimal discrete expression frames, not elaborate creature designs or smooth whole-sprite movement. No copied Tamagotchi branding/art. Responsive mobile/desktop; scoped styling, muted by default, reduced-motion support.

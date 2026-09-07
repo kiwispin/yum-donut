@@ -1,5 +1,14 @@
 # YumPals implementation and review log
 
+## PLAN-002 — Full paid-care proposal — PENDING user approval of defaults
+
+- User requested a revised plan, not coding. Created YUMPALS_PAID_CARE_PLAN.md and marked the old YUMPALS_PLAN.md as historical. User's direction supersedes free care and cosmetic-only nap, the restricted feed/pat activity set, and continual idle foot movement. Existing code remains unchanged in this pass.
+- Proposed coverage: meals/snacks, direction game, status, cleaning, medicine, sleep/lights, gentle discipline/attention, pat and growth; simple stationary blob with action-specific pixel frames. Costs/restoration/decline/calendar/adoption and recovery limits explicitly marked as proposals.
+- Read-only findings: separate wallet/bank balances and private/public profile mirrors; public-wallet shop handler; current audit classifier may count non-Shop outgoings as Given; verified UID mapping and shared wallet permissions are required before pet debits. The prior pet-only candidate is insufficient for secure wallet spending. No live balances inspected.
+- Arithmetic review: maximum default meter recovery 4 hunger +4 happiness +2 cleanliness +4 health =14 donuts; one reminder and bedtime routine total16, excluding adoption/optional items and intervening decline. Not measured affordability or approved pricing.
+- Reference check: Bandai official original-programming description confirms direction guessing and core care activities. Original behaviours distinguished from proposed school/economy adaptations. No claim of frame-perfect replication.
+- Verification is documentation-only: scoped diff and whitespace check; no runtime test/build or new security certification claimed. Prior gold tags and a0465d1 preserved. No application/configuration/UI state/live data changes, no deployment or agent coding dispatch. Implementation approval remains outstanding.
+
 Every distinct attempted modification must have an ID, scope, rationale, measured verification results, and disposition (PENDING, ACCEPTED, or REFUSED). Preserve refused attempts and reasons; do not repeat an attempted change without new evidence and an explicitly documented revised hypothesis. Never fabricate measurements. Acceptance means local review, not deployment approval.
 
 ## GS-001 — Working gold standard — ACCEPTED as rollback baseline
