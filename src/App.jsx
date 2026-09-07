@@ -10,9 +10,10 @@ import {
     signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInAnonymously, updateProfile
 } from 'firebase/auth';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { getBankBalance, resolveBankBalance } from './bankBalance';
+import { getBankBalance } from './bankBalance';
 import { assertWalletSession, readWalletMirrors, reconcileLegacyWallet, walletBalanceAfterDebit, walletErrorMessage } from './walletCompatibility.js';
 import { payBountyTransaction, payInterestTransaction, prepareInterestRun, completeInterestRun } from './rewardCompatibility.js';
+import { bankTransferFields, giveDonutsTransaction } from './bankGiftCompatibility.js';
 import { accountEmailCandidatesForName, accountEmailForName } from './authIdentity';
 import YumPalsView from './yumpals/YumPalsView';
 import YumPalsHandheldDemo from './yumpals/YumPalsHandheldDemo';
@@ -2466,7 +2467,6 @@ function YumDonutDashboard() {
 
         const today = new Date().toDateString();
         const isAdmin = myProfile.name === "Mr Rayner";
-        const totalAmount = amountEach * recipients.length;
 
         if (recipients.includes(myProfile.name)) {
             showNotification("You cannot give donuts to yourself.", "error");
@@ -2474,84 +2474,17 @@ function YumDonutDashboard() {
         }
 
         try {
-            const senderPrivateRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
-            const senderPublicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
-            const recipientRefs = recipients.map(name => doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', name));
-
-            await runTransaction(db, async (transaction) => {
-                const senderPrivateDoc = await transaction.get(senderPrivateRef);
-                const senderPublicDoc = await transaction.get(senderPublicRef);
-                const recipientDocs = [];
-                for (const recipientRef of recipientRefs) {
-                    recipientDocs.push(await transaction.get(recipientRef));
-                }
-
-                const senderCounter = senderPrivateDoc.exists() ? senderPrivateDoc.data() : myProfile;
-                const currentGiven = senderCounter.last_given_date === today ? (senderCounter.given_today || 0) : 0;
-
-                if (!isAdmin && (currentGiven + totalAmount) > DAILY_LIMIT) {
-                    throw new Error("DAILY_LIMIT");
-                }
-
-                transaction.set(senderPrivateRef, {
-                    given_today: currentGiven + totalAmount,
-                    last_given_date: today
-                }, { merge: true });
-
-                if (senderPublicDoc.exists()) {
-                    transaction.update(senderPublicRef, {
-                        lifetime_given: increment(totalAmount)
-                    });
-                }
-
-                recipients.forEach((recipientName, index) => {
-                    const recipientRef = recipientRefs[index];
-                    const recipientDoc = recipientDocs[index];
-                    const txRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
-
-                    transaction.set(txRef, {
-                        fromName: myProfile.name,
-                        toName: recipientName,
-                        message: message,
-                        timestamp: serverTimestamp(),
-                        emoji: EMOJI,
-                        amount: amountEach,
-                        value: selectedValue,
-                        virtue: selectedVirtue,
-                        likes: []
-                    });
-
-                    if (recipientDoc.exists()) {
-                        const recipientData = recipientDoc.data();
-                        const recipientBalance = getDonutBalance(recipientData.balance, null);
-                        const recipientLifetimeReceived = getDonutBalance(recipientData.lifetime_received, null);
-                        if (recipientBalance === null || recipientLifetimeReceived === null) throw new Error("CORRUPT_BALANCE");
-
-                        transaction.update(recipientRef, {
-                            balance: recipientBalance + amountEach,
-                            lifetime_received: recipientLifetimeReceived + amountEach
-                        });
-                        // Update recipient's PRIVATE profile (wallet) if they have claimed their account
-                        if (recipientData.uid && recipientData.claimed) {
-                            const recipientPrivateRef = doc(db, 'artifacts', APP_ID, 'users', recipientData.uid, 'profile', 'data');
-                            transaction.set(recipientPrivateRef, {
-                                balance: increment(amountEach)
-                            }, { merge: true });
-                        }
-                    } else {
-                        transaction.set(recipientRef, {
-                            name: recipientName,
-                            balance: amountEach,
-                            lifetime_given: 0,
-                            lifetime_received: amountEach,
-                            avatar_color: `hsl(${Math.random() * 360}, 60%, 80%)`,
-                            bank_balance: 0,
-                            claimed: false,
-                            last_training_date: null, // New field for Typing Dojo
-                        });
-                    }
-                });
-            });
+            const uid = user?.uid;
+            const isActive = () => Boolean(uid && auth.currentUser?.uid === uid && !auth.currentUser?.isAnonymous);
+            assertWalletSession(isActive);
+            await runTransaction(db, (transaction) => giveDonutsTransaction(transaction, {
+                uid, senderName: myProfile.name, recipients, amount: amountEach, today, isAdmin, dailyLimit: DAILY_LIMIT, isActive, roster,
+                publicRefFor: (name) => doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', name),
+                privateRefFor: (recipientUid) => doc(db, 'artifacts', APP_ID, 'users', recipientUid, 'profile', 'data'),
+                receiptRefFor: () => doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions')),
+                timestamp: serverTimestamp, message, emoji: EMOJI, value: selectedValue, virtue: selectedVirtue,
+                newAvatarColor: () => `hsl(${Math.random() * 360}, 60%, 80%)`,
+            }));
 
             triggerConfetti();
             const recipientText = recipients.length === 1 ? recipients[0] : `${recipients.length} people`;
@@ -2560,12 +2493,11 @@ function YumDonutDashboard() {
         } catch (e) {
             console.error(e);
             if (e?.message === "DAILY_LIMIT") {
-                const currentGiven = myProfile.last_given_date === today ? (myProfile.given_today || 0) : 0;
-                showNotification(`You only have ${DAILY_LIMIT - currentGiven} ${EMOJI} left!`, "error");
+                showNotification('This gift exceeds your daily allowance. Refresh to check what remains.', "error");
             } else if (e?.message === "CORRUPT_BALANCE") {
                 showNotification("That account's donut balance needs repair before it can receive donuts.", "error");
             } else {
-                showNotification("Failed to send donut.", "error");
+                showNotification(walletErrorMessage(e) || "Failed to send donut.", "error");
             }
         }
     };
@@ -3343,6 +3275,7 @@ function YumDonutDashboard() {
 
     // --- BANK ACTIONS ---
     const handleDeposit = async (amount) => {
+        if (isSandbox) { showNotification(`Sandbox: Deposited ${amount} donuts (Simulated)`, 'info'); return; }
         if (!myProfile || !isValidDonutAmount(amount)) return;
         const displayedWallet = getDonutBalance(myProfile.balance, null);
         if (displayedWallet === null) {
@@ -3354,38 +3287,20 @@ function YumDonutDashboard() {
             return;
         }
         try {
-            const userRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
+            const uid = user?.uid;
+            const isActive = () => Boolean(uid && auth.currentUser?.uid === uid && !auth.currentUser?.isAnonymous);
+            assertWalletSession(isActive);
+            const userRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data');
             const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
 
             await runTransaction(db, async (transaction) => {
                 const userDoc = await transaction.get(userRef);
                 const publicDoc = await transaction.get(publicRef);
-                if (!userDoc.exists() || !publicDoc.exists()) throw "User missing";
-
-                const currentWallet = getDonutBalance(userDoc.data().balance, null);
-                const currentBank = resolveBankBalance(userDoc.data().bank_balance, publicDoc.data().bank_balance);
-                const publicWallet = getDonutBalance(publicDoc.data().balance, null);
-                const publicBank = getBankBalance(publicDoc.data().bank_balance);
-
-                if ([currentWallet, currentBank, publicWallet, publicBank].some(value => value === null)) {
-                    throw "CORRUPT_BALANCE";
-                }
-
-                if (currentWallet < amount) throw "Insufficient funds";
-
-                if (isSandbox) {
-                    showNotification(`Sandbox: Deposited ${amount} donuts (Simulated)`, "info");
-                    return;
-                }
-
-                transaction.update(userRef, {
-                    balance: currentWallet - amount,
-                    bank_balance: currentBank + amount
-                });
-                transaction.update(publicRef, {
-                    balance: currentWallet - amount,
-                    bank_balance: currentBank + amount
-                });
+                if (!userDoc.exists() || !publicDoc.exists()) throw new Error('WALLET_MISSING');
+                const fields = bankTransferFields(publicDoc.data(), userDoc.data(), uid, amount, 'deposit');
+                assertWalletSession(isActive);
+                transaction.update(userRef, fields);
+                transaction.update(publicRef, fields);
                 const txRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
                 transaction.set(txRef, {
                     fromName: myProfile.name,
@@ -3400,13 +3315,12 @@ function YumDonutDashboard() {
             showNotification(`Deposited ${amount} donuts!`);
         } catch (e) {
             console.error(e);
-            showNotification(e === "CORRUPT_BALANCE"
-                ? "Your donut balance needs repair before you can use the bank."
-                : "Deposit failed.", "error");
+            showNotification(walletErrorMessage(e) || 'Deposit failed.', 'error');
         }
     };
 
     const handleWithdraw = async (amount) => {
+        if (isSandbox) { showNotification(`Sandbox: Withdrew ${amount} donuts (Simulated)`, 'info'); return; }
         if (!myProfile || !isValidDonutAmount(amount)) return;
         const currentBank = getBankBalance(myProfile.bank_balance);
         if (currentBank === null) {
@@ -3418,38 +3332,20 @@ function YumDonutDashboard() {
             return;
         }
         try {
-            const userRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
+            const uid = user?.uid;
+            const isActive = () => Boolean(uid && auth.currentUser?.uid === uid && !auth.currentUser?.isAnonymous);
+            assertWalletSession(isActive);
+            const userRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data');
             const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
 
             await runTransaction(db, async (transaction) => {
                 const userDoc = await transaction.get(userRef);
                 const publicDoc = await transaction.get(publicRef);
-                if (!userDoc.exists() || !publicDoc.exists()) throw "User missing";
-
-                const currentWallet = getDonutBalance(userDoc.data().balance, null);
-                const privateBank = resolveBankBalance(userDoc.data().bank_balance, publicDoc.data().bank_balance);
-                const publicWallet = getDonutBalance(publicDoc.data().balance, null);
-                const publicBank = getBankBalance(publicDoc.data().bank_balance);
-
-                if ([currentWallet, privateBank, publicWallet, publicBank].some(value => value === null)) {
-                    throw "CORRUPT_BALANCE";
-                }
-
-                if (privateBank < amount) throw "Insufficient bank funds";
-
-                if (isSandbox) {
-                    showNotification(`Sandbox: Withdrew ${amount} donuts (Simulated)`, "info");
-                    return;
-                }
-
-                transaction.update(userRef, {
-                    balance: currentWallet + amount,
-                    bank_balance: privateBank - amount
-                });
-                transaction.update(publicRef, {
-                    balance: currentWallet + amount,
-                    bank_balance: privateBank - amount
-                });
+                if (!userDoc.exists() || !publicDoc.exists()) throw new Error('WALLET_MISSING');
+                const fields = bankTransferFields(publicDoc.data(), userDoc.data(), uid, amount, 'withdraw');
+                assertWalletSession(isActive);
+                transaction.update(userRef, fields);
+                transaction.update(publicRef, fields);
                 const txRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
                 transaction.set(txRef, {
                     fromName: "The Bank",
@@ -3464,9 +3360,7 @@ function YumDonutDashboard() {
             showNotification(`Withdrew ${amount} donuts!`);
         } catch (e) {
             console.error(e);
-            showNotification(e === "CORRUPT_BALANCE"
-                ? "Your donut balance needs repair before you can use the bank."
-                : "Withdrawal failed.", "error");
+            showNotification(walletErrorMessage(e) || 'Withdrawal failed.', 'error');
         }
     };
 
