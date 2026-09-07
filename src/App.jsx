@@ -12,6 +12,7 @@ import {
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getBankBalance, resolveBankBalance } from './bankBalance';
 import { assertWalletSession, readWalletMirrors, reconcileLegacyWallet, walletBalanceAfterDebit, walletErrorMessage } from './walletCompatibility.js';
+import { payBountyTransaction, payInterestTransaction, prepareInterestRun, completeInterestRun } from './rewardCompatibility.js';
 import { accountEmailCandidatesForName, accountEmailForName } from './authIdentity';
 import YumPalsView from './yumpals/YumPalsView';
 import YumPalsHandheldDemo from './yumpals/YumPalsHandheldDemo';
@@ -1801,6 +1802,8 @@ function YumDonutDashboard() {
     const [yumpalsPreviewUid, setYumpalsPreviewUid] = useState(null);
 
     const yumpalsRequestRef = useRef(0);
+    const interestRunRef = useRef(null);
+    const interestBusyRef = useRef(false);
 
     const loadYumPals = async () => {
         const requestedUid = user?.uid;
@@ -3314,39 +3317,27 @@ function YumDonutDashboard() {
         showNotification("Work rejected. Student must redo.");
     };
 
-    const handlePayBounty = async (bountyId, claimantName, reward) => {
+    const handlePayBounty = async (bountyId) => {
         if (!isAdmin) return;
+        if (isSandbox) { showNotification('Preview only — no job payment made.'); return; }
 
         try {
-            const recipientRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', claimantName);
-            const recipientDoc = await getDoc(recipientRef);
-            if (recipientDoc.exists()) {
-                const currentBal = getDonutBalance(recipientDoc.data().balance, null);
-                const currentLifetime = getDonutBalance(recipientDoc.data().lifetime_received, null);
-                if (currentBal === null || currentLifetime === null) throw "CORRUPT_BALANCE";
-
-                await updateDoc(recipientRef, {
-                    balance: currentBal + reward,
-                    lifetime_received: currentLifetime + reward
-                });
-            }
+            const uid = user?.uid;
+            const isActive = () => Boolean(uid && auth.currentUser?.uid === uid && !auth.currentUser?.isAnonymous);
+            assertWalletSession(isActive);
             const bountyRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'bounties', bountyId);
-            await updateDoc(bountyRef, { status: 'paid' });
-            await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
-                fromName: "Mr Rayner",
-                toName: claimantName,
-                message: `Completed the bounty: ${reward} Donuts awarded!`,
-                timestamp: serverTimestamp(),
-                emoji: "💰",
-                likes: []
-            });
-            triggerConfetti();
-            showNotification("Bounty Paid!");
+            const result = await runTransaction(db, (transaction) => payBountyTransaction(transaction, {
+                bountyId, bountyRef, isActive, timestamp: serverTimestamp,
+                receiptRef: doc(db, 'artifacts', APP_ID, 'public', 'data', 'bounty_payments', bountyId),
+                activityRef: doc(db, 'artifacts', APP_ID, 'public', 'data', 'transactions', `bounty_${bountyId}`),
+                publicRefFor: (name) => doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', name),
+                privateRefFor: (recipientUid) => doc(db, 'artifacts', APP_ID, 'users', recipientUid, 'profile', 'data'),
+            }));
+            if (!result.duplicate) triggerConfetti();
+            showNotification(result.duplicate ? 'This job was already paid. No extra payment made.' : `Bounty paid: ${result.amount} donuts!`);
         } catch (e) {
             console.error(e);
-            showNotification(e === "CORRUPT_BALANCE"
-                ? "That claimant's donut balance needs repair before payment."
-                : "Payment failed", "error");
+            showNotification('Job payment not confirmed. Check the account and retry this job; a completed payment will not repeat.', 'error');
         }
     };
 
@@ -3480,69 +3471,66 @@ function YumDonutDashboard() {
     };
 
     const handlePayInterest = async () => {
-        // Admin only function to pay bank interest (rounded down)
-        if (myProfile.name !== "Mr Rayner") return;
-
+        // Display-name access is compatibility only, NOT financial authorization.
+        if (!isAdmin) return;
         if (isSandbox) {
-            showNotification("Sandbox: Interest paid (Simulated)", "info");
+            showNotification('Preview only — no interest paid.', 'info');
             return;
         }
-
+        if (interestBusyRef.current) { showNotification('Interest is still being checked. Please wait.'); return; }
+        interestBusyRef.current = true;
+        let totalPaid = 0;
+        let newlyPaid = 0;
+        let unconfirmed = 0;
         try {
-            let totalPaid = 0;
-
-            for (const u of users) {
-                const bBalance = getDonutBalance(u.bank_balance);
-                if (bBalance < Math.ceil(1 / BANK_INTEREST_RATE)) continue;
-
-                const interest = Math.floor(bBalance * BANK_INTEREST_RATE);
-                if (interest > 0) {
-                    const userPublicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', u.id);
-
-                    if (u.uid) {
-                        const userPrivateRef = doc(db, 'artifacts', APP_ID, 'users', u.uid, 'profile', 'data');
-
-                        await updateDoc(userPublicRef, {
-                            bank_balance: bBalance + interest
-                        });
-
-                        await updateDoc(userPrivateRef, {
-                            bank_balance: bBalance + interest
-                        });
-
-                        await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
-                            fromName: "The Bank",
-                            toName: u.name,
-                            message: `Interest payout: +${interest} donut${interest === 1 ? '' : 's'}.`,
-                            timestamp: serverTimestamp(),
-                            emoji: "💸",
-                            amount: interest,
-                            likes: []
-                        });
-
-                        totalPaid += interest;
-                    }
+            const uid = user?.uid;
+            const isActive = () => Boolean(uid && auth.currentUser?.uid === uid && !auth.currentUser?.isAnonymous);
+            assertWalletSession(isActive);
+            interestRunRef.current = prepareInterestRun({ storage: localStorage, uid, rate: BANK_INTEREST_RATE,
+                recipients: users.map((u) => ({ id: u.id, uid: u.uid, claimed: u.claimed })), newOperationId: () => crypto.randomUUID() });
+            const run = interestRunRef.current;
+            for (const recipient of run.recipients) {
+                try {
+                    if (!recipient.uid) throw new Error('WALLET_OWNER_CONFLICT');
+                    const result = await runTransaction(db, (transaction) => payInterestTransaction(transaction, {
+                        uid: recipient.uid, operationId: run.operationId, rate: run.rate, isActive, timestamp: serverTimestamp,
+                        publicRef: doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', recipient.id),
+                        privateRef: doc(db, 'artifacts', APP_ID, 'users', recipient.uid, 'profile', 'data'),
+                        receiptRef: doc(db, 'artifacts', APP_ID, 'public', 'data', 'bank_interest_runs', run.operationId, 'recipients', recipient.uid),
+                        activityRef: doc(db, 'artifacts', APP_ID, 'public', 'data', 'transactions', `interest_${run.operationId}_${recipient.uid}`),
+                    }));
+                    totalPaid += result.amount;
+                    if (!result.duplicate) newlyPaid += result.amount;
+                } catch (error) {
+                    console.error(error);
+                    unconfirmed += 1;
                 }
             }
-
+            if (unconfirmed) {
+                showNotification(`Confirmed ${totalPaid} donuts for this run (${newlyPaid} newly paid). ${unconfirmed} accounts not confirmed; some may already be paid. Click again to retry this run.`, 'error');
+                return;
+            }
+            assertWalletSession(isActive);
             if (totalPaid > 0) {
-                await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
-                    fromName: "The Bank",
-                    toName: "EVERYONE",
-                    message: `PAID INTEREST! Total of ${totalPaid} Donuts distributed to savers! 🏦`,
-                    timestamp: serverTimestamp(),
-                    emoji: "💸",
-                    likes: []
+                const summaryRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'transactions', `interest_${run.operationId}_summary`);
+                await runTransaction(db, async (transaction) => {
+                    const prior = await transaction.get(summaryRef);
+                    assertWalletSession(isActive);
+                    if (!prior.exists()) transaction.set(summaryRef, { fromName: 'The Bank', toName: 'EVERYONE',
+                        message: `PAID INTEREST! Total of ${totalPaid} Donuts distributed to savers! 🏦`, timestamp: serverTimestamp(), emoji: '💸', likes: [] });
                 });
                 triggerConfetti();
-                showNotification(`Paid ${totalPaid} donuts in interest!`);
-            } else {
-                showNotification("No interest to pay (nobody has enough savings).");
             }
-
+            completeInterestRun(localStorage, run);
+            interestRunRef.current = null;
+            showNotification(totalPaid > 0 ? `Confirmed ${totalPaid} donuts in interest (${newlyPaid} newly paid)!` : 'No interest to pay (nobody has enough savings).');
         } catch (e) {
             console.error(e);
-            showNotification("Interest payout failed.", "error");
+            showNotification(e?.message === 'CLAIMED_UID_MISSING'
+                ? 'A claimed account is missing its sign-in link. Ask your teacher to check it. No interest run started or paid.'
+                : `Confirmed ${totalPaid} donuts in interest. Run incomplete; check accounts and retry before starting another run.`, 'error');
+        } finally {
+            interestBusyRef.current = false;
         }
     };
 
