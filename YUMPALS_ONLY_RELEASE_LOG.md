@@ -4,6 +4,7 @@
 
 - ACCEPTED user clarification: every destination participates in priority row; no permanent secondary group. Measure total first without More, showing all when possible. Only when total exceeds width reserve More and move the trailing items into it. Existing style, eligibility and actions untouched.
 - Frontend80/80 passed250.823792ms, lint0; browser320/390/1440px passed plus widened1200px container shows all11 items with no More, shrinking restores More. Enabled build508ms/1715modules. No backend/setting changes; previous273f6c5 retained for rollback. Existing hosting used.
+- Published8dae1ba; live index-DSKEuB_r.js hash matches validated dist. Fixture stopped.
 
 ## 2026-09-08 Priority single-row trial
 
