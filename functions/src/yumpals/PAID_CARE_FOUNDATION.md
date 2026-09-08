@@ -6,6 +6,14 @@ ordering and separate pause-history compatibility. No live endpoints or UI are
 wired at LR010. LR011 adds a separately gated teacher Settings screen, pinned
 transport and two additive Settings callable exports; see SETTINGS_CONNECTION.md.
 They remain disabled and undeployed; paid-pet endpoints/client are still unwired.
+LR012 subsequently passed 22 local emulator groups (17 prior + 5 Settings HTTP)
+in 20065ms, exit0 with cleanup PASS; its separate cleanup sentinel also passed as
+intended (exit1, no verification success). See
+[SETTINGS_HTTP_VERIFICATION.md](../../../verification/yumpals/SETTINGS_HTTP_VERIFICATION.md)
+for exact evidence and retained-artifact limits. Settings checks use actual
+Auth-emulator tokens and the frontend controller/transport; paid-service requests
+remain injected synthetic context. Production JWT signatures, real app login,
+deployed claims/rules and paid-pet HTTP integration are not established.
 Parent LR010 emulator passed 17 groups in 11258ms, exit0, with
 OWNERSHIP_EMULATOR_CLEANUP_PASS. Logs:
 `/var/folders/2d/gft75_193hj9vpjv06mb63qh0000gq/T/yumpals-ownership-verification-mTbUj2`.

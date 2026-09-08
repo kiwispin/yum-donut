@@ -1,4 +1,4 @@
-// Synthetic Auth + Firestore only. No Functions emulator, callable export or live credentials.
+// Synthetic Auth + Firestore + verification-only Functions. No live credentials.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { generateKeyPairSync } from 'node:crypto';
@@ -9,16 +9,19 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
+import { verifySettingsHttp } from './settings-http-checks.mjs';
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(DIR, '../..');
 const PROJECT = 'demo-yumpals-ownership';
 const HOST = '127.0.0.1';
-const PORTS = { firestore: 8180, auth: 9199, hub: 4401, logging: 4501 };
+const PORTS = { firestore: 8180, auth: 9199, functions: 5101, hub: 4401, logging: 4501 };
 const JAVA_HOME = '/tmp/yumpals-java.aAqx58/jdk-21.0.12.1+1-jre/Contents/Home';
 const CLI = '/usr/local/bin/firebase';
 const AUTH = `http://${HOST}:${PORTS.auth}`;
 const FIRESTORE = `http://${HOST}:${PORTS.firestore}`;
+const FUNCTIONS = `http://${HOST}:${PORTS.functions}`;
+const FUNCTION_NAMES = ['yumpalsGetPaidSettings', 'yumpalsUpdatePaidSettings', 'testNotReadyGetPaidSettings', 'testNotReadyUpdatePaidSettings'];
 let checks = 0;
 let interrupted = false;
 let child;
@@ -32,18 +35,19 @@ function guard() {
   for (const key of ['GCLOUD_PROJECT', 'GCP_PROJECT', 'GOOGLE_CLOUD_PROJECT']) {
     if (process.env[key]) assert.equal(process.env[key], PROJECT, `Refusing conflicting ${key}`);
   }
-  for (const [key, endpoint] of Object.entries({ FIRESTORE_EMULATOR_HOST: `${HOST}:${PORTS.firestore}`, FIREBASE_AUTH_EMULATOR_HOST: `${HOST}:${PORTS.auth}` })) {
+  if (process.env.FIREBASE_CONFIG) assert.equal(JSON.parse(process.env.FIREBASE_CONFIG).projectId, PROJECT, 'Refusing conflicting Firebase config');
+  for (const [key, endpoint] of Object.entries({ FIRESTORE_EMULATOR_HOST: `${HOST}:${PORTS.firestore}`, FIREBASE_AUTH_EMULATOR_HOST: `${HOST}:${PORTS.auth}`, FUNCTIONS_EMULATOR_HOST: `${HOST}:${PORTS.functions}` })) {
     if (process.env[key]) assert.equal(process.env[key], endpoint, `Refusing non-local or unexpected ${key}`);
     process.env[key] = endpoint;
   }
-  for (const base of [AUTH, FIRESTORE]) { const u = new URL(base); assert.equal(u.hostname, HOST); assert.equal(u.protocol, 'http:'); }
+  for (const base of [AUTH, FIRESTORE, FUNCTIONS]) { const u = new URL(base); assert.equal(u.hostname, HOST); assert.equal(u.protocol, 'http:'); }
   process.env.GCLOUD_PROJECT = PROJECT;
   process.env.GCP_PROJECT = PROJECT;
 }
 function pass(label) { assert.equal(interrupted, false, 'Interrupted'); checks += 1; console.log(`PASS ${label}`); }
 async function localFetch(url, options) {
-  assert.ok([AUTH, FIRESTORE].includes(new URL(url).origin), 'Refusing non-loopback request');
-  return fetch(url, { ...options, redirect: 'error', signal: AbortSignal.timeout(15000) });
+  assert.ok([AUTH, FIRESTORE, FUNCTIONS].includes(new URL(url).origin), 'Refusing non-loopback request');
+  return fetch(url, { ...options, redirect: 'error', signal: options?.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000) });
 }
 function portOpen(port) {
   return new Promise((resolve) => {
@@ -78,7 +82,8 @@ async function verify() {
   const { createPaidCareService } = require('./src/yumpals/paidCareService');
   const { createTeacherSettingsService } = require('./src/yumpals/teacherSettingsService');
   const { createYumPalsHandlers } = require('./src/yumpals/callables');
-  const { yumPalsSettingsDoc } = require('./src/yumpals/paths');
+  const { paidSettingsRefs } = require('./src/yumpals/paidSettingsPaths');
+  const { redactCredentialForLogs } = require(path.join(DIR, 'settings-functions/credential.cjs'));
   // Recheck immediately before SDK initialization. No ADC or real service account:
   // this ephemeral certificate exists only in memory and is never logged/saved.
   guard();
@@ -87,8 +92,8 @@ async function verify() {
     privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
     publicKeyEncoding: { type: 'spki', format: 'pem' },
   });
-  const credential = admin.credential.cert({ projectId: PROJECT,
-    clientEmail: `synthetic-emulator@${PROJECT}.iam.gserviceaccount.com`, privateKey });
+  const credential = redactCredentialForLogs(admin.credential.cert({ projectId: PROJECT,
+    clientEmail: `synthetic-emulator@${PROJECT}.iam.gserviceaccount.com`, privateKey }));
   // Emulator clients must not request OAuth tokens, even if their configuration regresses.
   credential.getAccessToken = async () => { throw new Error('Refusing OAuth token request in emulator verification'); };
   const app = admin.initializeApp({ projectId: PROJECT, credential }, 'ownership-verification');
@@ -171,13 +176,12 @@ async function verify() {
     }
     assert.deepEqual((await refs.audit('initial').get()).data(), auditBefore);
     assert.equal((await service.apply('initial')).duplicate, true); pass('real adapter atomic mirror debit preserves audit and replay');
-    const careRefs = { config: () => db.doc('ownershipFixture/main/careConfigs/global'),
+    const controlRefs = paidSettingsRefs(db);
+    const careRefs = { config: controlRefs.settings,
       pet: (uid) => db.doc(`ownershipFixture/main/pets/${uid}`),
       receipt: (uid, id) => db.doc(`ownershipFixture/main/paidReceipts/${uid}_${id}`),
       migration: (uid) => db.doc(`ownershipFixture/main/migrations/${uid}`) };
     let controlNow = Date.parse('2026-09-07T00:00:00Z');
-    const controlRefs = { settings: careRefs.config, legacySettings: () => yumPalsSettingsDoc(db),
-      receipt: (uid, id) => db.doc(`ownershipFixture/main/controlReceipts/${uid}_${id}`) };
     const legacySettings = { enabled: true, opaque, custom: ['preserve'] };
     await controlRefs.legacySettings().set(legacySettings);
     // Synthetic internal teacher claim, not deployed callable verification.
@@ -276,6 +280,7 @@ async function verify() {
       assert.equal((await localFetch(url, { method: 'PATCH', headers, body: JSON.stringify({ fields: { probe: { booleanValue: true } } }) })).status, 403);
     }
     pass('local deny-all rules reject unauthenticated, anonymous and signed-in REST access (NOT production rules)');
+    await verifySettingsHttp({ db, auth, controlRefs, careRefs, walletRefs: refs, paidOperationId: purchase.data.operationId, anonymous, password, localFetch, pass });
   } finally {
     try { if (db) await db.terminate(); }
     finally { await app.delete(); }
@@ -285,11 +290,17 @@ async function verify() {
 async function main() {
   guard();
   const config = JSON.parse(fs.readFileSync(path.join(DIR, 'firebase.ownership.json'), 'utf8'));
-  assert.equal(config.functions, undefined);
+  assert.deepEqual(config.functions, { source: 'settings-functions', codebase: 'settings-verification', runtime: 'nodejs22' });
   for (const [key, port] of Object.entries(PORTS)) { assert.equal(config.emulators[key].host, HOST); assert.equal(config.emulators[key].port, port); assert.equal(await portOpen(port), false, `${port} must be free`); }
   assert.equal(config.emulators.ui.enabled, false); assert.equal(config.firestore.rules, 'ownership.firestore.rules');
   fs.accessSync(path.join(JAVA_HOME, 'bin/java')); fs.accessSync(CLI);
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'yumpals-ownership-verification-'));
+  const functionSource = fs.realpathSync(path.join(DIR, 'settings-functions'));
+  assert.equal(functionSource, path.join(fs.realpathSync(DIR), 'settings-functions'));
+  assert.deepEqual(fs.readdirSync(functionSource).sort(), ['credential.cjs', 'guard.cjs', 'index.cjs', 'package.json'], 'Refusing unexpected verification source files (including env/credentials)');
+  // Installed CLI uses path.join(projectDir, source), not path.resolve.
+  config.functions.source = path.relative(temp, functionSource);
+  assert.equal(fs.realpathSync(path.join(temp, config.functions.source)), functionSource);
   fs.writeFileSync(path.join(temp, 'firebase.json'), JSON.stringify(config));
   fs.copyFileSync(path.join(DIR, 'ownership.firestore.rules'), path.join(temp, config.firestore.rules));
   const onSignal = () => { interrupted = true; signalGroup('SIGINT'); };
@@ -297,12 +308,13 @@ async function main() {
   const startedAt = Date.now();
   try {
     // Deliberately do not inherit credentials/tokens. XDG config is isolated.
-    child = spawn(CLI, ['emulators:start', '--config', path.join(temp, 'firebase.json'), '--project', PROJECT, '--only', 'auth,firestore'], {
+    child = spawn(CLI, ['emulators:start', '--config', path.join(temp, 'firebase.json'), '--project', PROJECT, '--only', 'auth,firestore,functions'], {
       cwd: temp, detached: true, stdio: ['ignore', 'pipe', 'pipe'], env: {
         PATH: `${path.dirname(process.execPath)}:${JAVA_HOME}/bin:/usr/local/bin:/usr/bin:/bin`, JAVA_HOME,
         TMPDIR: temp, XDG_CONFIG_HOME: path.join(temp, 'config'), CI: 'true', FIREBASE_CLI_DISABLE_TELEMETRY: '1',
+        NODE_PATH: path.join(ROOT, 'functions/node_modules'),
         GCLOUD_PROJECT: PROJECT, GCP_PROJECT: PROJECT, FIREBASE_CONFIG: JSON.stringify({ projectId: PROJECT }),
-        FIRESTORE_EMULATOR_HOST: `${HOST}:${PORTS.firestore}`, FIREBASE_AUTH_EMULATOR_HOST: `${HOST}:${PORTS.auth}`,
+        FIRESTORE_EMULATOR_HOST: `${HOST}:${PORTS.firestore}`, FIREBASE_AUTH_EMULATOR_HOST: `${HOST}:${PORTS.auth}`, FUNCTIONS_EMULATOR_HOST: `${HOST}:${PORTS.functions}`,
       },
     });
     child.once('exit', () => { exited = true; }); child.once('error', (error) => { spawnError = error; exited = true; });
@@ -314,6 +326,20 @@ async function main() {
       assert.equal(exited || interrupted, false, 'Emulators exited/interrupted before readiness');
       if ((await Promise.all(Object.values(PORTS).map(portOpen))).every(Boolean) && output.join('').includes('All emulators ready')) break;
       assert.ok(Date.now() < deadline, 'Emulator readiness timeout'); await delay(250);
+    }
+    // Probe actual loaded callable definitions, not just TCP/readiness banner.
+    for (const name of FUNCTION_NAMES) {
+      let loaded = false;
+      while (Date.now() < deadline && !loaded) {
+        assert.equal(exited || interrupted, false, 'Emulators stopped during callable readiness');
+        try {
+          const response = await localFetch(`${FUNCTIONS}/${PROJECT}/us-central1/${name}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ data: {} }) });
+          const body = await response.json();
+          loaded = response.status === 401 && body.error?.status === 'UNAUTHENTICATED' && body.error?.details?.reason === 'UNAUTHENTICATED';
+        } catch { /* Retry only within the bounded startup window. */ }
+        if (!loaded) await delay(250);
+      }
+      assert.ok(loaded, `Callable definition not ready: ${name}`);
     }
     if (process.env.YUMPALS_OWNERSHIP_SENTINEL === 'cleanup') throw new Error('Intentional cleanup sentinel after readiness');
     await verify();

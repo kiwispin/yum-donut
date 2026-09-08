@@ -29,9 +29,13 @@ message or implementation details.
 
 Future deployment must use reviewed selective targets and preserve the live
 resetStudentPassword function, which is not represented in this repo. No deploy
-command is authorized or executed here. Real HTTP emulator/deployed claims/rules
-verification remains separate; existing internal emulator results do not prove
-these newly exported transport boundaries.
+command is authorized or executed here. At LR011, real HTTP verification remained
+separate from internal tests. LR012 subsequently passed 22 local emulator groups
+(17 prior + 5 HTTP) in 20065ms, exit0 with cleanup PASS, including the actual
+controller/transport and onCall wrapper using Auth-emulator tokens. See
+[SETTINGS_HTTP_VERIFICATION.md](../../../verification/yumpals/SETTINGS_HTTP_VERIFICATION.md)
+for the separate sentinel result and retained-artifact limits. This does not prove
+production JWT signatures, deployed claims/rules or real AdminSettings login.
 
 ## Pinned transport and lifecycle
 
@@ -117,7 +121,8 @@ overflow; viewport was reset afterward. Existing pretend demo also loaded, its
 less-movement setting toggled, and C returned to idle with 25 pretend donuts
 unchanged and no errors. This fixture uses in-memory transport, identity and
 journal; it does NOT verify real HTTP, AdminSettings login, deployed claims or
-production rules. Those remain separate release checks.
+production rules. LR012 adds the separate local HTTP evidence linked above;
+AdminSettings login and production security remain release checks.
 
 Changed implementation/test paths:
 

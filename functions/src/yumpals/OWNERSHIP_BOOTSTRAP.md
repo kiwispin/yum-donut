@@ -93,7 +93,24 @@ certification. Parent owns central acceptance and rollout logs.
 
 ## Isolated real-emulator verification (parent-run)
 
-From the repository root, with ports 8180, 9199, 4401 and 4501 free:
+LR012 expands this guarded harness with verification-only Functions HTTP checks;
+see [SETTINGS_HTTP_VERIFICATION.md](../../../verification/yumpals/SETTINGS_HTTP_VERIFICATION.md).
+Parent passed all 22 groups (17 prior + 5 HTTP) in 20065ms, exit0, with
+OWNERSHIP_EMULATOR_CLEANUP_PASS; all five ports were independently free.
+Success directory:
+`/var/folders/2d/gft75_193hj9vpjv06mb63qh0000gq/T/yumpals-ownership-verification-WI0Eeg`.
+The successful directory has no firebase-debug.log, so no complete retained
+Functions trace is claimed. Generated config/rules, Firestore logs and isolated
+CLI/cache files remain; parent's regex key/JWT scan of retained text found no
+matches. The separate sentinel exited1 as intended
+after readiness, with cleanup PASS and no verification success, in:
+`/var/folders/2d/gft75_193hj9vpjv06mb63qh0000gq/T/yumpals-ownership-verification-1qmFKb`.
+Helper tests passed 5/5 in 646.695416ms; syntax/diff checks passed. Historical
+17-group evidence is separate. Settings HTTP uses actual Auth-emulator tokens;
+core paid-care requests still use injected synthetic auth. Neither establishes
+production JWT signature validation, deployed authorization or compatible rules.
+
+From the repository root, with ports 8180, 9199, 5101, 4401 and 4501 free:
 
 ```sh
 /tmp/yumpals-java.aAqx58/node-v22.23.2-darwin-arm64/bin/node verification/yumpals/run-ownership-verification.mjs
@@ -102,11 +119,12 @@ From the repository root, with ports 8180, 9199, 4401 and 4501 free:
 The harness uses the existing `/usr/local/bin/firebase` and Java runtime at
 `/tmp/yumpals-java.aAqx58/jdk-21.0.12.1+1-jre/Contents/Home`. No installation is
 performed. It refuses conflicting project variables, non-loopback or unexpected
-emulator endpoints, occupied ports and non-demo configuration. It starts only
-Auth and Firestore with a temporary configuration and deny-all local rules,
-explicit synthetic Admin credentials, and synthetic users/profiles. It does not
-run Functions, existing free-care callables, or production rules. Logs are kept
-in the printed temporary directory. Do not run concurrently with another harness.
+emulator endpoints, occupied ports and non-demo configuration. It starts
+Auth, Firestore and the guarded verification-only Functions entry with a temporary
+configuration, deny-all local rules, ephemeral synthetic credentials and synthetic
+users/profiles. It does not load production functions/index.js or production rules.
+Available artifacts remain in the printed temporary directory; the CLI may remove
+its debug log on success. Do not run concurrently with another harness.
 
 Checks cover real Auth eligibility, dry-run, same-name distinct assignments,
 concurrent same-review replay, SDK preservation, reviewed financial drift,
