@@ -26,7 +26,13 @@ test('YumPals-only release preserves every existing named action handler from th
   const baseline = execFileSync('git', ['show', '5cc08a4:src/App.jsx'], { encoding: 'utf8', maxBuffer: 2_000_000 });
   const original = handlers(baseline); const current = handlers(source);
   assert.ok(original.size > 30);
-  for (const [name, bodies] of original) assert.deepEqual(current.get(name), bodies, `${name} must remain parked, not replaced`);
+  for (const [name, bodies] of original) {
+    if (name === 'handleHolidayToggle') { // Explicitly approved connection of Holiday Mode to pet-clock pauses.
+      assert.match(current.get(name)[0], /yumpalsSetHolidayMode/);
+      continue;
+    }
+    assert.deepEqual(current.get(name), bodies, `${name} must remain parked, not replaced`);
+  }
   assert.equal(source.includes('ProtectedBankView'), false);
   assert.equal(source.includes('createProtectedGift'), false);
 });

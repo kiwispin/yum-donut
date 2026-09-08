@@ -1,5 +1,12 @@
 # YumPals-only release log
 
+## 2026-09-08 Holiday Mode clock connection
+
+- ACCEPTED: existing Holiday Mode switch now calls teacher-authorized yumpalsSetHolidayMode; global holiday flag and protected timestamped pet-rest history update atomically with replay receipt. Rest excludes exact elapsed interval, including partial hours, without needing student visits. Care/game endpoints honor live mode; normal student-access flag stays independent.
+- Only explicitly approved handleHolidayToggle exempted from baseline handler equality test. All other action comparisons retained. No unrelated account/financial changes. Unknown legacy switch/history disagreement freezes pet access; next teacher toggle reconciles conservatively, avoiding holiday penalties.
+- Backend130/130 passed228.375916ms; frontend80/80 passed205.671959ms; lint0. Tests cover atomic abort, replay after opposite toggle, teacher permission, field preservation, exact offline interval and legacy flag mismatch. Emulator34/34 passed25655ms/cleanupPASS, logs /var/folders/2d/gft75_193hj9vpjv06mb63qh0000gq/T/yumpals-ownership-verification-R7wXNY. New callable transaction tested synthetically; no live Holiday Mode toggles claimed.
+- Enabled frontend build575ms/1715modules. Existing hosting retained. Deploy new holiday callable and four existing pet/game endpoints only. No teacher settings endpoint, bank/gift endpoint or rules deployment. Rollback sourcef0b3edc retained; database histories must not be rolled back.
+
 ## 2026-09-08 Real elapsed care timing
 
 - User approved real offline elapsed time, not monitored time or completed-school-day steps. ACCEPTED implementation: food loses1 heart/8h, happiness1/12h, clean1/24h, health1/24h only while food or cleanliness is empty. Weekends count; explicit calendar rest/holidays/absence/teacher-disabled dates remain frozen. Meters stop at0; no automatic charges/debt.

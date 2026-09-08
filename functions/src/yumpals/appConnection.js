@@ -7,6 +7,8 @@ const { paidSettingsRefs } = require('./paidSettingsPaths');
 const { APP_ID } = require('../config');
 function createAppConnection({ db, authAdmin, HttpsError, ready, now }) {
   const refs = { config: paidSettingsRefs(db).settings, pet: uid => yumPalsUserDoc(db, uid),
+    holidayGlobal: () => db.doc(`artifacts/${APP_ID}/public/data/config/global`),
+    holidayHistory: () => yumPalsRoot(db).collection('config').doc('holidayClock'),
     receipt: (uid, id) => yumPalsUserDoc(db, uid).collection('purchases').doc(id),
     refusal: (uid, id) => yumPalsUserDoc(db, uid).collection('refusals').doc(id),
     migration: uid => yumPalsRoot(db).collection('migrations').doc(uid),

@@ -24,8 +24,10 @@ function advanceElapsed(state, config, nowMs, dateForMs) {
   let cursor = clock.at;
   while (cursor < nowMs) {
     // Auckland midnight (including DST) is aligned with a UTC hour boundary.
-    const end = Math.min(nowMs, (Math.floor(cursor / HOUR) + 1) * HOUR);
-    if (!isRestDate(config, dateForMs(cursor))) {
+    const boundaries = (config.holidayPeriods || []).flatMap(p => [p.from, p.to]).filter(n => n !== null && n > cursor);
+    const end = Math.min(nowMs, (Math.floor(cursor / HOUR) + 1) * HOUR, ...boundaries);
+    const holiday = (config.holidayPeriods || []).some(p => p.from <= cursor && (p.to === null || cursor < p.to));
+    if (!holiday && !isRestDate(config, dateForMs(cursor))) {
       let left = end - cursor;
       while (left > 0) {
         const unhealthy = needs.hunger === 0 || needs.cleanliness === 0;

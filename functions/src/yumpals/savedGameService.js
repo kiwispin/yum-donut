@@ -57,7 +57,7 @@ function createSavedGameService({ db, refs, ready, now = Date.now, chooseTarget 
   async function load(t, p, uid, gameId) {
     const [configSnap, petSnap, receiptSnap, gameSnap] = await Promise.all([p.config, p.pet, p.receipt, p.game].map(ref => t.get(ref)));
     requireValue(configSnap.exists, 'CONFIG_MISSING');
-    const config = validateConfig(configSnap.data());
+    const config = await require('./holidayMode').withHolidayMode(t, validateConfig(configSnap.data()), refs);
     requireValue(receiptSnap.exists, 'GAME_PURCHASE_REQUIRED');
     const receipt = receiptSnap.data(); validateReceipt(receipt, uid, gameId);
     requireValue(receipt.action === 'game' && receipt.benefit.type === 'happiness', 'GAME_PURCHASE_REQUIRED');

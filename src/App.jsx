@@ -5490,10 +5490,11 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
 
     const handleHolidayToggle = async () => {
         try {
-            const configRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'global');
-            await setDoc(configRef, { holiday_mode: !holidayMode }, { merge: true });
+            await auth.currentUser?.getIdToken(true);
+            await httpsCallable(functions, 'yumpalsSetHolidayMode')({ enabled: !holidayMode, expected: holidayMode, operationId: crypto.randomUUID() });
         } catch (e) {
             console.error(e);
+            window.alert('Holiday Mode could not be confirmed. Please refresh settings before trying again.');
         }
     };
 
@@ -5826,7 +5827,7 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                                             <span>🎉</span> Holiday Mode
                                         </h3>
                                         <p className="text-sm text-slate-500 mt-1">
-                                            Closes the school interface for all students.
+                                            Closes the school interface and pauses YumPals care until you turn it off.
                                         </p>
                                     </div>
                                     <button

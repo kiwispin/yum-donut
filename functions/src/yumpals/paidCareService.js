@@ -2,6 +2,7 @@
 // refs/config and walletAdapter are trusted server dependencies, never request data.
 const { PRICES, RESTORES, validateConfig, validatePet, advancePet, migrateLegacyPet, purchaseEffect, digest, requireValue, integer, aucklandNow, dayNumber } = require('./paidCareEngine');
 const { walletNumber, debitAfter } = require('./walletNumber');
+const { withHolidayMode } = require('./holidayMode');
 const { isValidPersistedState } = require('./rules');
 
 const ID = /^[A-Za-z0-9_-]{1,80}$/u;
@@ -121,7 +122,7 @@ function createPaidCareService({ db, refs, walletAdapter, now = Date.now, elapse
     const snapshot = await transaction.get(refs.config(uid));
     requireValue(snapshot.exists, 'CONFIG_MISSING');
     const config = snapshot.data();
-    return validateConfig(elapsedCare ? { ...config, elapsedCare: true } : config);
+    return withHolidayMode(transaction, validateConfig(elapsedCare ? { ...config, elapsedCare: true } : config), refs);
   }
 
   return {

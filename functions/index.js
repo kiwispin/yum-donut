@@ -7,8 +7,16 @@ const { createYumPalsHandlers } = require('./src/yumpals/callables');
 const { createTeacherSettingsCallables } = require('./src/yumpals/teacherSettingsCallables');
 const { paidSettingsRefs } = require('./src/yumpals/paidSettingsPaths');
 const { createAppConnection } = require('./src/yumpals/appConnection');
+const { createHolidayMode } = require('./src/yumpals/holidayMode');
+const { yumPalsRoot } = require('./src/yumpals/paths');
 
 admin.initializeApp();
+exports.yumpalsSetHolidayMode = onCall({ region: 'us-central1' }, createHolidayMode({
+  db: admin.firestore(), HttpsError,
+  globalRef: admin.firestore().doc('artifacts/yum-donut-school/public/data/config/global'),
+  historyRef: yumPalsRoot(admin.firestore()).collection('config').doc('holidayClock'),
+  receiptRef: (uid, id) => yumPalsRoot(admin.firestore()).collection('holidayReceipts').doc(`${uid}_${id}`),
+}));
 
 const MICROSOFT_APP_ID = defineSecret('MICROSOFT_APP_ID');
 const MICROSOFT_APP_PASSWORD = defineSecret('MICROSOFT_APP_PASSWORD');
