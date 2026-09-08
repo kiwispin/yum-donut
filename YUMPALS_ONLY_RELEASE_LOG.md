@@ -140,4 +140,4 @@ Every subsequent change must record its files, measurements and acceptance/refus
 
 - ACCEPTED: shared exterior CSS centres the heading, subtitle, preview badge and introductory notice in Preview and saved student views. Help retains start/left alignment. Device, game logic, wallets and settings untouched. Baseline d0651e0 retained for rollback; no previously refused approach repeated.
 - Measured: frontend 81/81 passed in 239.572625ms, lint exit0, enabled production build394ms/1715modules. Browser checks at390px and1440px for both views: heading/intro centre, help start, zero horizontal overflow (4/4). Screenshots captured for each.
-- Publication pending exact live asset verification.
+- Published source72264ba. ACCEPTED live verification: index references index-UhOdh_AI.js; downloaded JS and index-XEDUY6H7.css SHA256 exactly match the validated build. No backend deployment or live data changes.
