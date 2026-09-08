@@ -5,6 +5,7 @@
 - ACCEPTED: replace hidden horizontal navigation overflow with wrapping rows; prevent individual labels shrinking. Full YumPals preview label retained. No action handlers, backend, settings or balances changed.
 - New navigation regression test included: 76/76 src/yumpals tests passed in339.777583ms; lint exit0; enabled production build813ms/1709modules. Existing dependency-age and bundle-size warnings unchanged. No signed-in browser interaction claimed.
 - Rollback frontend: dec15ed5d0317487be0f25bb81c5f015300fee1a verified as remote head before publishing. Publish exact validated dist with all three YumPals flags enabled. Existing GitHub Pages hosting retained; no new hosting service.
+- Published source c5595d6 to gh-pages459fda489d571bb44feb423cc97fc40f4088c8d1. Live page now references index-BipXHyhe.js; downloaded bundle SHA256 matches the validated local build. ACCEPTED live delivery. No database or enablement changes.
 
 ## Scope correction
 
