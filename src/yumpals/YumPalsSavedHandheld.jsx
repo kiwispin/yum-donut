@@ -129,7 +129,7 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
     </button>)}
   </nav>;
   return <section className="paid-demo-shell saved-handheld" aria-label="Saved YumPals handheld">
-    <header className="paid-demo-header"><div><h1>YumPals</h1><p>A little pal to care for each day.</p></div></header>
+    <header className="paid-demo-header"><div><h1 className="yumpals-title"><span className="yumpals-title-icon" aria-hidden="true"><Pixels pixels={getYumPalsFrame('mossbit', 'idle', 0, true).pixels} palette={getYumPalsFrame('mossbit', 'idle', 0, true).palette} /></span>YumPals</h1><p>A little pal to care for each day.</p></div></header>
     <p className="paid-demo-warning">Your pal is saved between visits. Donuts are spent only when you confirm the price.</p>
     <p role="status">{!sameOwner ? 'Please sign in to see your saved pal.' : localMessage || state.message || (state.busy ? 'Checking your pal…' : !quote ? 'Your pal has not been checked yet.' : !quote.enabled ? 'YumPals is resting. Your teacher has paused care.' : !quote.wallet.available ? 'Your donuts could not be checked. Please ask your teacher.' : '')}</p>
     <div className="paid-demo-device" style={{ '--saved-case': savedCaseColor(pet) }}>

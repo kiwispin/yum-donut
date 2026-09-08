@@ -1,5 +1,10 @@
 # YumPals-only release log
 
+## 2026-09-08 Title pixel pal trial
+
+- ACCEPTED implementation, user visual acceptance pending: existing static mossbit idle sprite in48px pale-pink rounded tile beside centred title, both views. No device/behaviour changes. Rollback2514371.
+- Measured81/81 tests214.832167ms; lint0; enabled build412ms. Browser390/1440px both views:48px tile,256 pixel cells,no overflow; phone header screenshot inspected. Publication pending.
+
 ## 2026-09-08 Remove redundant return buttons
 
 - ACCEPTED: removed Back to app from both embedded YumPals views and unused icon import. Shared top navigation and device unchanged. Rollback0aa9b25.

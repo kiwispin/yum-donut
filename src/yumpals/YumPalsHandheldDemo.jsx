@@ -480,7 +480,7 @@ export default function YumPalsHandheldDemo() {
             <section className="paid-demo-page" aria-label="YumPals pet care demo">
                 <header className="paid-demo-header">
                     <div>
-                        <h1>YumPals</h1>
+                        <h1 className="yumpals-title"><span className="yumpals-title-icon" aria-hidden="true"><PixelGrid pixels={getYumPalsFrame('mossbit', 'idle', 0, true).pixels} palette={getYumPalsFrame('mossbit', 'idle', 0, true).palette} /></span>YumPals</h1>
                         <p>A little pal to care for each day.</p>
                     </div>
                     <span className="paid-demo-badge">Preview · pretend donuts</span>

@@ -1,4 +1,7 @@
 /* App chrome only. Never target the handheld, LCD, sprite or hardware buttons. */
+.yumpals-title { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.yumpals-title-icon { width: 48px; height: 48px; flex: 0 0 48px; display: grid; place-items: center; background: #fce7f3; border-radius: 14px; }
+.yumpals-title-icon > :is(.paid-pixel-grid, .saved-pixels) { width: 32px; height: 32px; display: grid; grid-template-columns: repeat(16, 1fr); grid-template-rows: repeat(16, 1fr); }
 .paid-demo-hint { display: grid; align-items: center; }
 .paid-demo-hint > span { grid-area: 1 / 1; }
 /* Reserve the tallest real guidance at the current width/font size, without announcing it. */
