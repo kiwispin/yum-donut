@@ -1,5 +1,11 @@
 # YumPals-only release log
 
+## 2026-09-08 Full student guide and real care summary
+
+- REFUSED omission: student help was abbreviated despite full Preview icon guide. ACCEPTED fix: all8 illustrated icon explanations drawn from existing saved labels/help, full A/B/C and conditional game instructions, offline/holiday explanation, real wallet balance and daily care-spend/cap. No fake starting balance or invented lifetime spending; unavailable wallet explicitly labelled.
+- Frontend81/81 passed246.016583ms; lint0. Existing regression confirms pre-render behaviour, device markup and saved stylesheet unchanged. Browser actual saved fixture390/1440px verifies8 entries, real quote30 and care0/25, no demo wording/overflow; phone screenshot inspected. Game-not-ready fixture correctly uses fallback help; live guide follows existing gameReady flag.
+- No backend/accounts/settings/payment actions changed. Existing hosting retained; rollback617f5ab. User visual acceptance pending.
+
 ## 2026-09-08 Saved-page surround parity
 
 - REFUSED omission: approved exterior polish previously applied only to Preview. ACCEPTED fix: saved route now shares appSurround.css styling with Preview, same heading/card/help/control treatment and back button. Saved-specific explanatory text retained; no pretend-money badge/test controls on student page.

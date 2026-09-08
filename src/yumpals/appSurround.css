@@ -1,4 +1,5 @@
 /* App chrome only. Never target the handheld, LCD, sprite or hardware buttons. */
+.saved-help-guide .saved-guide-icon { width: 24px; height: 24px; flex: 0 0 24px; }
 .yumpals-embedded-saved .saved-handheld > header,
 .yumpals-embedded-saved .saved-handheld > p,
 .yumpals-embedded-saved .saved-handheld > details,

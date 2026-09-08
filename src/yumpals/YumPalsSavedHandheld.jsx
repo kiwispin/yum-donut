@@ -157,10 +157,24 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
       <div className="paid-hardware" aria-label="Handheld buttons"><button className="paid-hardware-button" type="button" aria-label="A SELECT" onClick={cycle}><strong>A</strong><span>SELECT</span></button><button className="paid-hardware-button" type="button" aria-label="B CONFIRM" onClick={confirm} disabled={Boolean(animation) || (['confirm', 'adopt'].includes(screen) && locked)}><strong>B</strong><span>CONFIRM</span></button><button className="paid-hardware-button" type="button" aria-label="C CANCEL" onClick={cancel}><strong>C</strong><span>CANCEL</span></button></div>
     </div>
     <p className="saved-help paid-demo-hint">{help || icon ? `${PAID_CARE_ICON_LABELS[help || icon]} — ${helpFor(help || icon)}` : 'Press A SELECT to choose an icon.'}</p>
+    {sameOwner && quote && <div className="paid-demo-meta" aria-label="Your donuts and care spending">
+      <span>Donuts: {quote.wallet.available ? quote.wallet.balance : 'Not available'}</span>
+      <span>Care today: {quote.pet?.daily.spent ?? 0} / {quote.careCap}</span>
+    </div>}
     {PAID_CARE_ICON_ORDER.map(name => <span className="paid-help-accessible" id={`${id}-${name}`} key={name}>{helpFor(name)}</span>)}
     <div className="saved-utilities">{state.pending && sameOwner && <button type="button" disabled={state.busy || state.storageBlocked} onClick={() => void instance.current?.retry()}>Retry purchase</button>}<button type="button" disabled={state.busy || state.storageBlocked || !sameOwner} onClick={() => void instance.current?.refresh()}>Refresh pal</button></div>
     {currentGame?.pending && <button type="button" disabled={currentGame.busy || currentGame.storageBlocked} onClick={() => void gameInstance.current?.retry()}>Retry guess</button>}
     {screen === 'game' && <button type="button" disabled={!sameOwner || currentGame?.busy} onClick={() => void gameInstance.current?.refresh()}>Refresh game</button>}
-    <details className="paid-demo-inspector"><summary>How to play</summary><p>A SELECT chooses an icon. B CONFIRM opens it. C CANCEL returns without spending. Check the price before confirming payment. Status and attention checks are free. {gameReady ? 'During a game, A guesses left and B guesses right. C pauses; resume without paying again. There are three rounds and no donut prizes.' : 'Game is not ready; Pat is available.'}</p></details>
+    <details className="paid-demo-inspector"><summary>How to play</summary>
+      <p>A SELECT moves through icons or choices. B CONFIRM opens your choice. C CANCEL clears a selection or returns; in a game it pauses.</p>
+      <p>Choosing an icon costs nothing. Donuts are spent only when you confirm the displayed price. Health and status and Attention are free to check.</p>
+      <dl className="paid-help-guide saved-help-guide">{PAID_CARE_ICON_ORDER.map(name => <div key={name}>
+        <dt><Pixels className="saved-guide-icon" pixels={PAID_CARE_ICON_PIXELS[name]} palette={{ a: '#304837' }} />{PAID_CARE_ICON_LABELS[name]}</dt>
+        <dd>{helpFor(name)}</dd>
+      </div>)}</dl>
+      <p>Your pal starts fed, happy, clean and healthy. Its needs change while you’re away, so come back to see what it needs. Holiday Mode pauses care without a catch-up penalty.</p>
+      <p>{gameReady ? 'During a game, A guesses left and B guesses right. C pauses; resume without paying again. There are three rounds and no donut prizes.' : 'Game is not ready; choose Pat for happy hearts.'}</p>
+      <p>Care today shows how many donuts you’ve spent caring for your pal today, out of the daily limit. Refresh pal checks your latest saved progress without spending donuts.</p>
+    </details>
   </section>;
 }
