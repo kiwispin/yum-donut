@@ -3,7 +3,7 @@
 ## 2026-09-09 Approved magazine rollout
 
 - User ACCEPTED corrected local design and explicitly approved Preview AND student rollout. Shared surround CSS covers both; no handheld, navigation, settings, backend or account changes. Previous live477ee76 retained for rollback.
-- Final81/81 tests334.428ms; lint0; enabled build835ms/1715modules. Prior mobile/desktop and corrected title containment checks retained. Publish exact built assets using existing GitHub Pages; Sites-specific hosting migration not applicable. Live verification pending.
+- Final81/81 tests334.428ms; lint0; enabled build835ms/1715modules. Prior mobile/desktop and corrected title containment checks retained. Published697c249 using existing GitHub Pages; Sites-specific hosting migration not applicable. ACCEPTED live verification: index-PhllYbrF.js and index-CPz7f1tu.css downloaded SHA256 exactly match validated build.
 
 ## 2026-09-09 Preview title containment correction — local only
 
