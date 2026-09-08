@@ -19,4 +19,11 @@ try {
   if(await menu.getAttribute('aria-expanded')!=='false') throw Error('outside close');
   console.log('PASS '+width+' priority row, destinations, selection, Escape, outside, no overflow');
  }
+ await page.locator('#root > div').evaluate(el => { el.style.maxWidth = '1200px'; });
+ await page.getByRole('button',{name:'More',exact:true}).waitFor({state:'detached'});
+ const count = await page.locator('.app-navigation > button').count();
+ if(count !== 11) throw Error('Not all destinations shown when they fit');
+ await page.locator('#root > div').evaluate(el => { el.style.maxWidth = '320px'; });
+ await page.getByRole('button',{name:'More',exact:true}).waitFor();
+ console.log('PASS all11 fit: no More; resize restores overflow More');
 } finally { await browser.close(); }
