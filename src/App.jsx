@@ -4002,12 +4002,12 @@ function YumDonutDashboard() {
                     </div>
                 )}
 
-                <div className="flex overflow-x-auto justify-between border-b border-slate-200 mb-4 pb-1 no-scrollbar">
+                <div className="flex flex-wrap gap-x-1 gap-y-1 border-b border-slate-200 mb-4 pb-1" aria-label="App navigation">
                     {['give', 'jobs', 'arcade', 'shop', 'bank', 'training', 'goal', 'feed', 'leaderboard', ...(yumpalsAvailable ? ['yumpals'] : []), ...(savedYumpalsAvailable ? ['yumpals-saved'] : []), ...(yumpalsPreviewAvailable ? ['yumpals-preview'] : [])].map(tab => (
                         <button
                             key={tab}
                             onClick={() => setView(tab)}
-                            className={`px-3 py-2 font-medium text-sm capitalize border-b-2 transition-colors whitespace-nowrap relative ${view === tab ? 'border-pink-500 text-pink-600' : 'border-transparent text-slate-500 hover:text-slate-700'
+                            className={`shrink-0 px-3 py-2 font-medium text-sm capitalize border-b-2 transition-colors whitespace-nowrap relative ${view === tab ? 'border-pink-500 text-pink-600' : 'border-transparent text-slate-500 hover:text-slate-700'
                                 }`}
                         >
                             {tab === 'yumpals-preview' ? 'YumPals preview' : tab === 'yumpals-saved' ? 'YumPals' : tab}

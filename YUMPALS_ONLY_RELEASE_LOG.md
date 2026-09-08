@@ -1,5 +1,11 @@
 # YumPals-only release log
 
+## 2026-09-08 Preview navigation clipping
+
+- ACCEPTED: replace hidden horizontal navigation overflow with wrapping rows; prevent individual labels shrinking. Full YumPals preview label retained. No action handlers, backend, settings or balances changed.
+- New navigation regression test included: 76/76 src/yumpals tests passed in339.777583ms; lint exit0; enabled production build813ms/1709modules. Existing dependency-age and bundle-size warnings unchanged. No signed-in browser interaction claimed.
+- Rollback frontend: dec15ed5d0317487be0f25bb81c5f015300fee1a verified as remote head before publishing. Publish exact validated dist with all three YumPals flags enabled. Existing GitHub Pages hosting retained; no new hosting service.
+
 ## Scope correction
 
 User explicitly parked the broader bank, gifting, sponsorship and other shared-system rebuilds. They remain saved on codex/yumpals-module, checkpoints55a63d3 andc040957. Do not publish that checkout as the narrowed release.
