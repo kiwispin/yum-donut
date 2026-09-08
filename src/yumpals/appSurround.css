@@ -1,7 +1,7 @@
 /* App chrome only. Never target the handheld, LCD, sprite or hardware buttons. */
 .yumpals-title { display: flex; align-items: center; justify-content: center; gap: 12px; }
 .yumpals-title-icon { width: 48px; height: 48px; flex: 0 0 48px; display: grid; place-items: center; background: #fce7f3; border-radius: 14px; }
-.yumpals-title-icon > :is(.paid-pixel-grid, .saved-pixels) { width: 32px; height: 32px; display: grid; grid-template-columns: repeat(16, 1fr); grid-template-rows: repeat(16, 1fr); }
+.yumpals-title-icon > :is(.paid-pixel-grid, .saved-pixels) { position: static; inset: auto; width: 32px; height: 32px; display: grid; grid-template-columns: repeat(16, 1fr); grid-template-rows: repeat(16, 1fr); }
 .paid-demo-hint { display: grid; align-items: center; }
 .paid-demo-hint > span { grid-area: 1 / 1; }
 /* Reserve the tallest real guidance at the current width/font size, without announcing it. */
@@ -42,3 +42,71 @@
 :is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-inspector summary:focus-visible,
 :is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-utility:focus-visible { outline: 2px solid #db2777; outline-offset: 4px; }
 :is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-notice { font-family: inherit; border-radius: 12px; font-size: 14px; }
+
+/* Local magazine trial: deliberately scoped to the surround, never the device. */
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-shell {
+    background: #faf4e5; border: 2px solid #26283b; border-radius: 0;
+    box-shadow: 6px 6px 0 #26283b; padding: 32px 20px 40px;
+}
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-header {
+    max-width: 640px; border-top: 8px solid #c93835; border-bottom: 3px solid #26283b;
+    padding: 20px 0 16px; margin-bottom: 24px;
+}
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-header::before {
+    content: 'THE POCKET PAL HANDBOOK'; color: #26283b;
+    font: 700 11px/1.4 'Courier New', monospace; letter-spacing: .18em;
+}
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-header h1 {
+    font-family: Impact, 'Arial Black', sans-serif; font-size: clamp(38px, 7vw, 64px);
+    text-transform: uppercase; font-style: italic; font-weight: 900; letter-spacing: -.035em;
+    color: #ffd75a; -webkit-text-stroke: 1.5px #26283b;
+    text-shadow: 3px 3px 0 #26283b, 6px 6px 0 #c93835; line-height: 1.2;
+    gap: 18px; margin-bottom: 12px;
+}
+.yumpals-title-icon { background: #ffd75a; border: 2px solid #26283b; border-radius: 0; box-shadow: 3px 3px 0 #26283b; }
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-header p:last-child {
+    font-family: 'Trebuchet MS', sans-serif; color: #26283b; font-size: 15px; font-weight: 700;
+}
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-badge {
+    background: #26283b; color: #fff8e8; border: 0; border-radius: 0;
+    font-family: 'Courier New', monospace; text-transform: uppercase; letter-spacing: .04em;
+}
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) :is(.paid-demo-warning, .paid-demo-inspector) {
+    font-family: 'Trebuchet MS', sans-serif; color: #26283b; background: #fffdf6;
+    border: 2px solid #26283b; border-radius: 0; line-height: 1.65;
+}
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-warning { border-left: 6px solid #c93835; }
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-hint {
+    background: #ffe797; color: #26283b; border: 2px solid #26283b; border-radius: 0;
+    box-shadow: 4px 4px 0 #26283b; font-family: 'Trebuchet MS', sans-serif;
+    font-weight: 700; padding: 18px; margin-top: 36px;
+}
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-meta {
+    font-family: 'Courier New', monospace; font-weight: 700; color: #26283b;
+}
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-meta span {
+    background: #fffdf6; border: 1px solid #26283b; border-radius: 0; padding: 8px 10px;
+}
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-inspector summary {
+    font-family: 'Courier New', monospace; font-size: 16px; font-weight: 900;
+    text-transform: uppercase; letter-spacing: .04em; color: #a62428;
+}
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-help-guide dt {
+    color: #26283b; font-weight: 800; border-top: 1px dashed #a6a18f; padding-top: 10px;
+}
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) :is(.paid-demo-utility, .paid-inspector-actions button, .paid-inspector-adopt, .saved-utilities button),
+.yumpals-embedded-saved .saved-handheld > button {
+    background: #c93835; color: #fffdf6; border: 2px solid #26283b; border-radius: 0;
+    box-shadow: 3px 3px 0 #26283b; font-family: 'Courier New', monospace; font-weight: 700;
+}
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) :is(.paid-demo-utility, .paid-inspector-actions button, .paid-inspector-adopt, .saved-utilities button):hover:not(:disabled),
+.yumpals-embedded-saved .saved-handheld > button:hover:not(:disabled) { background: #a62428; }
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-notice,
+.yumpals-embedded-saved .saved-handheld > p[role='status']:not(:empty) {
+    text-align: center; color: #26283b; background: #fff3bd; border: 2px solid #26283b;
+    border-radius: 0; font: 700 14px/1.6 'Trebuchet MS', sans-serif; padding: 14px 18px;
+}
+@media (max-width: 420px) {
+    :is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-shell { padding: 24px 12px 32px; box-shadow: 3px 3px 0 #26283b; }
+    .yumpals-title-icon { width: 40px; height: 40px; flex-basis: 40px; }
+}

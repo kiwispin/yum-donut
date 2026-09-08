@@ -1,5 +1,20 @@
 # YumPals-only release log
 
+## 2026-09-09 Approved magazine rollout
+
+- User ACCEPTED corrected local design and explicitly approved Preview AND student rollout. Shared surround CSS covers both; no handheld, navigation, settings, backend or account changes. Previous live477ee76 retained for rollback.
+- Final81/81 tests334.428ms; lint0; enabled build835ms/1715modules. Prior mobile/desktop and corrected title containment checks retained. Publish exact built assets using existing GitHub Pages; Sites-specific hosting migration not applicable. Live verification pending.
+
+## 2026-09-09 Preview title containment correction — local only
+
+- REFUSED prior preview icon placement: inherited absolute positioning put sprite at page origin, not inside tile; prior pixel-count checks missed geometry. Added position:static/inset:auto scoped only to title sprite. Device untouched.
+- ACCEPTED geometry check2/2: actual sprite bounds entirely inside title tile in both Preview/saved fixtures. Corrected Preview heading screenshot visually inspected. No publication; awaiting user design approval.
+
+## 2026-09-09 Local magazine surround trial — NOT PUBLISHED
+
+- User requests local review before any push. Baseline477ee76 retained. CSS-only magazine treatment: outlined offset masthead, cream paper, ink borders, red controls, yellow guidance, centred status feedback. Existing device styles/markup and navigation untouched. No backend or account changes.
+- Measured81/81 tests355.155ms, lint0. Actual Preview/synthetic saved fixtures at390/1440px: zero horizontal overflow4/4; full-page screenshots captured and mobile inspected. Local server5174 retained for review. Implementation accepted for review only; user visual acceptance pending. No deployment or push.
+
 ## 2026-09-08 Title pixel pal trial
 
 - ACCEPTED implementation, user visual acceptance pending: existing static mossbit idle sprite in48px pale-pink rounded tile beside centred title, both views. No device/behaviour changes. Rollback2514371.
