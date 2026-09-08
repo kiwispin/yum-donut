@@ -6,6 +6,7 @@
 - Tests80/80 passed258.179959ms; lint0 after correcting cloneElement event focus handling that React lint misclassified as render-time ref access. Initial browser attempt refused connection because lint had prevented server startup; restarted only after correction. Initial patch rejected duplicate-path operations before any edits; reapplied as valid updates. No old scrolling/wrapping approach repeated.
 - Browser verification/menu-check.mjs passed320/390/1440px: visible Pals, menu destinations, selection closes, Escape focus, outside dismissal, no horizontal overflow. Screenshots inspected. Old verification/navigation-check.mjs describes rejected scroll design and is superseded by menu-check.mjs.
 - Enabled build530ms/1715modules; publish exact dist on existing hosting. Rollback source2a923a8 retained. Visual user acceptance pending.
+- Published54a031e; live index--9-jxl43.js and index-DaMnjQdJ.css SHA256 match validated dist. Fixture server stopped.
 
 ## 2026-09-08 Holiday Mode clock connection
 
