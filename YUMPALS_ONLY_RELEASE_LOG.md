@@ -3,7 +3,7 @@
 ## 2026-09-09 What's New refresh
 
 - ACCEPTED: replace six old announcements with Meet YumPals; explain daily care, confirmed prices/no offline charges, navigation availability and How to play. Only announcement content changed; no features removed. Previous entries recoverable from7460c3c. No previously refused changes repeated.
-- Measured81/81 tests689.075ms, lint0, enabled build846ms. Publication pending.
+- Measured81/81 tests689.075ms, lint0, enabled build846ms. Publisheda6f0a11; live index-BP0SMwcM.js/index-BSsilrp0.css hashes match validated build.
 
 ## 2026-09-09 Approved magazine rollout
 
