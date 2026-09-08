@@ -559,7 +559,10 @@ export default function YumPalsHandheldDemo() {
                 {notice && <div className={`paid-demo-notice ${notice.type === 'error' ? 'is-error' : ''}`} role="status">{notice.message}</div>}
 
                 <div className="paid-demo-meta" aria-label="Pretend donuts"><span>STARTED WITH 30</span><span>LEFT {state.balance}</span><span>SPENT {state.spentTotal}</span><span>CARE TODAY {state.dailySpend[state.dateKey] || 0}/{25}</span></div>
-                <p className="paid-demo-hint" role="status">{helpIcon ? `${PAID_CARE_ICON_LABELS[helpIcon]} — ${PAID_CARE_ICON_HELP[helpIcon]}` : 'Press A SELECT to choose an icon.'}</p>
+                <p className="paid-demo-hint" role="status">
+                    {PAID_CARE_ICON_ORDER.map(id => <span className="paid-hint-size" aria-hidden="true" key={id}>{PAID_CARE_ICON_LABELS[id]} — {PAID_CARE_ICON_HELP[id]}</span>)}
+                    <span className="paid-hint-current">{helpIcon ? `${PAID_CARE_ICON_LABELS[helpIcon]} — ${PAID_CARE_ICON_HELP[helpIcon]}` : 'Press A SELECT to choose an icon.'}</span>
+                </p>
                 {PAID_CARE_ICON_ORDER.map((id) => <span className="paid-help-accessible" id={`paid-icon-help-${id}`} key={id}>{PAID_CARE_ICON_HELP[id]}</span>)}
                 <details className="paid-demo-inspector">
                     <summary>How to play</summary>

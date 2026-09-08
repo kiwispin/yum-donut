@@ -1,4 +1,8 @@
 /* App chrome only. Never target the handheld, LCD, sprite or hardware buttons. */
+.paid-demo-hint { display: grid; align-items: center; }
+.paid-demo-hint > span { grid-area: 1 / 1; }
+/* Reserve the tallest real guidance at the current width/font size, without announcing it. */
+.paid-demo-hint > .paid-hint-size { visibility: hidden; pointer-events: none; user-select: none; }
 .saved-help-guide .saved-guide-icon { width: 24px; height: 24px; flex: 0 0 24px; }
 .yumpals-embedded-saved .saved-handheld > header,
 .yumpals-embedded-saved .saved-handheld > p,

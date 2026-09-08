@@ -156,7 +156,10 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
         </div></div>
       <div className="paid-hardware" aria-label="Handheld buttons"><button className="paid-hardware-button" type="button" aria-label="A SELECT" onClick={cycle}><strong>A</strong><span>SELECT</span></button><button className="paid-hardware-button" type="button" aria-label="B CONFIRM" onClick={confirm} disabled={Boolean(animation) || (['confirm', 'adopt'].includes(screen) && locked)}><strong>B</strong><span>CONFIRM</span></button><button className="paid-hardware-button" type="button" aria-label="C CANCEL" onClick={cancel}><strong>C</strong><span>CANCEL</span></button></div>
     </div>
-    <p className="saved-help paid-demo-hint">{help || icon ? `${PAID_CARE_ICON_LABELS[help || icon]} — ${helpFor(help || icon)}` : 'Press A SELECT to choose an icon.'}</p>
+    <p className="saved-help paid-demo-hint">
+      {PAID_CARE_ICON_ORDER.map(name => <span className="paid-hint-size" aria-hidden="true" key={name}>{PAID_CARE_ICON_LABELS[name]} — {helpFor(name)}</span>)}
+      <span className="paid-hint-current">{help || icon ? `${PAID_CARE_ICON_LABELS[help || icon]} — ${helpFor(help || icon)}` : 'Press A SELECT to choose an icon.'}</span>
+    </p>
     {sameOwner && quote && <div className="paid-demo-meta" aria-label="Your donuts and care spending">
       <span>Donuts: {quote.wallet.available ? quote.wallet.balance : 'Not available'}</span>
       <span>Care today: {quote.pet?.daily.spent ?? 0} / {quote.careCap}</span>
