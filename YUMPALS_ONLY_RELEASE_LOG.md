@@ -9,6 +9,7 @@
 - Initial frontend run REFUSED old game test expecting only1 happiness loss/day; approved timing now loses2/day. Updated expectation, preserving same debit/receipt checks. Removed obsolete unused day helper after lint flagged it. No unrelated changes.
 - Real emulator34/34 passed26556ms; cleanupPASS, logs /var/folders/2d/gft75_193hj9vpjv06mb63qh0000gq/T/yumpals-ownership-verification-cJljOE. Includes actual live-connection adoption/charge replay path with new clock. Timing scenarios separately covered by service/unit tests, not claimed as production student interactions.
 - Deploy only the two YumPals state/purchase functions and enabled frontend. No setting activation, account changes, other endpoint deployments or real student charges. Existing hosting retained; rollback source9dd13cf remains available (new clock fields are additive).
+- COMPLETE: source d884c9e, both selected server updates succeeded; frontend index-C9wsxl0t.js live hash matches validated build586ms/1715modules. Browser24h preview verifies1/2/3/4 hearts with balance25 unchanged. Local fixture stopped. No signed-in live student timing simulation performed.
 
 ## 2026-09-08 Mixed click/keyboard input correction
 
