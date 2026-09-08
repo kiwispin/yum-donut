@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "ownerUid": "student-a",
+  "enabled": true,
+  "configVersion": "trial-v1",
+  "configHash": "566a787e70b0dbc4b9727af6addeb8bc5c761e1865877759eceb63df69e5d6e3",
+  "prices": {
+    "adoption": 5,
+    "meal": 2,
+    "snack": 1,
+    "game": 2,
+    "pat": 1,
+    "clean": 1,
+    "medicine": 2,
+    "bedtime": 1,
+    "reminder": 1
+  },
+  "restores": {
+    "meal": 2,
+    "snack": 1,
+    "game": 2,
+    "pat": 1,
+    "clean": 2,
+    "medicine": 2
+  },
+  "careCap": 25,
+  "serverNowMs": 1788739200000,
+  "aucklandDate": "2026-09-07",
+  "aucklandHour": 12,
+  "pet": {
+    "name": "Niblet",
+    "species": "mossbit",
+    "casing": "berry",
+    "color": "#d94878",
+    "reducedMotion": false,
+    "careDays": 12,
+    "earnedMilestones": [
+      "trick",
+      "accessory"
+    ],
+    "needs": {
+      "hunger": 4,
+      "happiness": 4,
+      "cleanliness": 4,
+      "health": 4
+    },
+    "daily": {
+      "date": "2026-09-07",
+      "spent": 0
+    },
+    "sleepDate": null,
+    "attention": false,
+    "game": null
+  },
+  "wallet": {
+    "available": true,
+    "balance": 30
+  }
+}

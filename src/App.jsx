@@ -4155,8 +4155,8 @@ function YumDonutDashboard() {
                     />
                 )}
 
-                {view === 'yumpals-saved' && savedYumpalsAvailable && <section aria-label="Saved YumPals">
-                    <button type="button" className="mb-3 underline" onClick={() => setView('give')}>Back to app</button>
+                {view === 'yumpals-saved' && savedYumpalsAvailable && <section className="yumpals-embedded-saved" aria-label="Saved YumPals">
+                    <button type="button" className="mb-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50" onClick={() => setView('give')}><ArrowLeft size={16} />Back to app</button>
                     <YumPalsSavedHandheld key={user.uid} ownerUid={user.uid} projectId={firebaseConfig.projectId}
                         enabled={ENABLE_YUMPALS_PAID_CARE} gameEnabled={ENABLE_YUMPALS_SAVED_GAME} gameTransport={savedGameTransport} getIdentity={paidCareIdentity} transport={paidCareTransport} />
                 </section>}

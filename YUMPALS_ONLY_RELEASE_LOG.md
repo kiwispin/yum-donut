@@ -1,5 +1,12 @@
 # YumPals-only release log
 
+## 2026-09-08 Saved-page surround parity
+
+- REFUSED omission: approved exterior polish previously applied only to Preview. ACCEPTED fix: saved route now shares appSurround.css styling with Preview, same heading/card/help/control treatment and back button. Saved-specific explanatory text retained; no pretend-money badge/test controls on student page.
+- Device JSX, original savedHandheld.css and all pre-render logic byte-equal to821d951, verified by new regression test. No saved-pet/care/payment changes. CSS exclusively targets outside elements, not LCD/device controls.
+- Frontend81/81 passed228.852542ms; lint0; enabled build526ms/1715modules. Actual saved component fixture (synthetic quote, purchases explicitly refused) passed390/1440px white background, no horizontal overflow, refresh and help disclosure; screenshots visually inspected. No production account actions. Fixture verification/saved-surround.*.
+- Existing hosting retained; rollback821d951. Publish only frontend; no server/settings/database updates.
+
 ## 2026-09-08 True overflow-only More
 
 - ACCEPTED user clarification: every destination participates in priority row; no permanent secondary group. Measure total first without More, showing all when possible. Only when total exceeds width reserve More and move the trailing items into it. Existing style, eligibility and actions untouched.

@@ -129,7 +129,8 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
     </button>)}
   </nav>;
   return <section className="paid-demo-shell saved-handheld" aria-label="Saved YumPals handheld">
-    <header><h1>Your YumPal</h1><p>Care uses your donuts only after you confirm the price.</p></header>
+    <header className="paid-demo-header"><div><h1>YumPals</h1><p>A little pal to care for each day.</p></div></header>
+    <p className="paid-demo-warning">Your pal is saved between visits. Donuts are spent only when you confirm the price.</p>
     <p role="status">{!sameOwner ? 'Please sign in to see your saved pal.' : localMessage || state.message || (state.busy ? 'Checking your pal…' : !quote ? 'Your pal has not been checked yet.' : !quote.enabled ? 'YumPals is resting. Your teacher has paused care.' : !quote.wallet.available ? 'Your donuts could not be checked. Please ask your teacher.' : '')}</p>
     <div className="paid-demo-device" style={{ '--saved-case': savedCaseColor(pet) }}>
       <div className="paid-demo-brand">YUMPALS</div><div className="paid-demo-screen-frame">
@@ -155,11 +156,11 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
         </div></div>
       <div className="paid-hardware" aria-label="Handheld buttons"><button className="paid-hardware-button" type="button" aria-label="A SELECT" onClick={cycle}><strong>A</strong><span>SELECT</span></button><button className="paid-hardware-button" type="button" aria-label="B CONFIRM" onClick={confirm} disabled={Boolean(animation) || (['confirm', 'adopt'].includes(screen) && locked)}><strong>B</strong><span>CONFIRM</span></button><button className="paid-hardware-button" type="button" aria-label="C CANCEL" onClick={cancel}><strong>C</strong><span>CANCEL</span></button></div>
     </div>
-    <p className="saved-help">{help || icon ? `${PAID_CARE_ICON_LABELS[help || icon]} — ${helpFor(help || icon)}` : 'Press A SELECT to choose an icon.'}</p>
+    <p className="saved-help paid-demo-hint">{help || icon ? `${PAID_CARE_ICON_LABELS[help || icon]} — ${helpFor(help || icon)}` : 'Press A SELECT to choose an icon.'}</p>
     {PAID_CARE_ICON_ORDER.map(name => <span className="paid-help-accessible" id={`${id}-${name}`} key={name}>{helpFor(name)}</span>)}
     <div className="saved-utilities">{state.pending && sameOwner && <button type="button" disabled={state.busy || state.storageBlocked} onClick={() => void instance.current?.retry()}>Retry purchase</button>}<button type="button" disabled={state.busy || state.storageBlocked || !sameOwner} onClick={() => void instance.current?.refresh()}>Refresh pal</button></div>
     {currentGame?.pending && <button type="button" disabled={currentGame.busy || currentGame.storageBlocked} onClick={() => void gameInstance.current?.retry()}>Retry guess</button>}
     {screen === 'game' && <button type="button" disabled={!sameOwner || currentGame?.busy} onClick={() => void gameInstance.current?.refresh()}>Refresh game</button>}
-    <details><summary>How to play</summary><p>A SELECT chooses an icon. B CONFIRM opens it. C CANCEL returns without spending. Check the price before confirming payment. Status and attention checks are free. {gameReady ? 'During a game, A guesses left and B guesses right. C pauses; resume without paying again. There are three rounds and no donut prizes.' : 'Game is not ready; Pat is available.'}</p></details>
+    <details className="paid-demo-inspector"><summary>How to play</summary><p>A SELECT chooses an icon. B CONFIRM opens it. C CANCEL returns without spending. Check the price before confirming payment. Status and attention checks are free. {gameReady ? 'During a game, A guesses left and B guesses right. C pauses; resume without paying again. There are three rounds and no donut prizes.' : 'Game is not ready; Pat is available.'}</p></details>
   </section>;
 }

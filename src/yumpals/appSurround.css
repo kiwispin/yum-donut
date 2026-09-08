@@ -1,22 +1,36 @@
 /* App chrome only. Never target the handheld, LCD, sprite or hardware buttons. */
-.yumpals-embedded-preview .paid-demo-shell { background: white; padding: 24px 16px; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 1px 3px rgb(15 23 42 / .05); }
-.yumpals-embedded-preview .paid-demo-header { max-width: 520px; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
-.yumpals-embedded-preview .paid-demo-header h1 { color: #1e293b; font-size: 24px; font-weight: 700; letter-spacing: normal; line-height: 1.3; }
-.yumpals-embedded-preview .paid-demo-header p:last-child { color: #64748b; font-size: 14px; line-height: 1.5; margin-top: 4px; }
-.yumpals-embedded-preview .paid-demo-badge { font-family: inherit; background: #fdf2f8; color: #be185d; border: 1px solid #fce7f3; border-radius: 999px; padding: 6px 10px; font-size: 11px; letter-spacing: normal; font-weight: 700; }
-.yumpals-embedded-preview .paid-demo-warning { color: #64748b; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 16px; font-size: 13px; line-height: 1.6; }
-.yumpals-embedded-preview .paid-demo-meta { font-family: inherit; font-size: 11px; color: #64748b; gap: 8px; margin-top: 24px; }
-.yumpals-embedded-preview .paid-demo-meta span { background: #f8fafc; border-radius: 8px; padding: 6px 8px; }
-.yumpals-embedded-preview .paid-demo-hint { font-size: 14px; color: #64748b; line-height: 1.6; margin-top: 12px; }
-.yumpals-embedded-preview .paid-demo-inspector { font-family: inherit; background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; font-size: 14px; color: #64748b; }
-.yumpals-embedded-preview .paid-demo-inspector summary { color: #334155; font-weight: 700; }
-.yumpals-embedded-preview .paid-demo-inspector label { font-size: 12px; text-transform: none; letter-spacing: normal; }
-.yumpals-embedded-preview .paid-demo-inspector select { min-height: 44px; border-radius: 8px; border-color: #cbd5e1; padding: 8px; }
-.yumpals-embedded-preview .paid-demo-utility,
-.yumpals-embedded-preview .paid-inspector-actions button,
-.yumpals-embedded-preview .paid-inspector-adopt { background: #fdf2f8; color: #be185d; border: 1px solid #fbcfe8; border-radius: 12px; padding: 10px 16px; min-height: 44px; font-family: inherit; font-size: 13px; font-weight: 700; }
-.yumpals-embedded-preview .paid-demo-utility:hover,
-.yumpals-embedded-preview .paid-inspector-actions button:hover { background: #fce7f3; }
-.yumpals-embedded-preview .paid-demo-inspector summary:focus-visible,
-.yumpals-embedded-preview .paid-demo-utility:focus-visible { outline: 2px solid #db2777; outline-offset: 4px; }
-.yumpals-embedded-preview .paid-demo-notice { font-family: inherit; border-radius: 12px; font-size: 14px; }
+.yumpals-embedded-saved .saved-handheld > header,
+.yumpals-embedded-saved .saved-handheld > p,
+.yumpals-embedded-saved .saved-handheld > details,
+.yumpals-embedded-saved .saved-utilities { max-width: 520px; }
+.yumpals-embedded-saved .saved-help { min-height: 0; margin: 24px auto 16px; }
+.yumpals-embedded-saved .saved-utilities { justify-content: center; }
+.yumpals-embedded-saved .saved-handheld > p[role="status"]:empty { display: none; }
+.yumpals-embedded-saved .saved-handheld > p[role="status"] { color: #64748b; font-size: 14px; line-height: 1.6; }
+.yumpals-embedded-saved .saved-utilities button,
+.yumpals-embedded-saved .saved-handheld > button { background: #fdf2f8; color: #be185d; border: 1px solid #fbcfe8; border-radius: 12px; padding: 10px 16px; min-height: 44px; font-family: inherit; font-size: 13px; font-weight: 700; }
+.yumpals-embedded-saved .saved-utilities button:hover:not(:disabled),
+.yumpals-embedded-saved .saved-handheld > button:hover:not(:disabled) { background: #fce7f3; }
+.yumpals-embedded-saved .saved-utilities button:focus-visible,
+.yumpals-embedded-saved .saved-handheld > button:focus-visible { outline: 2px solid #db2777; outline-offset: 4px; }
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-shell { background: white; padding: 24px 16px; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 1px 3px rgb(15 23 42 / .05); }
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-header { max-width: 520px; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-header h1 { color: #1e293b; font-size: 24px; font-weight: 700; letter-spacing: normal; line-height: 1.3; }
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-header p:last-child { color: #64748b; font-size: 14px; line-height: 1.5; margin-top: 4px; }
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-badge { font-family: inherit; background: #fdf2f8; color: #be185d; border: 1px solid #fce7f3; border-radius: 999px; padding: 6px 10px; font-size: 11px; letter-spacing: normal; font-weight: 700; }
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-warning { color: #64748b; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 16px; font-size: 13px; line-height: 1.6; }
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-meta { font-family: inherit; font-size: 11px; color: #64748b; gap: 8px; margin-top: 24px; }
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-meta span { background: #f8fafc; border-radius: 8px; padding: 6px 8px; }
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-hint { font-size: 14px; color: #64748b; line-height: 1.6; margin-top: 12px; }
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-inspector { font-family: inherit; background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; font-size: 14px; color: #64748b; }
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-inspector summary { color: #334155; font-weight: 700; }
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-inspector label { font-size: 12px; text-transform: none; letter-spacing: normal; }
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-inspector select { min-height: 44px; border-radius: 8px; border-color: #cbd5e1; padding: 8px; }
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-utility,
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-inspector-actions button,
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-inspector-adopt { background: #fdf2f8; color: #be185d; border: 1px solid #fbcfe8; border-radius: 12px; padding: 10px 16px; min-height: 44px; font-family: inherit; font-size: 13px; font-weight: 700; }
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-utility:hover,
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-inspector-actions button:hover { background: #fce7f3; }
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-inspector summary:focus-visible,
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-utility:focus-visible { outline: 2px solid #db2777; outline-offset: 4px; }
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-notice { font-family: inherit; border-radius: 12px; font-size: 14px; }
