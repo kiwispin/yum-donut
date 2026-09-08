@@ -5103,68 +5103,26 @@ function PatchNotesModal({ onClose }) {
                         <h2 className="text-2xl font-bold flex items-center gap-2">
                             <Sparkles className="text-yellow-300" /> What's New
                         </h2>
-                        <p className="opacity-90 text-sm mt-1">Banking, Games, Shop & Fixes!</p>
+                        <p className="opacity-90 text-sm mt-1">A little pal. A new daily adventure.</p>
                     </div>
                     <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
                         <XCircle size={24} />
                     </button>
                 </div>
 
-                <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
-                    <div className="space-y-2">
-                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <Crown className="text-amber-500" size={20} /> Studio Sponsorships
-                        </h3>
-                        <p className="text-slate-600 text-sm">
-                            Roll credits. Students can now put their name in lights by sponsoring the Arcade, Donut Shop, Leaderboard, or Team Goal for the week. Big spender energy, proper studio-credit vibes.
-                        </p>
-                    </div>
-
-                    <div className="space-y-2">
-                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <span className="text-xl">🎞️</span> New Game: Memory Match
-                        </h3>
-                        <p className="text-slate-600 text-sm">
-                            Pair up TV and film production icons in the Arcade. Everyone earns 1 donut for finishing, or 2 if they beat the tighter 30-second bonus timer.
-                        </p>
-                    </div>
-
-                    <div className="space-y-2">
-                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <Landmark className="text-yellow-500" size={20} /> Bank Interest Update
-                        </h3>
-                        <p className="text-slate-600 text-sm">
-                            The Donut Bank is now more bank-style: interest has moved from <strong>10%</strong> to <strong>2%</strong>, and the payout preview matches the real payout.
-                        </p>
-                    </div>
-
-                    <div className="space-y-2">
-                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <Cable className="text-cyan-500" size={20} /> Bigger Cable Commander
-                        </h3>
-                        <p className="text-slate-600 text-sm">
-                            Standard mode now uses the old Pro-sized board, while Pro Mode has grown into a huge 15x15 challenge with a 1-donut win and a 2-donut speed bonus for finishing within 60 seconds.
-                        </p>
-                    </div>
-
-                    <div className="space-y-2">
-                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <ShoppingBag className="text-pink-500" size={20} /> Store Item Editing
-                        </h3>
-                        <p className="text-slate-600 text-sm">
-                            Store items can now be edited from Admin Settings, including title, price, description, and daily purchase limits. Snack Box Treat is limited to 2 per day and Double Snack Attack is limited to 1 per day by default.
-                        </p>
-                    </div>
-
-                    <div className="space-y-2">
-                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                            <Settings className="text-slate-500" size={20} /> Interface Fixes
-                        </h3>
-                        <p className="text-slate-600 text-sm">
-                            The sticky top bar now stays above page content, so cards and badges no longer slide over it while scrolling.
-                        </p>
-                    </div>
-
+                <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                        <PawPrint className="text-pink-500" size={20} /> Meet YumPals!
+                    </h3>
+                    <p className="text-slate-600 text-sm">
+                        Your own pixel pet to feed, play with and care for. Your pal’s needs change between visits, so check in each day to see how they’re doing.
+                    </p>
+                    <p className="text-slate-600 text-sm">
+                        Spend donuts on food, games and care. You’ll always see the price before you confirm—no donuts are spent while you’re away.
+                    </p>
+                    <p className="text-slate-600 text-sm">
+                        Look for YumPals in the top navigation when it’s enabled for your school. Open “How to play” for the buttons, icons and care tips.
+                    </p>
                 </div>
 
                 <div className="p-4 bg-slate-50 border-t border-slate-100 text-center">
