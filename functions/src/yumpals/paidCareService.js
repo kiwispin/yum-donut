@@ -269,4 +269,4 @@ function createPaidCareService({ db, refs, walletAdapter, now = Date.now }) {
   };
 }
 
-module.exports = { createPaidCareService };
+module.exports = { createPaidCareService, authenticatedUid, validateReceipt };

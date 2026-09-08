@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { verifySettingsHttp } from './settings-http-checks.mjs';
 import { verifyPaidCareHttp } from './paid-care-http-checks.mjs';
+import { verifySavedGame } from './saved-game-checks.mjs';
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(DIR, '../..');
@@ -284,6 +285,7 @@ async function verify() {
     await verifySettingsHttp({ db, auth, controlRefs, careRefs, walletRefs: refs, paidOperationId: purchase.data.operationId, anonymous, password, localFetch, pass });
     const paidHttpRefs = { ...careRefs, refusal: (uid, id) => db.doc(`ownershipFixture/main/paidRefusals/${uid}_${id}`) };
     await verifyPaidCareHttp({ db, controlRefs, careRefs: paidHttpRefs, walletRefs: refs, anonymous, password, localFetch, pass });
+    await verifySavedGame({ db, careRefs: paidHttpRefs, walletRefs: refs, pass });
   } finally {
     try { if (db) await db.terminate(); }
     finally { await app.delete(); }
