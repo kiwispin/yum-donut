@@ -5,6 +5,7 @@
 - User approved Give / Goal / enabled YumPals / Arcade / Bank / Shop / More. ACCEPTED trial: measure actual button widths and reserve More; trailing priority items move into disclosure before less-used items. Existing fonts/colours/buttons and all original visibility gates retained. No horizontal scrolling, wrapping or route changes. Earlier two-link-only layout superseded by user direction.
 - Tests80/80 passed243.401041ms; lint0. Browser320/390/1440px passed priority row, destinations, dismissal, focus and no overflow; phone/desktop screenshots inspected. Hidden inert measurement row is inaccessible to keyboard/assistive technology.
 - Enabled build528ms/1715modules. Existing hosting retained; no backend/settings/account changes. Rollback source92fed3e retained. User visual acceptance pending.
+- Publishedc54cc2f; live index-D3O1pinC.js and index-DnaATKdY.css hashes match validated dist. Fixture stopped.
 
 ## 2026-09-08 Discoverable navigation menu trial
 
