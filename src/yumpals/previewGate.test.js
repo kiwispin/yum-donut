@@ -21,7 +21,7 @@ test('app wires isolated preview, session resets and separate exit without repla
     assert.ok(source.includes("view === 'yumpals-preview' && yumpalsPreviewAvailable"));
     assert.ok(source.includes("view === 'yumpals' && yumpalsAvailable"));
     assert.ok(source.includes('<YumPalsHandheldDemo key={user.uid} />'));
-    assert.ok(source.includes('>Back to app</button>'));
+    assert.ok(!source.includes('>Back to app</button>'), 'shared top navigation replaces redundant return buttons');
     assert.ok(source.includes('Show YumPals preview'));
     assert.ok(source.includes('checked={yumpalsPreviewEnabled} disabled={isSandbox}'));
     assert.ok(source.includes('enabled && isAdmin && !isSandbox ? user?.uid : null'));

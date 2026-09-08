@@ -29,7 +29,7 @@ import {
     Trophy, Gift, Activity, MessageSquare,
     LogOut, UserPlus, Heart, Zap, Search, CheckCircle, Target, Sparkles,
 
-    Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock, Users, Skull, Trash2, Clock, Calendar, Edit2, RotateCcw, Landmark, PiggyBank, ArrowRight, ArrowLeft, UserCheck, Keyboard, Shield, Settings, Gamepad2, Cable, Monitor, ClipboardList, PawPrint
+    Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock, Users, Skull, Trash2, Clock, Calendar, Edit2, RotateCcw, Landmark, PiggyBank, ArrowRight, UserCheck, Keyboard, Shield, Settings, Gamepad2, Cable, Monitor, ClipboardList, PawPrint
 } from 'lucide-react';
 
 
@@ -4156,13 +4156,11 @@ function YumDonutDashboard() {
                 )}
 
                 {view === 'yumpals-saved' && savedYumpalsAvailable && <section className="yumpals-embedded-saved" aria-label="Saved YumPals">
-                    <button type="button" className="mb-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50" onClick={() => setView('give')}><ArrowLeft size={16} />Back to app</button>
                     <YumPalsSavedHandheld key={user.uid} ownerUid={user.uid} projectId={firebaseConfig.projectId}
                         enabled={ENABLE_YUMPALS_PAID_CARE} gameEnabled={ENABLE_YUMPALS_SAVED_GAME} gameTransport={savedGameTransport} getIdentity={paidCareIdentity} transport={paidCareTransport} />
                 </section>}
                 {view === 'yumpals-preview' && yumpalsPreviewAvailable && (
                     <section className="yumpals-embedded-preview" aria-label="YumPals pretend preview">
-                        <button type="button" className="mb-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50" onClick={() => setView('give')}><ArrowLeft size={16} />Back to app</button>
                         <YumPalsHandheldDemo key={user.uid} />
                     </section>
                 )}

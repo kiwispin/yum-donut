@@ -1,5 +1,10 @@
 # YumPals-only release log
 
+## 2026-09-08 Remove redundant return buttons
+
+- ACCEPTED: removed Back to app from both embedded YumPals views and unused icon import. Shared top navigation and device unchanged. Rollback0aa9b25.
+- Initial test80/81: obsolete assertion required removed button. Updated assertion to prevent its return as explicitly requested; final81/81 passed235.78125ms, lint0, enabled build506ms. No backend or account changes. Live verification pending.
+
 ## 2026-09-08 Stable guidance space
 
 - REFUSED previous content-height panel: longer icon guidance moved the surrounding layout. ACCEPTED replacement: overlapping CSS grid reserves tallest actual guidance at current width/font size; hidden sizing text is aria-hidden, noninteractive and unselectable. Current guidance stays readable at14px. Both views updated; device and logic unchanged. Rollback35755f7.
