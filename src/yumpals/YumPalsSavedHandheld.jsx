@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
+import { ignoreHandheldKey } from './handheldKeyboard.js';
 import { createPaidCareController } from './paidCareClient.js';
 import { createSavedGameController } from './savedGameClient.js';
 import { PAID_CARE_ICON_ORDER, PAID_CARE_ICON_LABELS, PAID_CARE_ICON_PIXELS } from './paidCareIcons.js';
@@ -108,7 +109,7 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
   };
   useEffect(() => {
     const key = event => {
-      if (event.repeat || event.target?.closest?.('button,input,select,textarea')) return;
+      if (ignoreHandheldKey(event) || animation || state.busy || state.pending || currentGame?.busy || currentGame?.pending) return;
       const value = event.key.toLowerCase();
       if (['a', 'arrowright'].includes(value)) { event.preventDefault(); cycle(); }
       if (['b', 'enter'].includes(value)) { event.preventDefault(); confirm(); }

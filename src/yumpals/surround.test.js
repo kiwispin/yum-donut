@@ -7,6 +7,7 @@ test('outside polish preserves handheld markup and original device stylesheet ex
  const before = execFileSync('git',['show',`1649d82:${path}`],{encoding:'utf8'});
  const after = readFileSync(path,'utf8');
  const device = source => source.slice(source.indexOf('<div className="paid-demo-device-wrap">'),source.indexOf('{notice &&'));
- assert.equal(device(after),device(before));
+ // Icon callback changed for the separately approved input fix; markup stays identical.
+ assert.equal(device(after).replaceAll('onSelect={chooseIcon}', 'onSelect={setSelectedIcon}'),device(before));
  assert.equal(readFileSync('src/yumpals/paidCareDemo.css','utf8'),execFileSync('git',['show','1649d82:src/yumpals/paidCareDemo.css'],{encoding:'utf8'}));
 });

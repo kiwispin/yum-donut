@@ -1,5 +1,12 @@
 # YumPals-only release log
 
+## 2026-09-08 Mixed click/keyboard input correction
+
+- ACCEPTED: preview icon clicks now reset navigation to the newly selected icon, clearing old menu/action selection without a charge. A/B/C keyboard shortcuts work after clicking handheld buttons in preview and saved UI. Native Enter/Space, text inputs, modifier keys and unrelated page buttons are preserved. Saved pending/animation locks retained.
+- No appearance changes; CSS bundle unchanged. Exterior preservation test permits only the approved icon handler substitution while retaining exact markup comparison.
+- Tests79/79 passed234.248542ms; lint0; enabled build556ms. Browser passed five transitions: icon-click/keyboardB, choice-click/keyboardA, switch icon without backing out, hardwareB, focusedEscape. No purchase. First browser test REFUSED due to incorrect case-sensitive selector Select Meal; corrected to existing Select MEAL, no application change for that fixture mistake.
+- Existing hosting retained; no server, settings or wallet modifications.
+
 ## 2026-09-08 Preview exterior integration
 
 - User explicitly approved handheld and prohibited changing it. REFUSED old grey demo surround, mismatched typography/square controls and repetitive explanation.

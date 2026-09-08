@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { ignoreHandheldKey } from './handheldKeyboard.js';
 import {
     PAID_CARE_ADOPTION_PRICE,
     PAID_CARE_LABELS,
@@ -261,6 +262,15 @@ export default function YumPalsHandheldDemo() {
     const submenu = selectedMenu ? SUBMENUS[selectedMenu] || [] : [];
     const currentSubItem = submenu[subMenuIndex] || submenu[0];
 
+    const chooseIcon = (index) => {
+        if (visualAction || gameInputLocked) return;
+        setSelectedIcon(index);
+        setScreen('room');
+        setSelectedMenu(null);
+        setSubMenuIndex(0);
+        setSelectedAction(null);
+    };
+
     const cycle = () => {
         if (visualAction) return;
         if (screen === 'room') {
@@ -394,8 +404,7 @@ export default function YumPalsHandheldDemo() {
 
     useEffect(() => {
         const onKeyDown = (event) => {
-            const tag = event.target?.tagName;
-            if (['INPUT', 'SELECT', 'TEXTAREA'].includes(tag) || event.target?.closest?.('button')) return;
+            if (ignoreHandheldKey(event)) return;
             if (visualAction && screen === 'room') return;
             const key = event.key.toLowerCase();
             if (screen === 'game') {
@@ -473,7 +482,7 @@ export default function YumPalsHandheldDemo() {
                         <div className="paid-demo-brand">YUMPALS</div>
                         <div className="paid-demo-screen-frame">
                             <div className={`paid-demo-lcd ${sleeping ? 'is-sleeping' : ''} ${bedtimeScheduled ? 'is-bedtime-set' : ''}`} aria-live="polite">
-                                <IconRail position="top" selectedIcon={selectedIcon} onSelect={setSelectedIcon} onHover={setHoveredIcon} onFocusIcon={setFocusedIcon} disabled={!pet} />
+                                <IconRail position="top" selectedIcon={selectedIcon} onSelect={chooseIcon} onHover={setHoveredIcon} onFocusIcon={setFocusedIcon} disabled={!pet} />
                                 <div className="paid-lcd-content">
                                 {screen === 'room' && pet && (
                                     <div className="paid-lcd-room">
@@ -523,7 +532,7 @@ export default function YumPalsHandheldDemo() {
                                     <div className="paid-lcd-game"><span className="paid-lcd-title">FINAL DIRECTION</span><div className="paid-game-visual"><DemoSprite animationState={animationState} forceAnimation={gameOutcome.target === 'left' ? 'lookLeft' : 'lookRight'} reducedMotion={reducedMotion} sleeping={false} visualAction="game" /></div><strong>ROUND 3 LOOKED {(gameOutcome.target || '?').toUpperCase()}</strong><span>{gameOutcome.correct ? 'CORRECT!' : 'NICE TRY'} · GAME FINISHED</span><small>B CONFIRM · C CANCEL · NO EXTRA COST</small></div>
                                 )}
                                 </div>
-                                <IconRail position="bottom" selectedIcon={selectedIcon} onSelect={setSelectedIcon} onHover={setHoveredIcon} onFocusIcon={setFocusedIcon} disabled={!pet} />
+                                <IconRail position="bottom" selectedIcon={selectedIcon} onSelect={chooseIcon} onHover={setHoveredIcon} onFocusIcon={setFocusedIcon} disabled={!pet} />
                             </div>
                         </div>
                         <div className="paid-hardware" aria-label="YumPals hardware controls">
