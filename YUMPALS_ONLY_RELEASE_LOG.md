@@ -6,6 +6,7 @@
 - Device JSX, original savedHandheld.css and all pre-render logic byte-equal to821d951, verified by new regression test. No saved-pet/care/payment changes. CSS exclusively targets outside elements, not LCD/device controls.
 - Frontend81/81 passed228.852542ms; lint0; enabled build526ms/1715modules. Actual saved component fixture (synthetic quote, purchases explicitly refused) passed390/1440px white background, no horizontal overflow, refresh and help disclosure; screenshots visually inspected. No production account actions. Fixture verification/saved-surround.*.
 - Existing hosting retained; rollback821d951. Publish only frontend; no server/settings/database updates.
+- Published34347c0; live index-ByQvLgpr.js and index-Bi3X4q6R.css hashes match validated dist. Fixture server stopped.
 
 ## 2026-09-08 True overflow-only More
 
