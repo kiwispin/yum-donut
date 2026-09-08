@@ -1,9 +1,24 @@
 // Internal service ONLY. No onCall export, legacy identity lookup or default adapter.
 // refs/config and walletAdapter are trusted server dependencies, never request data.
-const { PRICES, validateConfig, validatePet, advancePet, migrateLegacyPet, purchaseEffect, digest, requireValue, integer, aucklandNow, dayNumber } = require('./paidCareEngine');
+const { PRICES, RESTORES, validateConfig, validatePet, advancePet, migrateLegacyPet, purchaseEffect, digest, requireValue, integer, aucklandNow, dayNumber } = require('./paidCareEngine');
 const { walletNumber, debitAfter } = require('./walletNumber');
+const { isValidPersistedState } = require('./rules');
 
 const ID = /^[A-Za-z0-9_-]{1,80}$/u;
+const REFUSALS = new Set(['DISABLED', 'RECONFIRM_CONFIG', 'NO_EFFECT', 'INSUFFICIENT_FUNDS', 'CARE_CAP', 'NO_PET', 'ALREADY_ADOPTED', 'GAME_ACTIVE']);
+const WALLET_UNAVAILABLE = new Set(['TRUSTED_MAPPING_REQUIRED', 'INVALID_WALLET_MAPPING', 'WALLET_MIRROR_MISSING', 'WALLET_OWNER_CONFLICT', 'INVALID_WALLET_BALANCE', 'WALLET_BALANCE_CONFLICT', 'CORRUPT_WALLET']);
+function emptyData(data) {
+  requireValue(data === undefined || (data !== null && Object.getPrototypeOf(data) === Object.prototype && Object.keys(data).length === 0), 'INVALID_REQUEST');
+}
+function validateRefusal(value, uid, id) {
+  const keys = ['schemaVersion', 'status', 'ownerUid', 'operationId', 'request', 'binding', 'reason', 'committedAtMs'];
+  requireValue(value && Object.getPrototypeOf(value) === Object.prototype && Object.keys(value).length === keys.length
+    && keys.every(key => Object.hasOwn(value, key)) && value.schemaVersion === 1 && value.status === 'REFUSED'
+    && value.ownerUid === uid && value.operationId === id && REFUSALS.has(value.reason)
+    && integer(value.committedAtMs, 0, 253402214400000) && typeof value.binding === 'string' && /^[a-f0-9]{64}$/u.test(value.binding)
+    && value.binding === digest(savedBoundRequest(value.request))
+    && value.request.operationId === id, 'CORRUPT_REFUSAL');
+}
 
 function authenticatedUid(request) {
   const uid = request?.auth?.uid;
@@ -14,7 +29,7 @@ function authenticatedUid(request) {
 }
 
 function boundRequest(data) {
-  requireValue(data && typeof data === 'object' && !Array.isArray(data), 'INVALID_REQUEST');
+  requireValue(data && Object.getPrototypeOf(data) === Object.prototype, 'INVALID_REQUEST');
   const allowed = ['operationId', 'action', 'expectedConfigVersion', 'expectedConfigHash', 'adoption'];
   requireValue(Object.keys(data).every((key) => allowed.includes(key)), 'INVALID_REQUEST');
   requireValue(typeof data.operationId === 'string' && ID.test(data.operationId), 'INVALID_OPERATION');
@@ -23,7 +38,7 @@ function boundRequest(data) {
   requireValue(typeof data.expectedConfigHash === 'string' && /^[a-f0-9]{64}$/u.test(data.expectedConfigHash), 'INVALID_CONFIG_HASH');
   let adoption = null;
   if (data.action === 'adoption') {
-    requireValue(data.adoption && typeof data.adoption === 'object' && !Array.isArray(data.adoption), 'INVALID_ADOPTION');
+    requireValue(data.adoption && Object.getPrototypeOf(data.adoption) === Object.prototype, 'INVALID_ADOPTION');
     requireValue(Object.keys(data.adoption).length === 4 && ['name', 'species', 'casing', 'color'].every((key) => typeof data.adoption[key] === 'string'), 'INVALID_ADOPTION');
     const { name, species, casing, color } = data.adoption;
     adoption = { name, species, casing, color };
@@ -87,6 +102,19 @@ function validateReceipt(receipt, uid, operationId) {
 function createPaidCareService({ db, refs, walletAdapter, now = Date.now }) {
   requireValue(db && typeof db.runTransaction === 'function' && refs && ['pet', 'receipt', 'migration', 'config'].every((key) => typeof refs[key] === 'function'), 'INVALID_DEPENDENCIES');
   requireValue(walletAdapter && typeof walletAdapter.read === 'function' && typeof walletAdapter.debit === 'function', 'TRUSTED_WALLET_ADAPTER_REQUIRED');
+  requireValue(refs.refusal === undefined || typeof refs.refusal === 'function', 'INVALID_REFUSAL_REFS');
+  // Firestore reuses its Transaction object across retries. Adapter contexts
+  // belong to one callback attempt, not that reusable SDK object.
+  const runTransaction = callback => db.runTransaction(raw => {
+    const attempt = {};
+    for (const method of ['get', 'getAll', 'set', 'update', 'create', 'delete']) {
+      if (typeof raw[method] === 'function') attempt[method] = (...args) => {
+        const result = raw[method](...args);
+        return result === raw ? attempt : result;
+      };
+    }
+    return callback(attempt);
+  });
 
   async function readConfig(transaction, uid) {
     // Per-UID trusted config resolver allows server-owned absence history.
@@ -98,10 +126,10 @@ function createPaidCareService({ db, refs, walletAdapter, now = Date.now }) {
   return {
     getState: async (request) => {
       const uid = authenticatedUid(request);
-      requireValue(!request.data || Object.keys(request.data).length === 0, 'INVALID_REQUEST');
+      emptyData(request.data);
       const nowMs = now();
       aucklandNow(nowMs);
-      return db.runTransaction(async (transaction) => {
+      return runTransaction(async (transaction) => {
         const config = await readConfig(transaction, uid);
         const snapshot = await transaction.get(refs.pet(uid));
         const pet = snapshot.exists ? snapshot.data() : null;
@@ -112,13 +140,51 @@ function createPaidCareService({ db, refs, walletAdapter, now = Date.now }) {
       });
     },
 
+    getHandheldState: async (request) => {
+      const uid = authenticatedUid(request);
+      emptyData(request.data);
+      const nowMs = now();
+      const clock = aucklandNow(nowMs);
+      return runTransaction(async transaction => {
+        const config = await readConfig(transaction, uid);
+        const snapshot = await transaction.get(refs.pet(uid));
+        const pet = snapshot.exists ? snapshot.data() : null;
+        if (pet) {
+          requireValue(isValidPersistedState(pet, uid), 'CORRUPT_STATE');
+          requireValue(Object.hasOwn(pet, 'paidCare'), 'MIGRATION_REQUIRED');
+          validatePet(pet, uid);
+        }
+        let wallet = { available: false };
+        try {
+          const result = await walletAdapter.read(transaction, uid);
+          requireValue(result && result.ownerUid === uid && walletNumber(result.balance), 'CORRUPT_WALLET');
+          wallet = { available: true, balance: result.balance };
+        } catch (error) {
+          if (!WALLET_UNAVAILABLE.has(error?.code)) throw error;
+        }
+        const next = pet ? advancePet(pet, uid, config, nowMs) : null;
+        if (pet && digest(pet.paidCare) !== digest(next.paidCare)) transaction.set(refs.pet(uid), next);
+        const projected = next ? {
+          name: next.name, species: next.species, casing: next.casing, color: next.color,
+          reducedMotion: next.reducedMotion, careDays: next.careDays, earnedMilestones: [...next.earnedMilestones],
+          needs: Object.fromEntries(['hunger', 'happiness', 'cleanliness', 'health'].map(key => [key, next.paidCare.needs[key]])), daily: { date: next.paidCare.daily.date, spent: next.paidCare.daily.spent },
+          sleepDate: next.paidCare.sleepDate, attention: next.paidCare.attention,
+          game: next.paidCare.game ? { id: next.paidCare.game.id, benefit: next.paidCare.game.benefit, round: next.paidCare.game.round } : null,
+        } : null;
+        return { schemaVersion: 1, ownerUid: uid, enabled: config.enabled, configVersion: config.version,
+          configHash: digest(config), prices: Object.fromEntries(Object.keys(PRICES).map(key => [key, config.prices[key]])),
+          restores: Object.fromEntries(Object.keys(RESTORES).map(key => [key, config.restores[key]])), careCap: config.careCap,
+          serverNowMs: nowMs, aucklandDate: clock.date, aucklandHour: clock.hour, pet: projected, wallet };
+      });
+    },
+
     migrate: async (request) => {
       const uid = authenticatedUid(request);
       // This internal method has no live endpoint; a future migration wrapper needs review.
-      requireValue(!request.data || Object.keys(request.data).length === 0, 'INVALID_REQUEST');
+      emptyData(request.data);
       const nowMs = now();
       aucklandNow(nowMs);
-      return db.runTransaction(async (transaction) => {
+      return runTransaction(async (transaction) => {
         const config = await readConfig(transaction, uid);
         const snapshot = await transaction.get(refs.pet(uid));
         const audit = await transaction.get(refs.migration(uid));
@@ -142,9 +208,22 @@ function createPaidCareService({ db, refs, walletAdapter, now = Date.now }) {
       const binding = digest(data);
       const nowMs = now();
       aucklandNow(nowMs);
-      return db.runTransaction(async (transaction) => {
+      return runTransaction(async (transaction) => {
         const receiptRef = refs.receipt(uid, data.operationId);
+        const refusalRef = refs.refusal ? refs.refusal(uid, data.operationId) : null;
+        if (refs.refusal) {
+          const paths = [receiptRef, refusalRef].map(ref => typeof ref === 'string' ? ref : ref?.path);
+          requireValue(paths.every(path => typeof path === 'string' && path.length > 0) && paths[0] !== paths[1], 'INVALID_REFUSAL_REFS');
+        }
         const prior = await transaction.get(receiptRef);
+        const refused = refusalRef ? await transaction.get(refusalRef) : null;
+        requireValue(!(prior.exists && refused?.exists), 'CORRUPT_REFUSAL');
+        if (refused?.exists) {
+          const refusal = refused.data();
+          validateRefusal(refusal, uid, data.operationId);
+          requireValue(refusal.binding === binding, 'OPERATION_CONFLICT');
+          return { refusal, duplicate: true };
+        }
         if (prior.exists) {
           const receipt = prior.data();
           validateReceipt(receipt, uid, data.operationId);
@@ -153,14 +232,25 @@ function createPaidCareService({ db, refs, walletAdapter, now = Date.now }) {
           return { receipt, duplicate: true };
         }
         const config = await readConfig(transaction, uid);
-        requireValue(config.version === data.expectedConfigVersion && digest(config) === data.expectedConfigHash, 'RECONFIRM_CONFIG');
+        if (!refusalRef) requireValue(config.version === data.expectedConfigVersion && digest(config) === data.expectedConfigHash, 'RECONFIRM_CONFIG');
         const petRef = refs.pet(uid);
         const snapshot = await transaction.get(petRef);
         const pet = snapshot.exists ? snapshot.data() : null;
         const wallet = await walletAdapter.read(transaction, uid);
         requireValue(wallet && wallet.ownerUid === uid && walletNumber(wallet.balance), 'CORRUPT_WALLET');
-        const effect = purchaseEffect({ pet, uid, config, nowMs, action: data.action, operationId: data.operationId, adoption: data.adoption });
-        requireValue(wallet.balance >= effect.amount, 'INSUFFICIENT_FUNDS');
+        let effect;
+        try {
+          requireValue(config.version === data.expectedConfigVersion && digest(config) === data.expectedConfigHash, 'RECONFIRM_CONFIG');
+          effect = purchaseEffect({ pet, uid, config, nowMs, action: data.action, operationId: data.operationId, adoption: data.adoption });
+          requireValue(wallet.balance >= effect.amount, 'INSUFFICIENT_FUNDS');
+        } catch (error) {
+          // Only pure, pre-write business decisions become terminal refusals.
+          if (!refusalRef || !REFUSALS.has(error?.code)) throw error;
+          const refusal = { schemaVersion: 1, status: 'REFUSED', ownerUid: uid, operationId: data.operationId,
+            request: data, binding, reason: error.code, committedAtMs: nowMs };
+          transaction.set(refusalRef, refusal);
+          return { refusal, duplicate: false };
+        }
         const walletAfter = debitAfter(wallet.balance, effect.amount);
         requireValue(walletAfter !== null, 'INVALID_WALLET_DEBIT');
         const receipt = { schemaVersion: 1, status: 'COMMITTED', ownerUid: uid, operationId: data.operationId,

@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { routeSettingsUrl } from './settings-http-checks.mjs';
+import { routePaidCareUrl } from './paid-care-http-checks.mjs';
 const require = createRequire(import.meta.url);
 const { assertLocalSettingsEnvironment } = require('./settings-functions/guard.cjs');
 const { redactCredentialForLogs } = require('./settings-functions/credential.cjs');
@@ -57,6 +58,8 @@ test('actual installed CLI discovery and worker environment builders both satisf
 });
 
 test('test routing accepts exact two demo URLs only and always returns fixed loopback endpoint', () => {
+  for (const name of ['yumpalsGetPaidCareState', 'yumpalsPurchaseCare']) assert.equal(routePaidCareUrl(`https://us-central1-demo-yumpals-ownership.cloudfunctions.net/${name}`), `http://127.0.0.1:5101/demo-yumpals-ownership/us-central1/${name}`);
+  for (const url of ['https://example.com/yumpalsPurchaseCare', 'https://us-central1-demo-yumpals-ownership.cloudfunctions.net/yumpalsPurchaseCare?x=1', 'https://us-central1-demo-yumpals-ownership.cloudfunctions.net/yumpalsGetPaidSettings']) assert.throws(() => routePaidCareUrl(url));
   for (const name of ['yumpalsGetPaidSettings', 'yumpalsUpdatePaidSettings']) assert.equal(routeSettingsUrl(`https://us-central1-demo-yumpals-ownership.cloudfunctions.net/${name}`), `http://127.0.0.1:5101/demo-yumpals-ownership/us-central1/${name}`);
   for (const url of ['https://example.com/yumpalsGetPaidSettings', 'http://us-central1-demo-yumpals-ownership.cloudfunctions.net/yumpalsGetPaidSettings',
     'https://us-central1-demo-yumpals-ownership.cloudfunctions.net/yumpalsGetState', 'https://us-central1-demo-yumpals-ownership.cloudfunctions.net/yumpalsGetPaidSettings?target=live',
@@ -104,5 +107,5 @@ test('config has all five fixed ports and only verification Functions source; in
   assert.equal(lookup.status, 0); assert.ok(lookup.stdout.startsWith(path.join(ROOT, 'functions/node_modules/firebase-functions/')));
   const entry = fs.readFileSync(path.join(expected, 'index.cjs'), 'utf8');
   assert.ok(entry.indexOf('assertLocalSettingsEnvironment(process.env)') < entry.indexOf("installed('firebase-admin')"));
-  assert.equal((entry.match(/exports\./g) || []).length, 4);
+  assert.equal((entry.match(/exports\./g) || []).length, 6);
 });

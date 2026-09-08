@@ -10,6 +10,8 @@ const admin = installed('firebase-admin');
 const { onCall, HttpsError } = installed('firebase-functions/v2/https');
 const { createTeacherSettingsCallables } = installed('./src/yumpals/teacherSettingsCallables');
 const { paidSettingsRefs } = installed('./src/yumpals/paidSettingsPaths');
+const { createPaidCareCallables } = installed('./src/yumpals/paidCareCallables');
+const { createUidWalletAdapter } = installed('./src/yumpals/uidWalletAdapter');
 const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048,
   privateKeyEncoding: { type: 'pkcs8', format: 'pem' }, publicKeyEncoding: { type: 'spki', format: 'pem' } });
 const credential = redactCredentialForLogs(admin.credential.cert({ projectId: 'demo-yumpals-ownership',
@@ -30,6 +32,16 @@ try {
   exports.yumpalsUpdatePaidSettings = onCall({ region: 'us-central1' }, normal.updateSettings);
   exports.testNotReadyGetPaidSettings = onCall({ region: 'us-central1' }, blocked.getSettings);
   exports.testNotReadyUpdatePaidSettings = onCall({ region: 'us-central1' }, blocked.updateSettings);
+  const walletRefs = { mapping: uid => db.doc(`ownershipFixture/main/mappings/${uid}`),
+    publicProfile: id => db.doc(`ownershipFixture/main/public/${id}`), privateProfile: uid => db.doc(`ownershipFixture/main/private/${uid}`) };
+  const paidRefs = { config: paidSettingsRefs(db).settings, pet: uid => db.doc(`ownershipFixture/main/pets/${uid}`),
+    receipt: (uid, id) => db.doc(`ownershipFixture/main/paidReceipts/${uid}_${id}`),
+    refusal: (uid, id) => db.doc(`ownershipFixture/main/paidRefusals/${uid}_${id}`),
+    migration: uid => db.doc(`ownershipFixture/main/migrations/${uid}`) };
+  const paid = createPaidCareCallables({ db, refs: paidRefs, walletAdapter: createUidWalletAdapter({ refs: walletRefs }),
+    HttpsError, ready: () => true, now: () => Date.parse('2026-09-16T00:00:00Z') });
+  exports.yumpalsGetPaidCareState = onCall({ region: 'us-central1' }, paid.getState);
+  exports.yumpalsPurchaseCare = onCall({ region: 'us-central1' }, paid.purchase);
 } catch (error) {
   void close().catch(() => {});
   throw error;

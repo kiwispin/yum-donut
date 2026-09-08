@@ -10,6 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { verifySettingsHttp } from './settings-http-checks.mjs';
+import { verifyPaidCareHttp } from './paid-care-http-checks.mjs';
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(DIR, '../..');
@@ -21,7 +22,7 @@ const CLI = '/usr/local/bin/firebase';
 const AUTH = `http://${HOST}:${PORTS.auth}`;
 const FIRESTORE = `http://${HOST}:${PORTS.firestore}`;
 const FUNCTIONS = `http://${HOST}:${PORTS.functions}`;
-const FUNCTION_NAMES = ['yumpalsGetPaidSettings', 'yumpalsUpdatePaidSettings', 'testNotReadyGetPaidSettings', 'testNotReadyUpdatePaidSettings'];
+const FUNCTION_NAMES = ['yumpalsGetPaidSettings', 'yumpalsUpdatePaidSettings', 'testNotReadyGetPaidSettings', 'testNotReadyUpdatePaidSettings', 'yumpalsGetPaidCareState', 'yumpalsPurchaseCare'];
 let checks = 0;
 let interrupted = false;
 let child;
@@ -281,6 +282,8 @@ async function verify() {
     }
     pass('local deny-all rules reject unauthenticated, anonymous and signed-in REST access (NOT production rules)');
     await verifySettingsHttp({ db, auth, controlRefs, careRefs, walletRefs: refs, paidOperationId: purchase.data.operationId, anonymous, password, localFetch, pass });
+    const paidHttpRefs = { ...careRefs, refusal: (uid, id) => db.doc(`ownershipFixture/main/paidRefusals/${uid}_${id}`) };
+    await verifyPaidCareHttp({ db, controlRefs, careRefs: paidHttpRefs, walletRefs: refs, anonymous, password, localFetch, pass });
   } finally {
     try { if (db) await db.terminate(); }
     finally { await app.delete(); }

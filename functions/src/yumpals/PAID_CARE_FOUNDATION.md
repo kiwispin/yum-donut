@@ -1,5 +1,28 @@
 # Paid-care foundation: internal implementation, not deployed
 
+LR013 adds an internal safe handheld view, refusal-aware purchase wrapper and
+unwired pinned client/controller; see [PAID_CARE_CONNECTION.md](PAID_CARE_CONNECTION.md).
+Existing raw getState output, engine hashes and success receipts stay compatible.
+Parent's frozen-source verification passed27 local emulator groups (22 prior +
+4 paid HTTP + 1 actual-SDK injected ABORTED group), exit0, elapsed24635ms, with
+OWNERSHIP_EMULATOR_CLEANUP_PASS. Artifacts:
+`/var/folders/2d/gft75_193hj9vpjv06mb63qh0000gq/T/yumpals-ownership-verification-6ds89E`.
+The separate LR013 sentinel exited1 as intended after six definitions/readiness,
+with cleanup PASS and no verification success marker. Sentinel artifacts:
+`/var/folders/2d/gft75_193hj9vpjv06mb63qh0000gq/T/yumpals-ownership-verification-ajlA8s`.
+All five ports were independently free after the full run and sentinel. The
+successful-run inventory is firebase.json, ownership.firestore.rules,
+firestore-debug.log and isolated CLI/cache files, not a complete Functions trace.
+Parent syntax checks for all new JS/MJS/CJS and diff check passed. Final
+frontend117/117 passed454.398167ms; backend111 entries (110 cases plus fixture)
+passed395.785084ms; helper5/5 passed916.115083ms. Both lints exit0; build815ms,
+1705modules, unchanged JS864.10kB/255.89gzip CSS78.45kB/14.60gzip and existing
+warnings. These supersede interim LR013 measurements. Paid HTTP checks use real
+Auth-emulator tokens; the SDK retry group uses injected synthetic auth/ABORTED.
+Neither proves production JWT signatures or compatible live rules. Actual saved
+handheld UI, game completion and live protected shared writers remain unfinished;
+no live paid endpoints or student activation are established.
+
 LR010 adds internal teacher controls and permanent legacy-route cutover; see
 TEACHER_CONTROLS.md for the injected API, audit/replay semantics, deployment
 ordering and separate pause-history compatibility. No live endpoints or UI are
@@ -13,7 +36,8 @@ intended (exit1, no verification success). See
 for exact evidence and retained-artifact limits. Settings checks use actual
 Auth-emulator tokens and the frontend controller/transport; paid-service requests
 remain injected synthetic context. Production JWT signatures, real app login,
-deployed claims/rules and paid-pet HTTP integration are not established.
+deployed claims/rules and paid-pet HTTP integration were not established by
+LR012; the separate local LR013 HTTP evidence is recorded above, not live proof.
 Parent LR010 emulator passed 17 groups in 11258ms, exit0, with
 OWNERSHIP_EMULATOR_CLEANUP_PASS. Logs:
 `/var/folders/2d/gft75_193hj9vpjv06mb63qh0000gq/T/yumpals-ownership-verification-mTbUj2`.
