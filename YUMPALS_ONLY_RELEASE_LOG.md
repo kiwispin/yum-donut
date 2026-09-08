@@ -3,7 +3,7 @@
 ## 2026-09-08 Remove redundant return buttons
 
 - ACCEPTED: removed Back to app from both embedded YumPals views and unused icon import. Shared top navigation and device unchanged. Rollback0aa9b25.
-- Initial test80/81: obsolete assertion required removed button. Updated assertion to prevent its return as explicitly requested; final81/81 passed235.78125ms, lint0, enabled build506ms. No backend or account changes. Live verification pending.
+- Initial test80/81: obsolete assertion required removed button. Updated assertion to prevent its return as explicitly requested; final81/81 passed235.78125ms, lint0, enabled build506ms. No backend or account changes. Published20e1393; live index-OwYgp19z.js SHA256 matches validated build.
 
 ## 2026-09-08 Stable guidance space
 
