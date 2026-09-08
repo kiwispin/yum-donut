@@ -21,6 +21,9 @@ import YumPalsView from './yumpals/YumPalsView';
 import YumPalsHandheldDemo from './yumpals/YumPalsHandheldDemo';
 import YumPalsTeacherSettings from './yumpals/YumPalsTeacherSettings.jsx';
 import { createPaidSettingsTransport } from './yumpals/paidSettingsTransport.js';
+import YumPalsSavedHandheld from './yumpals/YumPalsSavedHandheld.jsx';
+import { createPaidCareTransport } from './yumpals/paidCareTransport.js';
+import { paidRoutePolicy } from './yumpals/savedHandheldPresentation.js';
 import { canShowYumPalsPreview } from './yumpals/previewGate.js';
 import {
     Trophy, Gift, Activity, MessageSquare,
@@ -533,7 +536,10 @@ const BANK_INTEREST_RATE = 0.02;
 // 3. Live Studio Configuration
 const ENABLE_LIVE_STUDIO = true;
 // YumPals callable traffic is deliberately opt-in until its scoped rules and claim setup are reviewed.
-const ENABLE_YUMPALS_CLOUD = import.meta.env.VITE_YUMPALS_CLOUD === 'enabled';
+const ENABLE_YUMPALS_PAID_CARE = import.meta.env.VITE_YUMPALS_PAID_CARE === 'enabled';
+const ENABLE_YUMPALS_CLOUD = import.meta.env.VITE_YUMPALS_CLOUD === 'enabled' && !ENABLE_YUMPALS_PAID_CARE;
+const paidCareTransport = createPaidCareTransport({ projectId: firebaseConfig.projectId,
+    enabled: ENABLE_YUMPALS_PAID_CARE, getCurrentUser: () => auth.currentUser });
 const ENABLE_YUMPALS_PAID_CONTROLS = import.meta.env.VITE_YUMPALS_PAID_CONTROLS === 'enabled';
 const paidSettingsTransport = createPaidSettingsTransport({ projectId: firebaseConfig.projectId,
     enabled: ENABLE_YUMPALS_PAID_CONTROLS, getCurrentUser: () => auth.currentUser });
@@ -1808,6 +1814,9 @@ function YumDonutDashboard() {
     const [yumpalsLoading, setYumpalsLoading] = useState(false);
     const [yumpalsError, setYumpalsError] = useState(null);
     const [yumpalsPreviewUid, setYumpalsPreviewUid] = useState(null);
+    const paidCareIdentity = useMemo(() => () => ({ uid: auth.currentUser?.uid, isAnonymous: auth.currentUser?.isAnonymous, sandbox: isSandbox }), [isSandbox]);
+    const savedYumpalsAvailable = paidRoutePolicy({ paid: ENABLE_YUMPALS_PAID_CARE, legacy: ENABLE_YUMPALS_CLOUD,
+        uid: user?.uid, authUid: auth.currentUser?.uid, anonymous: auth.currentUser?.isAnonymous, sandbox: isSandbox }).savedAvailable;
 
     const yumpalsRequestRef = useRef(0);
     const interestRunRef = useRef(null);
@@ -1869,6 +1878,9 @@ function YumDonutDashboard() {
     useEffect(() => {
         if (view === 'yumpals' && !yumpalsAvailable) setView('give');
     }, [view, yumpalsAvailable]);
+    useEffect(() => {
+        if (view === 'yumpals-saved' && !savedYumpalsAvailable) setView('give');
+    }, [view, savedYumpalsAvailable]);
 
     useEffect(() => {
         const refreshDateKey = () => {
@@ -3598,14 +3610,14 @@ function YumDonutDashboard() {
                 )}
 
                 <div className="flex overflow-x-auto justify-between border-b border-slate-200 mb-4 pb-1 no-scrollbar">
-                    {['give', 'jobs', 'arcade', 'shop', 'bank', 'training', 'goal', 'feed', 'leaderboard', ...(yumpalsAvailable ? ['yumpals'] : []), ...(yumpalsPreviewAvailable ? ['yumpals-preview'] : [])].map(tab => (
+                    {['give', 'jobs', 'arcade', 'shop', 'bank', 'training', 'goal', 'feed', 'leaderboard', ...(yumpalsAvailable ? ['yumpals'] : []), ...(savedYumpalsAvailable ? ['yumpals-saved'] : []), ...(yumpalsPreviewAvailable ? ['yumpals-preview'] : [])].map(tab => (
                         <button
                             key={tab}
                             onClick={() => setView(tab)}
                             className={`px-3 py-2 font-medium text-sm capitalize border-b-2 transition-colors whitespace-nowrap relative ${view === tab ? 'border-pink-500 text-pink-600' : 'border-transparent text-slate-500 hover:text-slate-700'
                                 }`}
                         >
-                            {tab === 'yumpals-preview' ? 'YumPals preview' : tab}
+                            {tab === 'yumpals-preview' ? 'YumPals preview' : tab === 'yumpals-saved' ? 'YumPals' : tab}
                             {tab === 'jobs' && openBountyCount > 0 && (
                                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm">
                                     {openBountyCount}
@@ -3743,6 +3755,11 @@ function YumDonutDashboard() {
                     />
                 )}
 
+                {view === 'yumpals-saved' && savedYumpalsAvailable && <section aria-label="Saved YumPals">
+                    <button type="button" className="mb-3 underline" onClick={() => setView('give')}>Back to app</button>
+                    <YumPalsSavedHandheld key={user.uid} ownerUid={user.uid} projectId={firebaseConfig.projectId}
+                        enabled={ENABLE_YUMPALS_PAID_CARE} getIdentity={paidCareIdentity} transport={paidCareTransport} />
+                </section>}
                 {view === 'yumpals-preview' && yumpalsPreviewAvailable && (
                     <section className="yumpals-embedded-preview" aria-label="YumPals pretend preview">
                         <button type="button" className="mb-3 underline text-sm" onClick={() => setView('give')}>Back to app</button>
@@ -3762,6 +3779,7 @@ function YumDonutDashboard() {
                 <NavBtn icon={Keyboard} label="Train" active={view === 'training'} onClick={() => setView('training')} />
                 <NavBtn icon={Activity} label="Feed" active={view === 'feed'} onClick={() => setView('feed')} />
                 {yumpalsAvailable && <NavBtn icon={PawPrint} label="Pals" active={view === 'yumpals'} onClick={() => setView('yumpals')} />}
+                {savedYumpalsAvailable && <NavBtn icon={PawPrint} label="Pals" active={view === 'yumpals-saved'} onClick={() => setView('yumpals-saved')} />}
             </div>
         </div>
     );
