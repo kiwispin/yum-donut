@@ -3,7 +3,7 @@
 ## 2026-09-08 Stable guidance space
 
 - REFUSED previous content-height panel: longer icon guidance moved the surrounding layout. ACCEPTED replacement: overlapping CSS grid reserves tallest actual guidance at current width/font size; hidden sizing text is aria-hidden, noninteractive and unselectable. Current guidance stays readable at14px. Both views updated; device and logic unchanged. Rollback35755f7.
-- Measured81/81 tests249.027583ms, lint0, enabled build405ms. Browser320/390/1440px both views: nine A selections each, zero change in device/panel/help position or height (54 samples). Publication pending.
+- Measured81/81 tests249.027583ms, lint0, enabled build405ms. Browser320/390/1440px both views: nine A selections each, zero change in device/panel/help position or height (54 samples). Published7531b2f; first45s propagation check expired, subsequent read confirmed exact live JS/CSS hashes (index-C37351FB.js/index-o8PciaOR.css). No repeat deployment needed.
 
 ## 2026-09-08 Instruction emphasis
 
