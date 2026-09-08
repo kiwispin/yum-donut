@@ -6,6 +6,7 @@
 - No appearance changes; CSS bundle unchanged. Exterior preservation test permits only the approved icon handler substitution while retaining exact markup comparison.
 - Tests79/79 passed234.248542ms; lint0; enabled build556ms. Browser passed five transitions: icon-click/keyboardB, choice-click/keyboardA, switch icon without backing out, hardwareB, focusedEscape. No purchase. First browser test REFUSED due to incorrect case-sensitive selector Select Meal; corrected to existing Select MEAL, no application change for that fixture mistake.
 - Existing hosting retained; no server, settings or wallet modifications.
+- Published ce5690e. Live index-B21jlPXE.js hash matches validated build. Fixture server stopped. CSS remains index-CDGfgy5U.css.
 
 ## 2026-09-08 Preview exterior integration
 
