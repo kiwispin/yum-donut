@@ -20,9 +20,9 @@ function projectOutcome(result) {
       : source.benefit.type === 'attention' ? pick(source.benefit, ['type', 'cleared']) : pick(source.benefit, ['type', 'amount']);
   return { outcome: { ...common, request, ...pick(source, ['action', 'amount', 'configVersion', 'configHash', 'walletBefore', 'walletAfter']), benefit }, duplicate: result.duplicate };
 }
-function createPaidCareCallables({ db, refs, walletAdapter, HttpsError, ready, now }) {
+function createPaidCareCallables({ db, refs, walletAdapter, HttpsError, ready, now, elapsedCare = false }) {
   requireValue(typeof refs?.refusal === 'function', 'REFUSAL_RESOLVER_REQUIRED');
-  const service = createPaidCareService({ db, refs, walletAdapter, now });
+  const service = createPaidCareService({ db, refs, walletAdapter, now, elapsedCare });
   const wrap = (method, project = value => value) => async request => {
     try {
       const uid = request?.auth?.uid; const provider = request?.auth?.token?.firebase?.sign_in_provider;

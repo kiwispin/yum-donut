@@ -182,6 +182,17 @@ export default function YumPalsHandheldDemo() {
     const gameRevealTimerRef = useRef(null);
     const operationCounterRef = useRef(0);
     const state = demoState;
+    useEffect(() => {
+        let previous = Date.now();
+        const tick = () => {
+            const now = Date.now();
+            const minutes = Math.floor((now - previous) / 60000);
+            if (minutes > 0) { previous += minutes * 60000; setDemoState(current => advanceDemoClock(current, minutes)); }
+        };
+        const timer = window.setInterval(tick, 60000);
+        window.addEventListener('focus', tick);
+        return () => { window.clearInterval(timer); window.removeEventListener('focus', tick); };
+    }, []);
     const pet = state.pet;
     const sleeping = Boolean(pet && isDemoNight(state));
     const bedtimeScheduled = Boolean(pet && (state.bedtimeDates.includes(state.dateKey) || isBedtimeSessionActive(state)));

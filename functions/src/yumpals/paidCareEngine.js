@@ -1,5 +1,6 @@
 // Additive server foundation. No client clock, wallet lookup or production exports.
 const { createHash } = require('node:crypto');
+const { initialClock, validClock, advanceElapsed } = require('./elapsedCare');
 const { isValidPersistedState, validateName, speciesById, validateCase, validateColor } = require('./rules');
 
 const PRICES = Object.freeze({ adoption: 5, meal: 2, snack: 1, game: 2, pat: 1, clean: 1, medicine: 2, bedtime: 1, reminder: 1 });
@@ -127,6 +128,7 @@ function validatePet(pet, uid) {
   const state = pet?.paidCare;
   requireValue(isValidPersistedState(pet, uid));
   requireValue(state && state.schemaVersion === 2 && state.ownerUid === uid);
+  if (state.elapsedClock !== undefined) requireValue(validClock(state.elapsedClock));
   requireValue(Object.keys(FULL).every((key) => integer(state.needs?.[key], 0, 4)));
   requireValue(typeof state.attention === 'boolean' && dayNumber(state.checkpoint) >= dayNumber(state.startedDate));
   requireValue(typeof state.historyHash === 'string' && /^[a-f0-9]{64}$/u.test(state.historyHash));
@@ -145,7 +147,8 @@ function migrateLegacyPet(legacy, uid, config, nowMs) {
   requireValue(isValidPersistedState(legacy, uid), 'INVALID_LEGACY_PET');
   const { date } = aucklandNow(nowMs);
   return { ...legacy, paidCare: { schemaVersion: 2, ownerUid: uid, startedDate: date, checkpoint: date,
-    historyHash: historyHash(config, date, date), needs: { ...FULL }, attention: false, sleepDate: null, game: null, daily: { date, spent: 0 } } };
+    historyHash: historyHash(config, date, date), needs: { ...FULL }, attention: false, sleepDate: null, game: null, daily: { date, spent: 0 },
+    ...(config.elapsedCare === true ? { elapsedClock: initialClock(nowMs) } : {}) } };
 }
 
 function advancePet(pet, uid, config, nowMs) {
@@ -159,6 +162,15 @@ function advancePet(pet, uid, config, nowMs) {
   // No silent checkpoint movement while disabled. Activation MUST include pause
   // history for the disabled interval before enabled becomes true again.
   if (!config.enabled) return pet;
+  if (config.elapsedCare === true) {
+    const advanced = advanceElapsed(state, config, nowMs, ms => aucklandNow(ms).date);
+    const checkpoint = dateKey(Math.max(dayNumber(state.checkpoint), dayNumber(date) - 1));
+    const pauses = pauseIntervals(config, dayNumber(state.startedDate) + 1, dayNumber(checkpoint));
+    return { ...pet, paidCare: { ...state, ...advanced, checkpoint,
+      historyHash: historyHash(config, state.startedDate, checkpoint),
+      ...(pauses.length || Object.hasOwn(state, 'pauseHistoryHash') ? { pauseHistoryHash: digest(pauses) } : {}),
+      daily: state.daily.date === date ? { ...state.daily } : { date, spent: 0 } } };
+  }
   const through = Math.max(dayNumber(state.checkpoint), dayNumber(date) - 1);
   const elapsed = eligibleCount(config, dayNumber(state.checkpoint) + 1, through);
   const needs = { ...state.needs };

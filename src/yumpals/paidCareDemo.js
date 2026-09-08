@@ -1,4 +1,5 @@
-import { demoDateFromKey, getAucklandDateParts, schoolDayStatus } from './yumpalsRules.js';
+import { demoDateFromKey, getAucklandDateParts } from './yumpalsRules.js';
+import { advancePreviewNeeds } from './elapsedDemo.js';
 
 export const PAID_CARE_STARTING_DONUTS = 30;
 export const PAID_CARE_ADOPTION_PRICE = 5;
@@ -55,9 +56,6 @@ function nextDateKey(dateKey) {
     return dateKeyFor(new Date(date.getTime() + 24 * 60 * 60 * 1000));
 }
 
-function localDateForKey(dateKey) {
-    return demoDateFromKey(dateKey, new Date());
-}
 
 function clampMeter(value) {
     return Math.max(0, Math.min(PAID_CARE_MAX_METERS, Number.isFinite(value) ? value : 0));
@@ -298,30 +296,17 @@ export function advanceDemoClock(state, minutes = 60) {
     const absolute = state.fakeClockMinutes + safeMinutes;
     const daysPassed = Math.floor(absolute / 1440);
     const dateKey = Array.from({ length: daysPassed }).reduce((key) => nextDateKey(key), state.dateKey);
+    const advanced = state.pet ? advancePreviewNeeds(state.pet.needs, state.elapsedNeeds, safeMinutes) : null;
     return {
         ...state,
         dateKey,
         fakeClockMinutes: absolute % 1440,
+        ...(advanced ? { elapsedNeeds: advanced.clock, pet: { ...state.pet, needs: advanced.needs } } : {}),
     };
 }
 
 export function advanceLocalDay(state) {
-    const date = localDateForKey(nextDateKey(state.dateKey));
-    const schoolDay = schoolDayStatus(date, { holidayRest: true, holidayDates: state.frozenDates }).eligible;
-    const previousNeeds = state.pet?.needs;
-    const nextNeeds = previousNeeds ? {
-        hunger: clampMeter(previousNeeds.hunger - (schoolDay ? 1 : 0)),
-        happiness: clampMeter(previousNeeds.happiness - (schoolDay ? 1 : 0)),
-        cleanliness: clampMeter(previousNeeds.cleanliness - (schoolDay ? 1 : 0)),
-        health: clampMeter(previousNeeds.health - (schoolDay && (previousNeeds.hunger === 0 || previousNeeds.cleanliness === 0) ? 1 : 0)),
-    } : null;
-    return {
-        ...state,
-        dateKey: nextDateKey(state.dateKey),
-        fakeClockMinutes: 10 * 60 + 30,
-        dailySpend: {},
-        pet: state.pet ? { ...state.pet, needs: nextNeeds, ageDays: state.pet.ageDays + (schoolDay ? 1 : 0) } : null,
-    };
+    return advanceDemoClock(state, 1440);
 }
 
 function scenarioState(state, scenario) {

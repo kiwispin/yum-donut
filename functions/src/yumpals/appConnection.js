@@ -15,7 +15,7 @@ function createAppConnection({ db, authAdmin, HttpsError, ready, now }) {
   const walletAdapter = createAppWalletAdapter({ authAdmin,
     publicProfiles: () => db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('users'),
     privateProfile: uid => db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('profile').doc('data') });
-  return { paid: createPaidCareCallables({ db, refs, walletAdapter, HttpsError, ready, now }),
+  return { paid: createPaidCareCallables({ db, refs, walletAdapter, HttpsError, ready, now, elapsedCare: true }),
     game: createSavedGameCallables({ db, refs, HttpsError, ready, now }) };
 }
 module.exports = { createAppConnection };

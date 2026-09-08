@@ -44,8 +44,12 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
     });
     instance.current = controller; void controller.start();
     const refresh = () => { if (!document.hidden) void controller.refresh(); };
+    const timer = window.setInterval(() => {
+      const current = controller.getState();
+      if (!document.hidden && !current.busy && !current.pending && !current.confirmation) void controller.refresh();
+    }, 60000);
     window.addEventListener('focus', refresh); document.addEventListener('visibilitychange', refresh);
-    return () => { alive = false; controller.dispose(); instance.current = null; window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
+    return () => { alive = false; window.clearInterval(timer); controller.dispose(); instance.current = null; window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
   }, [ownerUid, projectId, enabled, getIdentity, transport, storage, operationId]);
   useEffect(() => {
     setGameState(null);

@@ -99,7 +99,7 @@ function validateReceipt(receipt, uid, operationId) {
   }
 }
 
-function createPaidCareService({ db, refs, walletAdapter, now = Date.now }) {
+function createPaidCareService({ db, refs, walletAdapter, now = Date.now, elapsedCare = false }) {
   requireValue(db && typeof db.runTransaction === 'function' && refs && ['pet', 'receipt', 'migration', 'config'].every((key) => typeof refs[key] === 'function'), 'INVALID_DEPENDENCIES');
   requireValue(walletAdapter && typeof walletAdapter.read === 'function' && typeof walletAdapter.debit === 'function', 'TRUSTED_WALLET_ADAPTER_REQUIRED');
   requireValue(refs.refusal === undefined || typeof refs.refusal === 'function', 'INVALID_REFUSAL_REFS');
@@ -120,7 +120,8 @@ function createPaidCareService({ db, refs, walletAdapter, now = Date.now }) {
     // Per-UID trusted config resolver allows server-owned absence history.
     const snapshot = await transaction.get(refs.config(uid));
     requireValue(snapshot.exists, 'CONFIG_MISSING');
-    return validateConfig(snapshot.data());
+    const config = snapshot.data();
+    return validateConfig(elapsedCare ? { ...config, elapsedCare: true } : config);
   }
 
   return {

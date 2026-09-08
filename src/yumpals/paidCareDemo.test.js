@@ -45,7 +45,7 @@ test('paid game delivers one happiness benefit and one debit across pause, day a
     assert.equal(finished.code, 'OK');
     assert.equal(finished.complete, true);
     assert.equal(finished.state.balance, 23);
-    assert.equal(finished.state.pet.needs.happiness, 3);
+    assert.equal(finished.state.pet.needs.happiness, 2); // Two 12-hour losses, no second game reward.
     assert.equal(finished.state.receipts.filter((receipt) => receipt.action === 'game').length, 1);
     assert.equal(finished.state.receipts.find((receipt) => receipt.action === 'game').status, 'DELIVERED');
 });

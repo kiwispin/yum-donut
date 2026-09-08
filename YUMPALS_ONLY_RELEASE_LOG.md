@@ -1,5 +1,15 @@
 # YumPals-only release log
 
+## 2026-09-08 Real elapsed care timing
+
+- User approved real offline elapsed time, not monitored time or completed-school-day steps. ACCEPTED implementation: food loses1 heart/8h, happiness1/12h, clean1/24h, health1/24h only while food or cleanliness is empty. Weekends count; explicit calendar rest/holidays/absence/teacher-disabled dates remain frozen. Meters stop at0; no automatic charges/debt.
+- Server-bound elapsedCare option enabled only in live app pet connection; old internal legacy path retained. Fractional elapsed counters are saved with the pet, using server timestamps. First encounter with an existing pet preserves its needs and establishes the clock, avoiding retroactive penalties. New adoption anchors immediately. Config digest includes elapsed mode so old quotes require reconfirmation.
+- Preview uses the same intervals, tested against server needs, and catches elapsed minutes while mounted. Saved view refreshes each visible minute without interrupting pending purchases/confirmations. No graphics/CSS changed.
+- Tests128/128 backend209.086541ms, frontend80/80 in193.411959ms; lint0 both. Includes24h offline, read partition equivalence, DST, weekends, rest intervals, existing-pet preservation, disabled/re-enabled service reads, and charge-once purchase after catchup with full wallet preservation on reads.
+- Initial frontend run REFUSED old game test expecting only1 happiness loss/day; approved timing now loses2/day. Updated expectation, preserving same debit/receipt checks. Removed obsolete unused day helper after lint flagged it. No unrelated changes.
+- Real emulator34/34 passed26556ms; cleanupPASS, logs /var/folders/2d/gft75_193hj9vpjv06mb63qh0000gq/T/yumpals-ownership-verification-cJljOE. Includes actual live-connection adoption/charge replay path with new clock. Timing scenarios separately covered by service/unit tests, not claimed as production student interactions.
+- Deploy only the two YumPals state/purchase functions and enabled frontend. No setting activation, account changes, other endpoint deployments or real student charges. Existing hosting retained; rollback source9dd13cf remains available (new clock fields are additive).
+
 ## 2026-09-08 Mixed click/keyboard input correction
 
 - ACCEPTED: preview icon clicks now reset navigation to the newly selected icon, clearing old menu/action selection without a charge. A/B/C keyboard shortcuts work after clicking handheld buttons in preview and saved UI. Native Enter/Space, text inputs, modifier keys and unrelated page buttons are preserved. Saved pending/animation locks retained.
