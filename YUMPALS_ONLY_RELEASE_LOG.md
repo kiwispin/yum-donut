@@ -6,6 +6,7 @@
 - ACCEPTED for publication pending user visual feedback: app-scoped white rounded card, slate heading, pink preview badge, rounded help/settings controls, concise exterior text and styled back button. Matches existing app white-card/slate/pink vocabulary. No global restyling or saved-device changes.
 - Tests78/78 passed320.034125ms including exact handheld JSX block and original paidCareDemo.css equality against1649d82. Lint0; enabled build511ms/1713modules. Chromium fixture390/1440px passed heading/no horizontal overflow/disclosure checks; both screenshots visually inspected. Device visuals/logic unchanged; outer available width naturally responds to card padding.
 - No backend/settings/balance changes. Existing GitHub Pages hosting retained. Browser screenshots /tmp/yumpals-surround-390.png and /tmp/yumpals-surround-1440.png; fixture verification/surround.*.
+- Published47f18b5. Live JS index-CQeRx_8o.js and CSS index-CDGfgy5U.css hashes match validated local build. Fixture server stopped.
 
 ## 2026-09-08 Saved setting visibility correction
 
