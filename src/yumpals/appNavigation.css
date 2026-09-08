@@ -1,9 +1,14 @@
-.app-navigation { display: flex; align-items: center; gap: 4px; min-width: 0; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; }
-.app-navigation-track { display: flex; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; padding: 4px 0; }
-.app-navigation-track::-webkit-scrollbar { display: none; }
-.app-navigation-track > button { flex: 0 0 auto; }
-.app-navigation-arrow { display: flex; flex: 0 0 36px; align-items: center; justify-content: center; height: 44px; color: #475569; border-radius: 10px; transition: background-color .15s; }
-.app-navigation-arrow:hover:not(:disabled) { background: #fce7f3; color: #db2777; }
-.app-navigation-arrow:disabled { opacity: .2; cursor: default; }
+.app-navigation { position: relative; display: flex; align-items: center; gap: 4px; min-width: 0; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; }
+.app-navigation > button { flex: 0 0 auto; min-height: 44px; }
+.app-navigation-menu { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 14px; font-weight: 500; color: #64748b; border-bottom: 2px solid transparent; }
+.app-navigation-menu:hover { color: #334155; }
+.app-navigation-menu.is-current { color: #db2777; border-bottom-color: #ec4899; }
+.app-navigation-menu svg.is-open { transform: rotate(180deg); }
+.app-navigation-current { min-width: 0; margin-left: auto; padding-right: 8px; font-size: 12px; font-weight: 600; color: #64748b; text-transform: capitalize; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-navigation-panel { position: absolute; z-index: 30; top: calc(100% + 8px); left: 0; width: min(100%, 380px); padding: 12px; background: white; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 12px 28px rgb(15 23 42 / .12); }
+.app-navigation-caption { margin: 2px 8px 10px; font-size: 12px; font-weight: 700; color: #64748b; }
+.app-navigation-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+.app-navigation-grid > button { min-width: 0; min-height: 44px; text-align: left; white-space: normal; border: 0; border-radius: 10px; }
+.app-navigation-grid > button:hover { background: #f8fafc; }
+.app-navigation-grid > button[aria-current="page"] { color: #db2777; background: #fdf2f8; }
 .app-navigation button:focus-visible { outline: 2px solid #db2777; outline-offset: -2px; border-radius: 6px; }
-@media (prefers-reduced-motion: reduce) { .app-navigation-arrow { transition: none; } }

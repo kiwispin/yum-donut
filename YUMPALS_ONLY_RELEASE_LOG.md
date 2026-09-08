@@ -1,5 +1,12 @@
 # YumPals-only release log
 
+## 2026-09-08 Discoverable navigation menu trial
+
+- User rejected scrolling arrows and approved Give / enabled YumPals / Menu disclosure while preserving existing look. ACCEPTED for trial: existing primary buttons/font/slate/pink underline retained; remaining supplied destinations in rounded white two-column panel. Preview remains supplied only by existing admin gate. Current secondary page labelled; selection/outside/Escape dismiss with focus return. No route, backend, pet or financial changes.
+- Tests80/80 passed258.179959ms; lint0 after correcting cloneElement event focus handling that React lint misclassified as render-time ref access. Initial browser attempt refused connection because lint had prevented server startup; restarted only after correction. Initial patch rejected duplicate-path operations before any edits; reapplied as valid updates. No old scrolling/wrapping approach repeated.
+- Browser verification/menu-check.mjs passed320/390/1440px: visible Pals, menu destinations, selection closes, Escape focus, outside dismissal, no horizontal overflow. Screenshots inspected. Old verification/navigation-check.mjs describes rejected scroll design and is superseded by menu-check.mjs.
+- Enabled build530ms/1715modules; publish exact dist on existing hosting. Rollback source2a923a8 retained. Visual user acceptance pending.
+
 ## 2026-09-08 Holiday Mode clock connection
 
 - ACCEPTED: existing Holiday Mode switch now calls teacher-authorized yumpalsSetHolidayMode; global holiday flag and protected timestamped pet-rest history update atomically with replay receipt. Rest excludes exact elapsed interval, including partial hours, without needing student visits. Care/game endpoints honor live mode; normal student-access flag stays independent.

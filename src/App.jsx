@@ -4011,6 +4011,7 @@ function YumDonutDashboard() {
                     {['give', 'jobs', 'arcade', 'shop', 'bank', 'training', 'goal', 'feed', 'leaderboard', ...(yumpalsAvailable ? ['yumpals'] : []), ...(savedYumpalsAvailable ? ['yumpals-saved'] : []), ...(yumpalsPreviewAvailable ? ['yumpals-preview'] : [])].map(tab => (
                         <button
                             key={tab}
+                            data-nav-id={tab}
                             aria-current={view === tab ? 'page' : undefined}
                             onClick={() => setView(tab)}
                             className={`shrink-0 px-3 py-2 font-medium text-sm capitalize border-b-2 transition-colors whitespace-nowrap relative ${view === tab ? 'border-pink-500 text-pink-600' : 'border-transparent text-slate-500 hover:text-slate-700'
