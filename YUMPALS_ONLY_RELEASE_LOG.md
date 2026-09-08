@@ -5,6 +5,7 @@
 - REFUSED omission: student help was abbreviated despite full Preview icon guide. ACCEPTED fix: all8 illustrated icon explanations drawn from existing saved labels/help, full A/B/C and conditional game instructions, offline/holiday explanation, real wallet balance and daily care-spend/cap. No fake starting balance or invented lifetime spending; unavailable wallet explicitly labelled.
 - Frontend81/81 passed246.016583ms; lint0. Existing regression confirms pre-render behaviour, device markup and saved stylesheet unchanged. Browser actual saved fixture390/1440px verifies8 entries, real quote30 and care0/25, no demo wording/overflow; phone screenshot inspected. Game-not-ready fixture correctly uses fallback help; live guide follows existing gameReady flag.
 - No backend/accounts/settings/payment actions changed. Existing hosting retained; rollback617f5ab. User visual acceptance pending.
+- Publishedc3984a5; enabled build517ms/1715modules. Live index-bZJ5sNNw.js and index-DdF1MsIm.css hashes match validated dist. Fixture stopped.
 
 ## 2026-09-08 Saved-page surround parity
 
