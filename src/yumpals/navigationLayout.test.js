@@ -7,7 +7,8 @@ test('app navigation uses a labelled disclosure without sideways scrolling', () 
   assert.match(source, /<AppNavigation activeView=\{view\}>/);
   assert.match(source, /aria-current=\{view === tab/);
   const component = readFileSync(new URL('./AppNavigation.jsx', import.meta.url), 'utf8');
-  assert.match(component, /'give', 'yumpals', 'yumpals-saved'/);
+  assert.match(component, /'give', 'goal', 'yumpals', 'yumpals-saved', 'arcade', 'bank', 'shop'/);
+  assert.match(component, /ResizeObserver/);
   assert.match(component, /aria-expanded/);
   assert.match(component, /Explore YumDonut/);
   assert.match(component, /Escape/);

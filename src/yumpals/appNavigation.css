@@ -1,5 +1,6 @@
 .app-navigation { position: relative; display: flex; align-items: center; gap: 4px; min-width: 0; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; }
 .app-navigation > button { flex: 0 0 auto; min-height: 44px; }
+.app-navigation-measure { position: fixed; top: 0; left: -10000px; display: flex; width: max-content; visibility: hidden; pointer-events: none; contain: layout; }
 .app-navigation-menu { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 14px; font-weight: 500; color: #64748b; border-bottom: 2px solid transparent; }
 .app-navigation-menu:hover { color: #334155; }
 .app-navigation-menu.is-current { color: #db2777; border-bottom-color: #ec4899; }

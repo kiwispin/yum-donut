@@ -1,5 +1,11 @@
 # YumPals-only release log
 
+## 2026-09-08 Priority single-row trial
+
+- User approved Give / Goal / enabled YumPals / Arcade / Bank / Shop / More. ACCEPTED trial: measure actual button widths and reserve More; trailing priority items move into disclosure before less-used items. Existing fonts/colours/buttons and all original visibility gates retained. No horizontal scrolling, wrapping or route changes. Earlier two-link-only layout superseded by user direction.
+- Tests80/80 passed243.401041ms; lint0. Browser320/390/1440px passed priority row, destinations, dismissal, focus and no overflow; phone/desktop screenshots inspected. Hidden inert measurement row is inaccessible to keyboard/assistive technology.
+- Enabled build528ms/1715modules. Existing hosting retained; no backend/settings/account changes. Rollback source92fed3e retained. User visual acceptance pending.
+
 ## 2026-09-08 Discoverable navigation menu trial
 
 - User rejected scrolling arrows and approved Give / enabled YumPals / Menu disclosure while preserving existing look. ACCEPTED for trial: existing primary buttons/font/slate/pink underline retained; remaining supplied destinations in rounded white two-column panel. Preview remains supplied only by existing admin gate. Current secondary page labelled; selection/outside/Escape dismiss with focus return. No route, backend, pet or financial changes.
