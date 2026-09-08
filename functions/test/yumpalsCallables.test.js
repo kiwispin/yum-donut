@@ -1,7 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createYumPalsHandlers } = require('../src/yumpals/callables');
-const { yumPalsUserDoc } = require('../src/yumpals/paths');
+const { yumPalsUserDoc, yumPalsSettingsDoc } = require('../src/yumpals/paths');
+const { createTeacherSettingsService } = require('../src/yumpals/teacherSettingsService');
 
 class FakeHttpsError extends Error {
   constructor(code, message) {
@@ -173,6 +174,60 @@ async function completeCare(handlers, uid, operationPrefix) {
   await handlers.care(request(uid, { data: { action: 'feed', operationId: `${operationPrefix}-feed` } }));
   return handlers.care(request(uid, { data: { action: 'pat', operationId: `${operationPrefix}-pat` } }));
 }
+
+test('old routes refuse every own paidCare value before duplicate care/adoption and preserve all records', async () => {
+  const { db, handlers } = setup(); await enableYumPals(handlers); await adopt(handlers, 'student');
+  await handlers.care(request('student', { data: { action: 'feed', operationId: 'prior' } }));
+  const path = yumPalsUserDoc(db, 'student').path(); const saved = db.values.get(path);
+  for (const paidCare of [null, undefined, {}, { schemaVersion: 2 }, false]) {
+    db.values.set(path, { ...saved, paidCare });
+    const before = structuredClone([...db.values]);
+    for (const invoke of [() => handlers.getState(request('student')), () => adopt(handlers, 'student'),
+      () => handlers.care(request('student', { data: { action: 'feed', operationId: 'prior' } })),
+      () => handlers.updatePet(request('student', { data: { name: 'Changed' } }))]) {
+      await assert.rejects(invoke(), error => error.code === 'failed-precondition' && /refresh.*updated YumPals/i.test(error.message));
+      assert.deepEqual([...db.values], before);
+    }
+  }
+});
+
+test('any own raw cutover marker closes all old routes including petless adoption and teacher settings', async () => {
+  const { db, handlers } = setup(); await enableYumPals(handlers); await adopt(handlers, 'student');
+  const path = yumPalsSettingsDoc(db).path(); const saved = db.values.get(path);
+  for (const paidCareControl of [null, undefined, {}, false, { schemaVersion: 1, mode: 'paid', settingsPath: 'synthetic' }]) {
+    db.values.set(path, { ...saved, paidCareControl }); const before = structuredClone([...db.values]);
+    for (const invoke of [() => handlers.getState(request('student')), () => adopt(handlers, 'petless'),
+      () => handlers.care(request('student', { data: { action: 'feed' } })),
+      () => handlers.updatePet(request('student', { data: { name: 'Changed' } })),
+      () => enableYumPals(handlers)]) {
+      await assert.rejects(invoke(), error => error.code === 'failed-precondition' && /refresh.*updated YumPals/i.test(error.message));
+      assert.deepEqual([...db.values], before);
+    }
+  }
+});
+
+test('atomic initial cutover preserves legacy fields and forces in-flight old adoption to retry/refuse', async () => {
+  const { db, handlers } = setup(); await enableYumPals(handlers);
+  const legacyRef = yumPalsSettingsDoc(db); const original = db.values.get(legacyRef.path());
+  db.values.set(legacyRef.path(), { ...original, opaque: { __serverTimestamp: true }, unrelated: ['keep'] });
+  const newRef = db.collection('synthetic').doc('settings');
+  const wrap = ref => ({ path: ref.path(), original: ref });
+  const rawRun = db.runTransaction.bind(db);
+  const bridge = { runTransaction: cb => rawRun(t => cb({ get: ref => t.get(ref.original), set: (ref, value, options) => t.set(ref.original, value, options) })) };
+  const controls = createTeacherSettingsService({ db: bridge, refs: { settings: () => wrap(newRef), legacySettings: () => wrap(legacyRef),
+    receipt: (uid, id) => wrap(db.collection('synthetic').doc(`${uid}-${id}`)) }, now: () => Date.parse('2026-09-07T00:00:00Z') });
+  let release; const barrier = new Promise(r => { release = r; }); let reached; const ready = new Promise(r => { reached = r; }); let first = true;
+  db.runTransaction = cb => rawRun(t => cb({ get: async ref => {
+    const value = await t.get(ref);
+    if (ref.path() === legacyRef.path() && first) { first = false; reached(); await barrier; } return value;
+  }, set: (...args) => t.set(...args) }));
+  const pending = adopt(handlers, 'petless'); await ready;
+  await controls.updateSettings(request('teacher', { admin: true, data: { operationId: 'initial', expectedVersion: null, expectedSettingsHash: null, enabled: false } }));
+  release(); await assert.rejects(pending, { code: 'failed-precondition' });
+  assert.equal(db.values.has(yumPalsUserDoc(db, 'petless').path()), false);
+  assert.deepEqual(db.values.get(legacyRef.path()), { ...original, opaque: { __serverTimestamp: true }, unrelated: ['keep'], enabled: false,
+    paidCareControl: { schemaVersion: 1, mode: 'paid', settingsPath: newRef.path() } });
+});
 
 test('rejects anonymous authors, display-name admin, and arbitrary UID payloads', async () => {
   const { handlers } = setup();

@@ -42,7 +42,14 @@ function createYumPalsHandlers({ db, FieldValue, HttpsError, now = () => Date.no
 
   async function readSettings() {
     const snapshot = await yumPalsSettingsDoc(db).get();
+    assertLegacySettings(snapshot.exists ? snapshot.data() : null);
     return sanitiseSettings(snapshot.exists ? snapshot.data() : DEFAULT_SETTINGS);
+  }
+
+  function assertLegacySettings(settings) {
+    if (settings && Object.hasOwn(settings, 'paidCareControl')) {
+      throw new HttpsError('failed-precondition', 'Please refresh and use the updated YumPals.');
+    }
   }
 
   function settingsResponse(settings, request) {
@@ -77,6 +84,9 @@ function createYumPalsHandlers({ db, FieldValue, HttpsError, now = () => Date.no
   }
 
   function assertPersistedState(state, uid) {
+    if (state && Object.hasOwn(state, 'paidCare')) {
+      throw new HttpsError('failed-precondition', 'Please refresh and use the updated YumPals to care for this pet.');
+    }
     if (!isValidPersistedState(state, uid)) {
       throw new HttpsError('data-loss', 'YumPals found invalid saved pet data; nothing was changed.');
     }
@@ -166,6 +176,7 @@ function createYumPalsHandlers({ db, FieldValue, HttpsError, now = () => Date.no
           transaction.get(stateRef),
           transaction.get(settingsRef),
         ]);
+        assertLegacySettings(settingsSnapshot.exists ? settingsSnapshot.data() : null);
         const settings = sanitiseSettings(settingsSnapshot.exists ? settingsSnapshot.data() : DEFAULT_SETTINGS);
         assertEnabled(settings);
         if (current.exists) {
@@ -219,8 +230,8 @@ function createYumPalsHandlers({ db, FieldValue, HttpsError, now = () => Date.no
           transaction.get(dayRef),
           transaction.get(auditRef),
         ]);
+        assertLegacySettings(settingsSnapshot.exists ? settingsSnapshot.data() : null);
         if (!stateSnapshot.exists) throw new HttpsError('failed-precondition', 'Adopt a YumPal first.');
-
         const settings = sanitiseSettings(settingsSnapshot.exists ? settingsSnapshot.data() : DEFAULT_SETTINGS);
         assertEnabled(settings);
         const state = stateSnapshot.data();
@@ -289,6 +300,7 @@ function createYumPalsHandlers({ db, FieldValue, HttpsError, now = () => Date.no
           transaction.get(settingsRef),
           transaction.get(dayRef),
         ]);
+        assertLegacySettings(settingsSnapshot.exists ? settingsSnapshot.data() : null);
         if (!current.exists) throw new HttpsError('failed-precondition', 'Adopt a YumPal first.');
         const settings = sanitiseSettings(settingsSnapshot.exists ? settingsSnapshot.data() : DEFAULT_SETTINGS);
         assertEnabled(settings);
@@ -310,6 +322,7 @@ function createYumPalsHandlers({ db, FieldValue, HttpsError, now = () => Date.no
       const auditRef = yumPalsSettingsAuditDoc(db, `settings_${now()}_${Math.random().toString(36).slice(2, 10)}`);
       const settings = await db.runTransaction(async (transaction) => {
         const currentSnapshot = await transaction.get(settingsRef);
+        assertLegacySettings(currentSnapshot.exists ? currentSnapshot.data() : null);
         const current = sanitiseSettings(currentSnapshot.exists ? currentSnapshot.data() : DEFAULT_SETTINGS);
         const nextSettings = sanitiseSettings({ ...current, ...incoming });
         transaction.set(settingsRef, {

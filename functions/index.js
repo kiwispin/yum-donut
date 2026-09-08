@@ -1,9 +1,12 @@
 const admin = require('firebase-admin');
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
-const { defineSecret } = require('firebase-functions/params');
+const { defineSecret, defineBoolean } = require('firebase-functions/params');
 const { CloudAdapter, ConfigurationBotFrameworkAuthentication } = require('botbuilder');
 const { handleTeamsTurn } = require('./src/teamsBot');
 const { createYumPalsHandlers } = require('./src/yumpals/callables');
+const { createTeacherSettingsCallables } = require('./src/yumpals/teacherSettingsCallables');
+const { paidSettingsRefs } = require('./src/yumpals/paidSettingsPaths');
+const { createAppConnection } = require('./src/yumpals/appConnection');
 
 admin.initializeApp();
 
@@ -58,3 +61,19 @@ exports.yumpalsAdopt = onCall({ region: 'us-central1' }, yumPalsHandlers.adopt);
 exports.yumpalsCare = onCall({ region: 'us-central1' }, yumPalsHandlers.care);
 exports.yumpalsUpdatePet = onCall({ region: 'us-central1' }, yumPalsHandlers.updatePet);
 exports.yumpalsUpdateSettings = onCall({ region: 'us-central1' }, yumPalsHandlers.updateSettings);
+
+const YUMPALS_PAID_SETTINGS_READY = defineBoolean('YUMPALS_PAID_SETTINGS_READY', { default: false });
+const paidSettingsHandlers = createTeacherSettingsCallables({
+  db: admin.firestore(), refs: paidSettingsRefs(admin.firestore()), HttpsError,
+  ready: () => YUMPALS_PAID_SETTINGS_READY.value(),
+});
+exports.yumpalsGetPaidSettings = onCall({ region: 'us-central1' }, paidSettingsHandlers.getSettings);
+exports.yumpalsUpdatePaidSettings = onCall({ region: 'us-central1' }, paidSettingsHandlers.updateSettings);
+
+const YUMPALS_PAID_CARE_READY = defineBoolean('YUMPALS_PAID_CARE_READY', { default: false });
+const savedYumPals = createAppConnection({ db: admin.firestore(), authAdmin: admin.auth(), HttpsError,
+  ready: () => YUMPALS_PAID_CARE_READY.value() });
+exports.yumpalsGetPaidCareState = onCall({ region: 'us-central1' }, savedYumPals.paid.getState);
+exports.yumpalsPurchaseCare = onCall({ region: 'us-central1' }, savedYumPals.paid.purchase);
+exports.yumpalsGetSavedGame = onCall({ region: 'us-central1' }, savedYumPals.game.getGame);
+exports.yumpalsChooseSavedGame = onCall({ region: 'us-central1' }, savedYumPals.game.choose);

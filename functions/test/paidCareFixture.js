@@ -17,7 +17,7 @@ class FakeDb {
           const value = this.read(path);
           return { exists: value !== undefined, data: () => structuredClone(value) };
         },
-        set: (path, value) => { writes.set(path, structuredClone(value)); },
+        set: (path, value, options = {}) => { writes.set(path, structuredClone(options.merge ? { ...this.read(path), ...value } : value)); },
       };
       const result = await callback(transaction);
       if ([...reads].some(([path, version]) => (this.versions.get(path) || 0) !== version)) { this.conflicts += 1; continue; }
