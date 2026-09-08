@@ -1,5 +1,12 @@
 # YumPals-only release log
 
+## 2026-09-08 Preview exterior integration
+
+- User explicitly approved handheld and prohibited changing it. REFUSED old grey demo surround, mismatched typography/square controls and repetitive explanation.
+- ACCEPTED for publication pending user visual feedback: app-scoped white rounded card, slate heading, pink preview badge, rounded help/settings controls, concise exterior text and styled back button. Matches existing app white-card/slate/pink vocabulary. No global restyling or saved-device changes.
+- Tests78/78 passed320.034125ms including exact handheld JSX block and original paidCareDemo.css equality against1649d82. Lint0; enabled build511ms/1713modules. Chromium fixture390/1440px passed heading/no horizontal overflow/disclosure checks; both screenshots visually inspected. Device visuals/logic unchanged; outer available width naturally responds to card padding.
+- No backend/settings/balance changes. Existing GitHub Pages hosting retained. Browser screenshots /tmp/yumpals-surround-390.png and /tmp/yumpals-surround-1440.png; fixture verification/surround.*.
+
 ## 2026-09-08 Saved setting visibility correction
 
 - REFUSED previous visibility: build readiness/auth eligibility alone displayed the saved activity even when school setting was off. Server charge enforcement remained separate; no change to payment logic.

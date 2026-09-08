@@ -23,6 +23,7 @@ import { paidRoutePolicy } from './yumpals/savedHandheldPresentation.js';
 import { synchronizePetWallet } from './yumpals/syncWallet.js';
 import { canShowYumPalsPreview } from './yumpals/previewGate.js';
 import AppNavigation from './yumpals/AppNavigation.jsx';
+import './yumpals/appSurround.css';
 import { useSavedVisibility } from './yumpals/useSavedVisibility.js';
 import {
     Trophy, Gift, Activity, MessageSquare,
@@ -4160,8 +4161,7 @@ function YumDonutDashboard() {
                 </section>}
                 {view === 'yumpals-preview' && yumpalsPreviewAvailable && (
                     <section className="yumpals-embedded-preview" aria-label="YumPals pretend preview">
-                        <button type="button" className="mb-3 underline text-sm" onClick={() => setView('give')}>Back to app</button>
-                        <p className="text-sm text-slate-600 mb-3">Pretend donuts only. Your real donuts stay untouched. This temporary pet resets when you leave the preview.</p>
+                        <button type="button" className="mb-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50" onClick={() => setView('give')}><ArrowLeft size={16} />Back to app</button>
                         <YumPalsHandheldDemo key={user.uid} />
                     </section>
                 )}

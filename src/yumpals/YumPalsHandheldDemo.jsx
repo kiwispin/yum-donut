@@ -460,14 +460,13 @@ export default function YumPalsHandheldDemo() {
             <section className="paid-demo-page" aria-label="YumPals pet care demo">
                 <header className="paid-demo-header">
                     <div>
-                        <p className="paid-demo-kicker">YUMPALS</p>
-                        <h1>Handheld care demo</h1>
-                        <p>Try caring for a pal · pretend donuts only</p>
+                        <h1>YumPals</h1>
+                        <p>A little pal to care for each day.</p>
                     </div>
-                    <span className="paid-demo-badge">DEMO</span>
+                    <span className="paid-demo-badge">Preview · pretend donuts</span>
                 </header>
 
-                <p className="paid-demo-warning">This is a temporary demo with pretend donuts. Your real donuts and saved pet stay unchanged. Refreshing starts over. You can pause and resume a game while this page stays open.</p>
+                <p className="paid-demo-warning">Try it out safely—your real donuts and saved pet won’t change. This preview starts over when you leave or refresh.</p>
 
                 <div className="paid-demo-device-wrap">
                     <div className={`paid-demo-device ${sleeping ? 'is-sleeping' : ''}`}>
@@ -550,11 +549,11 @@ export default function YumPalsHandheldDemo() {
                     <p>Your pal starts fed, happy, clean and healthy. To try care, open Demo controls below and choose Needs care. During the game, follow the left/right instructions inside the screen; C CANCEL pauses and you can resume without paying again.</p>
                 </details>
 
-                <button className="paid-demo-utility" onClick={() => setScreen('settings')} type="button">Settings · less movement (free)</button>
+                <button className="paid-demo-utility" onClick={() => setScreen('settings')} type="button">Movement settings</button>
 
                 <details className="paid-demo-inspector">
-                    <summary>Demo controls · needs, school day and fake clock</summary>
-                    <p>Testing controls stay outside the toy. They change local state only and are deliberately labelled; the normal handheld does not expose them.</p>
+                    <summary>Try different situations</summary>
+                    <p>See how your pal responds to hunger, bedtime or a new day. These controls only affect your preview.</p>
                     <label htmlFor="paid-demo-scenario">Scenario</label>
                     <select id="paid-demo-scenario" onChange={selectScenario} value={state.scenario}>
                         <option value="post-adoption">Post-adoption · full needs</option>
