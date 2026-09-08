@@ -23,6 +23,7 @@ import { paidRoutePolicy } from './yumpals/savedHandheldPresentation.js';
 import { synchronizePetWallet } from './yumpals/syncWallet.js';
 import { canShowYumPalsPreview } from './yumpals/previewGate.js';
 import AppNavigation from './yumpals/AppNavigation.jsx';
+import { useSavedVisibility } from './yumpals/useSavedVisibility.js';
 import {
     Trophy, Gift, Activity, MessageSquare,
     LogOut, UserPlus, Heart, Zap, Search, CheckCircle, Target, Sparkles,
@@ -1816,8 +1817,10 @@ function YumDonutDashboard() {
     const [yumpalsError, setYumpalsError] = useState(null);
     const [yumpalsPreviewUid, setYumpalsPreviewUid] = useState(null);
     const paidCareIdentity = useMemo(() => () => ({ uid: auth.currentUser?.uid, isAnonymous: auth.currentUser?.isAnonymous, sandbox: isSandbox }), [isSandbox]);
-    const savedYumpalsAvailable = paidRoutePolicy({ paid: ENABLE_YUMPALS_PAID_CARE, legacy: ENABLE_YUMPALS_CLOUD,
+    const savedYumpalsEligible = paidRoutePolicy({ paid: ENABLE_YUMPALS_PAID_CARE, legacy: ENABLE_YUMPALS_CLOUD,
         uid: user?.uid, authUid: auth.currentUser?.uid, anonymous: auth.currentUser?.isAnonymous, sandbox: isSandbox }).savedAvailable;
+    const savedYumpalsAvailable = useSavedVisibility({ eligible: savedYumpalsEligible, uid: user?.uid,
+        transport: paidCareTransport, refreshKey: isAdminSettingsOpen });
 
     const yumpalsRequestRef = useRef(0);
 

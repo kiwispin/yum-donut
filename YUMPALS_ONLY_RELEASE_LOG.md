@@ -1,5 +1,12 @@
 # YumPals-only release log
 
+## 2026-09-08 Saved setting visibility correction
+
+- REFUSED previous visibility: build readiness/auth eligibility alone displayed the saved activity even when school setting was off. Server charge enforcement remained separate; no change to payment logic.
+- ACCEPTED: saved navigation/content now additionally requires an account-bound enabled server read. Unknown, off, error, guest or mismatched account hides it. Preview remains independent. Confirmed teacher-setting responses trigger a fresh read; settings open/close, foreground return and visible-page60s refresh reconcile other sessions. Existing route guard exits a hidden activity.
+- Tests77/77 passed251.895334ms; lint0; enabled build820ms/1712modules. Browser hook fixture passed both-off, preview-only, saved-on, saved-off transitions. Synthetic fixture only, no live setting toggles or wallets touched. Saved setting can take up to60s to disappear on another already-open foreground session; server continues enforcing charges independently.
+- Existing GitHub Pages hosting retained. Only frontend visibility wiring, tests and this log changed; no backend deployment or database writes.
+
 ## 2026-09-08 Single-row navigation refinement
 
 - REFUSED by user: previous wrapping layout. Do not repeat it; technically resolved clipping but lacked visual polish.

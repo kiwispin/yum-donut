@@ -19,6 +19,9 @@ export default function YumPalsTeacherSettings({ ownerUid, projectId, enabled = 
     return () => { instance.dispose(); controller.current = null; };
   }, [ownerUid, projectId, enabled, getIdentity, transport, storage, operationId]);
   const locked = state.busy || state.pending || !state.quote || state.status !== 'ready';
+  useEffect(() => {
+    if (state.quote) window.dispatchEvent(new Event('yumpals-settings-confirmed'));
+  }, [state.quote]);
   return <section aria-labelledby={`${id}-title`} className="space-y-3 text-sm text-slate-700">
     <h3 id={`${id}-title`} className="font-bold text-pink-700">YumPals for students</h3>
     <p>Disabling YumPals stops new care charges and lets pets rest. Their saved pets and donuts stay safe.</p>
