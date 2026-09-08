@@ -30,7 +30,7 @@ export function createPaidSettingsTransport({ projectId, enabled, getCurrentUser
     const timeout = new Promise((_, reject) => { timer = setTimeout(() => { abort.abort(); reject(error()); }, timeoutMs); });
     try {
       // getIdToken belongs to this exact user object; never reselect auth.currentUser.
-      const token = await Promise.race([captured.getIdToken(), timeout]);
+      const token = await Promise.race([captured.getIdToken(true), timeout]);
       if (!stillCurrent() || abort.signal.aborted) throw error('UNAUTHENTICATED');
       if (typeof token !== 'string' || !token || /[\r\n]/u.test(token)) throw error();
       const url = `https://us-central1-${projectId}.cloudfunctions.net/${name}`;

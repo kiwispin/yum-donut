@@ -5,7 +5,7 @@ const deferred = () => { let resolve; let reject; const promise = new Promise((a
 const reply = (body, status = 200) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
 function fixture(options = {}) {
   const f = { tokens: 0, requests: [], active: true };
-  f.user = { uid: 'a', isAnonymous: false, getIdToken: async () => { f.tokens++; return 'synthetic-token'; } };
+  f.user = { uid: 'a', isAnonymous: false, getIdToken: async forceRefresh => { assert.equal(forceRefresh, true); f.tokens++; return 'synthetic-token'; } };
   f.fetch = async (...args) => { f.requests.push(args); return reply({ result: { checked: true } }); };
   f.transport = createPaidSettingsTransport({ projectId: 'demo-settings-fixture', enabled: true, getCurrentUser: () => f.user, fetchImpl: (...args) => f.fetch(...args), ...options });
   f.context = { ownerUid: 'a', isActive: () => f.active };
