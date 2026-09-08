@@ -1,5 +1,11 @@
 # YumPals-only release log
 
+## 2026-09-08 Instruction emphasis
+
+- ACCEPTED implementation: shared exterior instruction panel uses pale pink, stronger text and a subtle left accent (not a clickable button), with32px top spacing. Both Preview and student views covered; device/behaviour untouched. Rollback a3c0499. No refused approaches repeated; user visual acceptance pending.
+- Measured frontend81/81 in259.4655ms; lint0; enabled build416ms/1715modules. Browser4/4 at390/1440px in both views confirms32px spacing, pink background,600 font weight, paragraph semantics and no horizontal overflow. Mobile screenshot visually inspected.
+- Publication verification pending.
+
 ## 2026-09-08 Full student guide and real care summary
 
 - REFUSED omission: student help was abbreviated despite full Preview icon guide. ACCEPTED fix: all8 illustrated icon explanations drawn from existing saved labels/help, full A/B/C and conditional game instructions, offline/holiday explanation, real wallet balance and daily care-spend/cap. No fake starting balance or invented lifetime spending; unavailable wallet explicitly labelled.

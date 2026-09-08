@@ -4,7 +4,7 @@
 .yumpals-embedded-saved .saved-handheld > p,
 .yumpals-embedded-saved .saved-handheld > details,
 .yumpals-embedded-saved .saved-utilities { max-width: 520px; }
-.yumpals-embedded-saved .saved-help { min-height: 0; margin: 24px auto 16px; }
+.yumpals-embedded-saved .saved-help { min-height: 0; }
 .yumpals-embedded-saved .saved-utilities { justify-content: center; }
 .yumpals-embedded-saved .saved-handheld > p[role="status"]:empty { display: none; }
 .yumpals-embedded-saved .saved-handheld > p[role="status"] { color: #64748b; font-size: 14px; line-height: 1.6; }
@@ -22,7 +22,7 @@
 :is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-warning { color: #64748b; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 16px; font-size: 13px; line-height: 1.6; text-align: center; }
 :is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-meta { font-family: inherit; font-size: 11px; color: #64748b; gap: 8px; margin-top: 24px; }
 :is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-meta span { background: #f8fafc; border-radius: 8px; padding: 6px 8px; }
-:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-hint { font-size: 14px; color: #64748b; line-height: 1.6; margin-top: 12px; }
+:is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-hint { max-width: 520px; margin: 32px auto 20px; padding: 14px 20px; border-left: 3px solid #f9a8d4; border-radius: 12px; background: #fdf2f8; font-size: 14px; font-weight: 600; color: #9d174d; line-height: 1.6; text-align: center; }
 :is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-inspector { font-family: inherit; background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; font-size: 14px; color: #64748b; }
 :is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-inspector summary { color: #334155; font-weight: 700; }
 :is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-inspector label { font-size: 12px; text-transform: none; letter-spacing: normal; }
