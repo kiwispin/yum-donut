@@ -4,7 +4,7 @@
 
 - ACCEPTED implementation: shared exterior instruction panel uses pale pink, stronger text and a subtle left accent (not a clickable button), with32px top spacing. Both Preview and student views covered; device/behaviour untouched. Rollback a3c0499. No refused approaches repeated; user visual acceptance pending.
 - Measured frontend81/81 in259.4655ms; lint0; enabled build416ms/1715modules. Browser4/4 at390/1440px in both views confirms32px spacing, pink background,600 font weight, paragraph semantics and no horizontal overflow. Mobile screenshot visually inspected.
-- Publication verification pending.
+- Published cfe4311. ACCEPTED live verification: index-Bw_nDFMF.js and index-ieOdXvu7.css downloaded hashes exactly match validated build. No backend or live account changes.
 
 ## 2026-09-08 Full student guide and real care summary
 
