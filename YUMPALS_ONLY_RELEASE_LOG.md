@@ -6,6 +6,7 @@
 - Only explicitly approved handleHolidayToggle exempted from baseline handler equality test. All other action comparisons retained. No unrelated account/financial changes. Unknown legacy switch/history disagreement freezes pet access; next teacher toggle reconciles conservatively, avoiding holiday penalties.
 - Backend130/130 passed228.375916ms; frontend80/80 passed205.671959ms; lint0. Tests cover atomic abort, replay after opposite toggle, teacher permission, field preservation, exact offline interval and legacy flag mismatch. Emulator34/34 passed25655ms/cleanupPASS, logs /var/folders/2d/gft75_193hj9vpjv06mb63qh0000gq/T/yumpals-ownership-verification-R7wXNY. New callable transaction tested synthetically; no live Holiday Mode toggles claimed.
 - Enabled frontend build575ms/1715modules. Existing hosting retained. Deploy new holiday callable and four existing pet/game endpoints only. No teacher settings endpoint, bank/gift endpoint or rules deployment. Rollback sourcef0b3edc retained; database histories must not be rolled back.
+- COMPLETE source51ffc2c: all five selected deployments succeeded. New live holiday endpoint rejects unauthenticated403 without mutation. Live index-BiXkg699.js hash matches validated build. Existing Holiday Mode value left unchanged; no signed-in production toggle performed.
 
 ## 2026-09-08 Real elapsed care timing
 
