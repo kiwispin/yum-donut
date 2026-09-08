@@ -1,0 +1,9 @@
+.app-navigation { display: flex; align-items: center; gap: 4px; min-width: 0; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; }
+.app-navigation-track { display: flex; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; padding: 4px 0; }
+.app-navigation-track::-webkit-scrollbar { display: none; }
+.app-navigation-track > button { flex: 0 0 auto; }
+.app-navigation-arrow { display: flex; flex: 0 0 36px; align-items: center; justify-content: center; height: 44px; color: #475569; border-radius: 10px; transition: background-color .15s; }
+.app-navigation-arrow:hover:not(:disabled) { background: #fce7f3; color: #db2777; }
+.app-navigation-arrow:disabled { opacity: .2; cursor: default; }
+.app-navigation button:focus-visible { outline: 2px solid #db2777; outline-offset: -2px; border-radius: 6px; }
+@media (prefers-reduced-motion: reduce) { .app-navigation-arrow { transition: none; } }

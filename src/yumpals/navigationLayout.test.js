@@ -2,12 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-test('app navigation wraps complete labels instead of hiding the preview offscreen', () => {
+test('app navigation has a single scrollable row with explicit controls and active item visibility', () => {
   const source = readFileSync(new URL('../App.jsx', import.meta.url), 'utf8');
-  const nav = source.match(/<div className="([^"]+)" aria-label="App navigation">([\s\S]*?)<\/div>/);
-  assert.ok(nav);
-  assert.ok(nav[1].split(' ').includes('flex-wrap'));
-  assert.doesNotMatch(nav[1], /overflow-x-auto|no-scrollbar/);
-  assert.match(nav[2], /shrink-0/);
-  assert.match(nav[2], /YumPals preview/);
+  assert.match(source, /<AppNavigation activeView=\{view\}>/);
+  assert.match(source, /aria-current=\{view === tab/);
+  const component = readFileSync(new URL('./AppNavigation.jsx', import.meta.url), 'utf8');
+  assert.match(component, /Show more navigation items/);
+  assert.match(component, /Show previous navigation items/);
+  assert.match(component, /ResizeObserver/);
+  assert.match(component, /prefers-reduced-motion/);
+  const css = readFileSync(new URL('./appNavigation.css', import.meta.url), 'utf8');
+  assert.doesNotMatch(css, /flex-wrap/);
+  assert.match(css, /overflow-x: auto/);
 });

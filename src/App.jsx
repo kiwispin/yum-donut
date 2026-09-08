@@ -22,6 +22,7 @@ import { createSavedGameTransport } from './yumpals/savedGameTransport.js';
 import { paidRoutePolicy } from './yumpals/savedHandheldPresentation.js';
 import { synchronizePetWallet } from './yumpals/syncWallet.js';
 import { canShowYumPalsPreview } from './yumpals/previewGate.js';
+import AppNavigation from './yumpals/AppNavigation.jsx';
 import {
     Trophy, Gift, Activity, MessageSquare,
     LogOut, UserPlus, Heart, Zap, Search, CheckCircle, Target, Sparkles,
@@ -4002,10 +4003,11 @@ function YumDonutDashboard() {
                     </div>
                 )}
 
-                <div className="flex flex-wrap gap-x-1 gap-y-1 border-b border-slate-200 mb-4 pb-1" aria-label="App navigation">
+                <AppNavigation activeView={view}>
                     {['give', 'jobs', 'arcade', 'shop', 'bank', 'training', 'goal', 'feed', 'leaderboard', ...(yumpalsAvailable ? ['yumpals'] : []), ...(savedYumpalsAvailable ? ['yumpals-saved'] : []), ...(yumpalsPreviewAvailable ? ['yumpals-preview'] : [])].map(tab => (
                         <button
                             key={tab}
+                            aria-current={view === tab ? 'page' : undefined}
                             onClick={() => setView(tab)}
                             className={`shrink-0 px-3 py-2 font-medium text-sm capitalize border-b-2 transition-colors whitespace-nowrap relative ${view === tab ? 'border-pink-500 text-pink-600' : 'border-transparent text-slate-500 hover:text-slate-700'
                                 }`}
@@ -4018,7 +4020,7 @@ function YumDonutDashboard() {
                             )}
                         </button>
                     ))}
-                </div>
+                </AppNavigation>
 
                 {view === 'give' && (
                     <GiveView

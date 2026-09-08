@@ -1,5 +1,13 @@
 # YumPals-only release log
 
+## 2026-09-08 Single-row navigation refinement
+
+- REFUSED by user: previous wrapping layout. Do not repeat it; technically resolved clipping but lacked visual polish.
+- ACCEPTED for publication, pending user design feedback: single-line navigation with explicit previous/next controls, disabled end states, touch scrolling, visible keyboard focus, reduced-motion support and automatic selected-item visibility. Only navigation presentation changed.
+- Tests76/76 passed326.767708ms; lint0; enabled build817ms/1711modules. Actual component browser fixture passed at390/768/1440px: one row, arrows reach entire preview label, preview selectable. Screenshots inspected at390 and1440. No real account interaction or payment.
+- Initial browser launch failed because bundled Playwright expected an absent browser version; used existing installed Chromium1228 explicitly, with all three viewport checks passing. No installation or app change for that failure.
+- Reproducible isolated fixture and browser check retained in verification/navigation*. No cloud connections. Existing hosting retained; source and database scope unchanged outside navigation.
+
 ## 2026-09-08 Preview navigation clipping
 
 - ACCEPTED: replace hidden horizontal navigation overflow with wrapping rows; prevent individual labels shrinking. Full YumPals preview label retained. No action handlers, backend, settings or balances changed.
