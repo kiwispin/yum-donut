@@ -20,3 +20,9 @@ Scope: hide the empty pink queue-status and yellow saved-sync chrome without col
 - `:empty` alone was refused because the sync paragraph intentionally contains a non-breaking-space placeholder, so it is not empty. Explicit state classes make the visual rule reliable.
 - Removing the panels or setting `display:none` was refused because it collapses the reserved space and moves the controls/layout. Transparent visual properties preserve the existing box model instead.
 - No blockers remain. This narrow fix is ready for parent review; no commit or deployment was made in this worker turn.
+
+## Independent parent acceptance
+
+- Parent independently reran the frontend suite: **106/106 passed** in 2.66s, with the enabled production build exiting 0.
+- Parent independently reran the browser harness: at 390px, first-care animation was 49ms and second confirmation 22ms; at 1440px, first-care animation was 52ms and second confirmation 23ms. Empty/populated computed-style assertions and fixed-bound assertions passed at both widths.
+- Parent accepted source commit `9ea8545`. Live verification passed at [https://kiwispin.github.io/yum-donut/](https://kiwispin.github.io/yum-donut/): it serves `index-B1gOc4Hn.js` and `index-DIxHyvv-.css`, and downloaded SHA-256 values for both match the local tested build. Empty-status rollout is verified.
