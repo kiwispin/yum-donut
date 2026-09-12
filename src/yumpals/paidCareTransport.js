@@ -5,7 +5,8 @@ const failure = (reason = 'UNAVAILABLE') => Object.assign(new Error('Your reques
 // HTTP failures never provide terminal purchase proof. Only normal validated
 // receipt/refusal outcomes can release a purchase journal.
 export function createPaidCareTransport({ projectId, enabled, getCurrentUser, fetchImpl = (...args) => fetch(...args), timeoutMs = 15000 }) {
-  return async (name, data, context) => {
+  let warm = null;
+  const transport = async (name, data, context) => {
     if (enabled !== true) throw failure('ROLLOUT_NOT_READY');
     if (typeof projectId !== 'string' || !/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/u.test(projectId) || !NAMES.includes(name)
       || !plain(data) || !Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 60000) throw failure();
@@ -15,6 +16,7 @@ export function createPaidCareTransport({ projectId, enabled, getCurrentUser, fe
       && typeof context.isActive === 'function' && context.isActive() === true
       && getCurrentUser() === captured && captured?.uid === context.ownerUid && captured.isAnonymous === false;
     if (!current()) throw failure('UNAUTHENTICATED');
+    if (name === 'yumpalsPurchaseCare') warm = null;
     const abort = new AbortController(); let timer;
     const timeout = new Promise((_, reject) => { timer = setTimeout(() => { abort.abort(); reject(failure()); }, timeoutMs); });
     try {
@@ -38,10 +40,14 @@ export function createPaidCareTransport({ projectId, enabled, getCurrentUser, fe
         throw failure();
       }
       if (!response.ok || !Object.hasOwn(body, 'result')) throw failure();
+      if (current() && name === 'yumpalsGetPaidCareState') warm = { user: captured, at: Date.now(), value: structuredClone(body.result) };
       return body.result;
     } catch (error) {
       const reason = error?.details?.reason;
       throw failure(typeof reason === 'string' && ['UNAUTHENTICATED', 'PERMISSION_DENIED', 'ROLLOUT_NOT_READY', 'MIGRATION_REQUIRED'].includes(reason) ? reason : 'UNAVAILABLE');
     } finally { clearTimeout(timer); }
   };
+  transport.peek = ownerUid => warm && enabled === true && getCurrentUser() === warm.user && warm.user?.uid === ownerUid
+    && !warm.user.isAnonymous && Date.now() - warm.at < 10000 ? structuredClone(warm.value) : null;
+  return transport;
 }

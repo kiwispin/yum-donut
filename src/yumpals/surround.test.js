@@ -11,12 +11,11 @@ test('outside polish preserves handheld markup and original device stylesheet ex
  assert.equal(device(after).replaceAll('onSelect={chooseIcon}', 'onSelect={setSelectedIcon}'),device(before));
  assert.equal(readFileSync('src/yumpals/paidCareDemo.css','utf8'),execFileSync('git',['show','1649d82:src/yumpals/paidCareDemo.css'],{encoding:'utf8'}));
 });
-test('saved surround polish leaves device markup and all pre-render behaviour unchanged', () => {
+test('saved surround preserves device artwork; background-save copy is the only device markup change', () => {
  const path='src/yumpals/YumPalsSavedHandheld.jsx';
  const before=execFileSync('git',['show',`821d951:${path}`],{encoding:'utf8'});
  const after=readFileSync(path,'utf8');
  const device=s=>s.slice(s.indexOf('<div className="paid-demo-device"'),s.indexOf('<p className="saved-help'));
- assert.equal(device(after),device(before));
- assert.equal(after.slice(0,after.indexOf('return <section className="paid-demo-shell')),before.slice(0,before.indexOf('return <section className="paid-demo-shell')));
+ assert.equal(device(after).replace('Saving in the background. C to return.', "{sameOwner && state.pending ? 'Purchase needs checking below.' : 'Review your choices. C CANCEL to return.'}"),device(before));
  assert.equal(readFileSync('src/yumpals/savedHandheld.css','utf8'),execFileSync('git',['show','821d951:src/yumpals/savedHandheld.css'],{encoding:'utf8'}));
 });

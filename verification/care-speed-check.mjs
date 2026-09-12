@@ -15,7 +15,7 @@ try {
     page.on('pageerror', e => errors.push(e.message));
     await page.route('**/__speed-api/*', async route => {
       const method = route.request().url().endsWith('yumpalsPurchaseCare') ? 'purchase' : 'getState'; calls.push(method);
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, method === 'purchase' ? 10000 : 300));
       const result = await api[method](request('student-a', route.request().postDataJSON().data));
       await route.fulfill({ json: { result } });
     });
@@ -33,6 +33,15 @@ try {
       console.log({ calls, text: await page.locator('body').innerText(), errors }); throw error;
     });
     const startEatingMs = Math.round(performance.now() - start);
+    assert.ok(startEatingMs < 250, `Local animation took ${startEatingMs}ms`);
+    assert.ok(await page.locator('.saved-top').getByText('30 DONUTS').isVisible(), 'No unconfirmed debit shown');
+    await page.waitForFunction(() => !document.querySelector('.saved-blob')?.getAttribute('data-frame-key')?.includes('feed'));
+    await page.keyboard.press('a');
+    assert.equal(await page.getByRole('button', { name: 'Lights', exact: true }).getAttribute('aria-pressed'), 'true');
+    await button.click();
+    assert.ok(await page.locator('.saved-choices').isVisible(), 'Menus work during ten-second payment delay');
+    await button.click(); assert.deepEqual(calls, ['getState', 'purchase']);
+    await page.keyboard.press('c');
     await page.locator('.saved-top').getByText('28 DONUTS').waitFor();
     assert.deepEqual(calls, ['getState', 'purchase']);
     await page.waitForFunction(() => !document.querySelector('.saved-blob')?.getAttribute('data-frame-key')?.includes('feed'));

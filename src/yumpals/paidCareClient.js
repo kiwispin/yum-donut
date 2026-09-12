@@ -92,8 +92,9 @@ function readErrorMessage(error) {
   return `${typeof reason === 'string' && Object.hasOwn(messages, reason) ? messages[reason] : 'Your pal could not be checked. Please refresh.'} Any pending purchase is kept.`;
 }
 export function createPaidCareController({ ownerUid, projectId, enabled, getIdentity, transport, storage, operationId,
-  onChange = () => {}, onConfirmed = () => {} }) {
+  onChange = () => {}, onConfirmed = () => {}, onQueued = () => {}, autoRecover = false }) {
   let active = true; let busy = false; let pending = null; let raw = null; let blocked = false;
+  let recoveryTimer; let recoveryCount = 0;
   let state = { quote: null, confirmation: null, pending: false, busy: false, storageBlocked: false, message: '' };
   const key = paidCareJournalKey(projectId, ownerUid);
   const current = () => { const i = getIdentity(); return active && enabled === true && typeof ownerUid === 'string' && ownerUid.length > 0
@@ -135,13 +136,19 @@ export function createPaidCareController({ ownerUid, projectId, enabled, getIden
       }
       if (!current() || !matches()) return;
       try { storage.removeItem(key); } catch { storageError(); return; }
-      pending = null; raw = null; emit({ pending: false, quote: confirmedView, message: confirmedView ? '' : state.message });
+      pending = null; raw = null; recoveryCount = 0; emit({ pending: false, quote: confirmedView || state.quote, message: confirmedView ? '' : state.message });
       if (original && !response.duplicate && outcome.status === 'COMMITTED') {
         try { onConfirmed(outcome); } catch { /* Presentation cannot undo or obscure a confirmed purchase. */ }
       }
       if (!confirmedView) await read(outcome.status === 'REFUSED' ? refusalMessage(outcome) : 'Purchase confirmed.');
-    } catch { emit({ quote: null, message: 'We could not confirm your purchase. It is kept here. Use Retry purchase to check it before buying again.' }); }
-    finally { busy = false; emit({ busy: false }); }
+    } catch { emit({ message: autoRecover ? 'Still saving. You can explore while we reconnect.' : 'We could not confirm your purchase. It is kept here. Use Retry purchase to check it before buying again.' }); }
+    finally {
+      busy = false; emit({ busy: false });
+      if (autoRecover && current() && pending && !blocked && recoveryCount < 3) {
+        clearTimeout(recoveryTimer);
+        recoveryTimer = setTimeout(() => { if (current()) void dispatch(false); }, [1000, 3000, 8000][recoveryCount++]);
+      }
+    }
   }
   return {
     getState: () => structuredClone(state),
@@ -156,7 +163,10 @@ export function createPaidCareController({ ownerUid, projectId, enabled, getIden
           pending = saved; emit({ pending: true });
         }
       } catch { storageError(); return; }
-      await refresh();
+      const warm = transport.peek?.(ownerUid);
+      if (warm && current()) emit({ quote: validateHandheldView(warm, ownerUid) });
+      if (pending && autoRecover) await dispatch(false);
+      else if (!warm) await refresh();
     },
     prepare: (action, adoption) => {
       if (!current()) { showBlocked(); return; }
@@ -184,8 +194,10 @@ export function createPaidCareController({ ownerUid, projectId, enabled, getIden
         if (storage.getItem(key) !== serialized) { storageError(); return; }
       } catch { storageError(); return; }
       if (!current()) return;
-      pending = saved; raw = serialized; emit({ pending: true }); await dispatch(true);
+      pending = saved; raw = serialized; emit({ pending: true });
+      try { onQueued({ action: c.action, operationId: request.operationId }); } catch { /* Presentation cannot prevent journal recovery. */ }
+      await dispatch(true);
     },
-    retry: () => dispatch(false), refresh, dispose: () => { active = false; },
+    retry: () => dispatch(false), refresh, dispose: () => { active = false; clearTimeout(recoveryTimer); },
   };
 }
