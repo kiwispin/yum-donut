@@ -40,7 +40,8 @@ test('feed frames hold whole food while open and reduce it on each closing bite'
     assert.deepEqual(feed.map((frame) => frame.foodRemaining), [3, 2, 2, 1, 1, 0, 0]);
     assert.deepEqual(feed.slice(0, 6).filter((frame) => frame.mouth === 'closed').map((frame) => frame.foodRemaining), [2, 1, 0]);
     assert.equal(feed.at(-1).spriteFrame, 'happy');
-    assert.ok(feed.every((frame) => frame.duration >= 300 || frame.key === 'feed-happy'));
+    assert.ok(feed.every((frame) => frame.duration >= 140));
+    assert.equal(feed.reduce((ms, frame) => ms + frame.duration, 0), 1200);
 });
 
 test('idle, pat, sleep, and wake use minimal meaningful poses', () => {

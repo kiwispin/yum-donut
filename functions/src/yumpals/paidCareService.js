@@ -100,6 +100,21 @@ function validateReceipt(receipt, uid, operationId) {
   }
 }
 
+function projectHandheldState(uid, config, nowMs, next, wallet) {
+  const clock = aucklandNow(nowMs);
+  const projected = next ? {
+    name: next.name, species: next.species, casing: next.casing, color: next.color,
+    reducedMotion: next.reducedMotion, careDays: next.careDays, earnedMilestones: [...next.earnedMilestones],
+    needs: Object.fromEntries(['hunger', 'happiness', 'cleanliness', 'health'].map(key => [key, next.paidCare.needs[key]])), daily: { date: next.paidCare.daily.date, spent: next.paidCare.daily.spent },
+    sleepDate: next.paidCare.sleepDate, attention: next.paidCare.attention,
+    game: next.paidCare.game ? { id: next.paidCare.game.id, benefit: next.paidCare.game.benefit, round: next.paidCare.game.round } : null,
+  } : null;
+  return { schemaVersion: 1, ownerUid: uid, enabled: config.enabled, configVersion: config.version,
+    configHash: digest(config), prices: Object.fromEntries(Object.keys(PRICES).map(key => [key, config.prices[key]])),
+    restores: Object.fromEntries(Object.keys(RESTORES).map(key => [key, config.restores[key]])), careCap: config.careCap,
+    serverNowMs: nowMs, aucklandDate: clock.date, aucklandHour: clock.hour, pet: projected, wallet };
+}
+
 function createPaidCareService({ db, refs, walletAdapter, now = Date.now, elapsedCare = false }) {
   requireValue(db && typeof db.runTransaction === 'function' && refs && ['pet', 'receipt', 'migration', 'config'].every((key) => typeof refs[key] === 'function'), 'INVALID_DEPENDENCIES');
   requireValue(walletAdapter && typeof walletAdapter.read === 'function' && typeof walletAdapter.debit === 'function', 'TRUSTED_WALLET_ADAPTER_REQUIRED');
@@ -146,7 +161,7 @@ function createPaidCareService({ db, refs, walletAdapter, now = Date.now, elapse
       const uid = authenticatedUid(request);
       emptyData(request.data);
       const nowMs = now();
-      const clock = aucklandNow(nowMs);
+      aucklandNow(nowMs);
       return runTransaction(async transaction => {
         const config = await readConfig(transaction, uid);
         const snapshot = await transaction.get(refs.pet(uid));
@@ -166,17 +181,7 @@ function createPaidCareService({ db, refs, walletAdapter, now = Date.now, elapse
         }
         const next = pet ? advancePet(pet, uid, config, nowMs) : null;
         if (pet && digest(pet.paidCare) !== digest(next.paidCare)) transaction.set(refs.pet(uid), next);
-        const projected = next ? {
-          name: next.name, species: next.species, casing: next.casing, color: next.color,
-          reducedMotion: next.reducedMotion, careDays: next.careDays, earnedMilestones: [...next.earnedMilestones],
-          needs: Object.fromEntries(['hunger', 'happiness', 'cleanliness', 'health'].map(key => [key, next.paidCare.needs[key]])), daily: { date: next.paidCare.daily.date, spent: next.paidCare.daily.spent },
-          sleepDate: next.paidCare.sleepDate, attention: next.paidCare.attention,
-          game: next.paidCare.game ? { id: next.paidCare.game.id, benefit: next.paidCare.game.benefit, round: next.paidCare.game.round } : null,
-        } : null;
-        return { schemaVersion: 1, ownerUid: uid, enabled: config.enabled, configVersion: config.version,
-          configHash: digest(config), prices: Object.fromEntries(Object.keys(PRICES).map(key => [key, config.prices[key]])),
-          restores: Object.fromEntries(Object.keys(RESTORES).map(key => [key, config.restores[key]])), careCap: config.careCap,
-          serverNowMs: nowMs, aucklandDate: clock.date, aucklandHour: clock.hour, pet: projected, wallet };
+        return projectHandheldState(uid, config, nowMs, next, wallet);
       });
     },
 
@@ -206,7 +211,10 @@ function createPaidCareService({ db, refs, walletAdapter, now = Date.now, elapse
 
     purchase: async (request) => {
       const uid = authenticatedUid(request);
-      const data = boundRequest(request.data);
+      const includeState = request.data?.includeState === true;
+      const payload = includeState ? { ...request.data } : request.data;
+      if (includeState) delete payload.includeState;
+      const data = boundRequest(payload);
       const binding = digest(data);
       const nowMs = now();
       aucklandNow(nowMs);
@@ -265,7 +273,7 @@ function createPaidCareService({ db, refs, walletAdapter, now = Date.now, elapse
         await walletAdapter.debit(transaction, wallet, effect.amount);
         transaction.set(petRef, effect.pet);
         transaction.set(receiptRef, receipt);
-        return { receipt, duplicate: false };
+        return { receipt, duplicate: false, ...(includeState ? { state: projectHandheldState(uid, config, nowMs, effect.pet, { available: true, balance: walletAfter }) } : {}) };
       });
     },
   };

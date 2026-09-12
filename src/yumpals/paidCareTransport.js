@@ -23,7 +23,8 @@ export function createPaidCareTransport({ projectId, enabled, getCurrentUser, fe
       if (typeof token !== 'string' || !token || /[\r\n]/u.test(token)) throw failure();
       const response = await Promise.race([fetchImpl(`https://us-central1-${projectId}.cloudfunctions.net/${name}`, {
         method: 'POST', redirect: 'error', signal: abort.signal,
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ data }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ data: name === 'yumpalsPurchaseCare' ? { ...data, includeState: true } : data }),
       }), timeout]);
       const body = await Promise.race([response.json(), timeout]);
       if (!plain(body) || Object.keys(body).length !== 1) throw failure();

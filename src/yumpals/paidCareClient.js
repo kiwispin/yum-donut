@@ -54,7 +54,7 @@ export function validateHandheldView(v, ownerUid) {
   return structuredClone(v);
 }
 async function validateOutcome(v, pending, ownerUid) {
-  if (!exact(v, ['outcome', 'duplicate']) || typeof v.duplicate !== 'boolean') invalid();
+  if (!exact(v, ['outcome', 'duplicate', ...(Object.hasOwn(v || {}, 'state') ? ['state'] : [])]) || typeof v.duplicate !== 'boolean') invalid();
   const o = v.outcome; const r = pending.request;
   const common = ['schemaVersion', 'status', 'ownerUid', 'operationId', 'binding', 'committedAtMs', 'request'];
   if (!plain(o) || o.schemaVersion !== 1 || o.ownerUid !== ownerUid || o.operationId !== r.operationId
@@ -124,13 +124,22 @@ export function createPaidCareController({ ownerUid, projectId, enabled, getIden
       const response = await transport('yumpalsPurchaseCare', structuredClone(pending.request), { ownerUid, isActive: current });
       if (!current()) return;
       const outcome = await validateOutcome(response, pending, ownerUid);
+      let confirmedView = null;
+      if (Object.hasOwn(response, 'state')) {
+        confirmedView = validateHandheldView(response.state, ownerUid);
+        if (response.duplicate || outcome.status !== 'COMMITTED' || !confirmedView.enabled
+          || confirmedView.serverNowMs !== outcome.committedAtMs || confirmedView.configVersion !== outcome.configVersion
+          || confirmedView.configHash !== outcome.configHash || !confirmedView.wallet.available
+          || confirmedView.wallet.balance !== outcome.walletAfter || !confirmedView.pet
+          || confirmedView.prices[outcome.action] !== outcome.amount) invalid();
+      }
       if (!current() || !matches()) return;
       try { storage.removeItem(key); } catch { storageError(); return; }
-      pending = null; raw = null; emit({ pending: false, quote: null });
+      pending = null; raw = null; emit({ pending: false, quote: confirmedView, message: confirmedView ? '' : state.message });
       if (original && !response.duplicate && outcome.status === 'COMMITTED') {
         try { onConfirmed(outcome); } catch { /* Presentation cannot undo or obscure a confirmed purchase. */ }
       }
-      await read(outcome.status === 'REFUSED' ? refusalMessage(outcome) : 'Purchase confirmed.');
+      if (!confirmedView) await read(outcome.status === 'REFUSED' ? refusalMessage(outcome) : 'Purchase confirmed.');
     } catch { emit({ quote: null, message: 'We could not confirm your purchase. It is kept here. Use Retry purchase to check it before buying again.' }); }
     finally { busy = false; emit({ busy: false }); }
   }

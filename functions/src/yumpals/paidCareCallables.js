@@ -18,7 +18,8 @@ function projectOutcome(result) {
   const benefit = source.benefit.type === 'adoption' ? { type: 'adoption', needs: pick(source.benefit.needs, ['hunger', 'happiness', 'cleanliness', 'health']) }
     : source.benefit.type === 'sleep' ? pick(source.benefit, ['type', 'date'])
       : source.benefit.type === 'attention' ? pick(source.benefit, ['type', 'cleared']) : pick(source.benefit, ['type', 'amount']);
-  return { outcome: { ...common, request, ...pick(source, ['action', 'amount', 'configVersion', 'configHash', 'walletBefore', 'walletAfter']), benefit }, duplicate: result.duplicate };
+  return { outcome: { ...common, request, ...pick(source, ['action', 'amount', 'configVersion', 'configHash', 'walletBefore', 'walletAfter']), benefit }, duplicate: result.duplicate,
+    ...(result.state ? { state: result.state } : {}) };
 }
 function createPaidCareCallables({ db, refs, walletAdapter, HttpsError, ready, now, elapsedCare = false }) {
   requireValue(typeof refs?.refusal === 'function', 'REFUSAL_RESOLVER_REQUIRED');
