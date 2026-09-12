@@ -1,5 +1,9 @@
 # YumPals-only release log
 
+## 2026-09-12 Care speed rollout
+
+- See YUMPALS_CARE_SPEED_LOG.md for code changes, refused attempts, measured results and rollback. Normal paid care now returns committed state in one request; same feeding frames shortened2530→1200ms. Backend purchase endpoint and frontend deployed and verified. Current durable release checkout: /Users/crayner/Documents/Code/yum-donut-release (previous temporary checkout expired).
+
 ## 2026-09-09 What's New refresh
 
 - ACCEPTED: replace six old announcements with Meet YumPals; explain daily care, confirmed prices/no offline charges, navigation availability and How to play. Only announcement content changed; no features removed. Previous entries recoverable from7460c3c. No previously refused changes repeated.

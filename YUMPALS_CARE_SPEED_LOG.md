@@ -27,4 +27,4 @@ Scope: user-approved speed-up only. Baseline22c2727 preserved for rollback. Rest
 
 ## Rollout
 
-Pending: deploy ONLY yumpalsPurchaseCare backend, preserving old-client compatibility, then exact validated frontend. No bank/gift/auth/settings endpoint changes or infrastructure capacity changes.
+ACCEPTED rollout complete from669094b: ONLY teams:yumpalsPurchaseCare backend successfully updated, preserving old-client compatibility. Live unauthenticated request returns401 UNAUTHENTICATED, no account touched. Then published exact validated frontend; live index-tRVWUL_S.js and index-BSsilrp0.css SHA256 match build. No bank/gift/auth/settings endpoint changes or infrastructure capacity changes. Final browser repeat376ms/371ms with300ms synthetic response, all three bite levels recorded; no duplicate charges. No real student's wallet used to test. Local5174 preview retained for user review.
