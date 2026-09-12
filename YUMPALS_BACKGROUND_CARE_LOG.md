@@ -19,4 +19,4 @@ Baseline4ae2c8c preserved. Scope: instant local feedback and non-blocking contro
 
 ## Release
 
-Pending frontend-only deployment. Existing server-side atomic debit, validation and transaction recording untouched. Previous release recoverable via baseline above.
+Published37fe8bf frontend-only. Live index-DMH-tq8e.js/index-DGqNAd8A.css downloaded SHA256 exactly match validated build. Existing server-side atomic debit, validation and transaction recording untouched. Previous release recoverable via baseline above.

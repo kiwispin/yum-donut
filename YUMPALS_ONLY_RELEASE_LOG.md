@@ -1,5 +1,9 @@
 # YumPals-only release log
 
+## 2026-09-13 Background care
+
+- See YUMPALS_BACKGROUND_CARE_LOG.md. Local animation begins51ms/49ms with simulated10s payment response; menus remain available, actual debit only confirmed by server. Automatic same-operation recovery and identity-bound short preload added.92 tests passed; frontend deployed37fe8bf and live assets verified. No backend changes.
+
 ## 2026-09-12 Care speed rollout
 
 - See YUMPALS_CARE_SPEED_LOG.md for code changes, refused attempts, measured results and rollback. Normal paid care now returns committed state in one request; same feeding frames shortened2530→1200ms. Backend purchase endpoint and frontend deployed and verified. Current durable release checkout: /Users/crayner/Documents/Code/yum-donut-release (previous temporary checkout expired).
