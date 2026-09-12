@@ -36,4 +36,4 @@ Scope: YumPals-only queued paid care. Backend, bank/gift flows, device artwork, 
 
 ## Blockers and final disposition
 
-No implementation blockers remain. The browser check used synthetic loopback data only; no live student, bank, gift, settings, backend, or production data was touched. Ready for independent parent review; deployment remains intentionally out of scope.
+No implementation blockers remain. The browser check used synthetic loopback data only; no live student, bank, gift, settings, backend, or production data was touched. The earlier worker handoff correctly recorded deployment as out of scope at that point; parent acceptance and deployment are now verified. Source commit: `ceda1b3`; baseline rollback: `37ba393`; gh-pages publish succeeded. Live [YumPals deployment](https://kiwispin.github.io/yum-donut/) serves the exact built assets: `index-BDFCOyH2.js` SHA-256 `b45c7fbf3e59247d6999865d897d794808dea067ed300b0c957f7e96ad362ab8` and `index-i05BbEuS.css` SHA-256 `4dc2f70272a9aa4af7a3a651b79d09f73408cc6ec0e0282926fbd3f6569254f3`. Final disposition: parent accepted and deployed verification passed.
