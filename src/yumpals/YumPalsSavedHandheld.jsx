@@ -4,7 +4,7 @@ import { createPaidCareController } from './paidCareClient.js';
 import { createSavedGameController } from './savedGameClient.js';
 import { PAID_CARE_ICON_ORDER, PAID_CARE_ICON_LABELS, PAID_CARE_ICON_PIXELS } from './paidCareIcons.js';
 import { getYumPalsFrame, getYumPalsAnimationSequence, YUMPALS_FOOD_PIXELS, YUMPALS_HEART_PIXELS } from './yumpalsSprites.js';
-import { SAVED_HELP, SAVED_CHOICES, CARE_NAMES, savedSleep, savedEffect, savedChargeLocked, savedNoEffect, savedContextMatches, savedCaseColor } from './savedHandheldPresentation.js';
+import { SAVED_HELP, SAVED_CHOICES, CARE_NAMES, savedSleep, savedEffect, savedNoEffect, savedContextMatches, savedCaseColor } from './savedHandheldPresentation.js';
 import './paidCareDemo.css';
 import './savedHandheld.css';
 
@@ -30,18 +30,18 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
   const gameInstance = useRef(null); const [gameState, setGameState] = useState(null);
   const gameReady = enabled && gameEnabled === true && typeof gameTransport === 'function';
   const helpFor = name => name === 'game' && gameReady ? 'Guess left or right for three rounds. Resume a paid game without paying again.' : SAVED_HELP[name];
-  const id = useId(); const instance = useRef(null); const [lastPet, setLastPet] = useState(null); const [sleepIndex, setSleepIndex] = useState(0);
+  const id = useId(); const instance = useRef(null); const animationQueue = useRef([]); const [lastPet, setLastPet] = useState(null); const [sleepIndex, setSleepIndex] = useState(0);
   const [state, setState] = useState(EMPTY); const [selected, setSelected] = useState(null); const [help, setHelp] = useState(null);
   const [screen, setScreen] = useState('room'); const [choice, setChoice] = useState(0);
   const [animation, setAnimation] = useState(null); const [blink, setBlink] = useState(false); const [osReduced, setOsReduced] = useState(false);
   const [adoption, setAdoption] = useState({ name: 'Niblet', species: 'mossbit', casing: 'berry', color: '#d94878' });
   const [localMessage, setLocalMessage] = useState('');
   useEffect(() => {
-    let alive = true; setLastPet(null); setState(EMPTY); setAnimation(null); setScreen('room');
+    let alive = true; animationQueue.current = []; setLastPet(null); setState(EMPTY); setAnimation(null); setScreen('room');
     const controller = createPaidCareController({ ownerUid, projectId, enabled, getIdentity, transport, storage, operationId,
       autoRecover: true,
       onChange: next => { if (alive) { if (next.quote?.pet) setLastPet(next.quote.pet); if (!next.pending) setLocalMessage(''); setState({ ...next, ownerUid, projectId }); } },
-      onQueued: receipt => { if (alive) { setScreen('room'); setLocalMessage(''); if (!['game', 'adoption', 'bedtime'].includes(receipt.action)) setAnimation({ type: ['meal', 'snack'].includes(receipt.action) ? 'feed' : receipt.action, index: 0 }); } },
+      onQueued: receipt => { if (alive) { setScreen('room'); setLocalMessage(''); if (!['game', 'adoption', 'bedtime'].includes(receipt.action)) { const next = { type: ['meal', 'snack'].includes(receipt.action) ? 'feed' : receipt.action, index: 0 }; setAnimation(current => { if (current) { animationQueue.current.push(next); return current; } return next; }); } } },
       onConfirmed: receipt => { if (alive) { if (receipt.action === 'game') { setScreen('game'); void gameInstance.current?.open(receipt.operationId); } else if (receipt.action === 'adoption') setAnimation({ type: 'wake', index: 0 }); } },
     });
     instance.current = controller; void controller.start();
@@ -71,11 +71,14 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
   const identity = getIdentity();
   const sameOwner = savedContextMatches({ enabled, ownerUid, projectId, identity, state });
   const quote = sameOwner ? state.quote : null;
+  const projectedQuote = sameOwner ? state.projected : null;
+  const interactionQuote = projectedQuote || quote;
+  const queue = sameOwner ? (state.queue || []) : [];
   const reduced = osReduced || (sameOwner && (quote?.pet || lastPet)?.reducedMotion === true);
   useEffect(() => {
     if (!animation) return undefined;
     const sequence = getYumPalsAnimationSequence(animation.type, reduced);
-    const timer = window.setTimeout(() => setAnimation(value => value && (value.index + 1 < sequence.length ? { ...value, index: value.index + 1 } : null)), sequence[animation.index]?.duration || 700);
+    const timer = window.setTimeout(() => setAnimation(value => value && (value.index + 1 < sequence.length ? { ...value, index: value.index + 1 } : animationQueue.current.shift() || null)), sequence[animation.index]?.duration || 700);
     return () => window.clearTimeout(timer);
   }, [animation, reduced]);
   useEffect(() => {
@@ -84,7 +87,7 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
   }, [blink, reduced]);
   const pet = sameOwner ? (quote ? quote.pet : lastPet) : null;
   const currentGame = sameOwner && gameState?.ownerUid === ownerUid && gameState?.projectId === projectId ? gameState : null;
-  const locked = savedChargeLocked(state) || !sameOwner || Boolean(animation) || Boolean(currentGame?.pending || currentGame?.busy || currentGame?.storageBlocked);
+  const locked = !sameOwner || Boolean(state.storageBlocked) || !quote?.enabled || !quote?.wallet?.available || Boolean(currentGame?.pending || currentGame?.busy || currentGame?.storageBlocked);
   const guess = direction => { if (sameOwner && quote?.enabled && currentGame?.game?.enabled && !state.pending && !animation) void gameInstance.current?.choose(direction); };
   const icon = PAID_CARE_ICON_ORDER[selected]; const choices = SAVED_CHOICES[icon] || [];
   const sleep = savedSleep(quote); const confirmation = sameOwner ? state.confirmation : null;
@@ -103,12 +106,12 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
       else if (choices.length) { setChoice(0); setScreen('choices'); }
     } else if (screen === 'choices') {
       const action = choices[choice];
-      if (state.pending) { setLocalMessage('Still saving your last care. You can explore the other icons.'); return; }
+      if (state.pending && ['adoption', 'game'].includes(action)) { setLocalMessage(action === 'game' ? 'Finish saving your care before starting a game.' : 'Adoption will be ready after your saved care finishes.'); return; }
       if (action === 'game') {
         if (!gameReady) { setLocalMessage('Game is not ready yet. Pat is available.'); return; }
         if (pet?.game || currentGame?.pending) { setScreen('game'); void gameInstance.current?.open(pet?.game?.id); return; }
       }
-      const noEffect = savedNoEffect(quote, action);
+      const noEffect = savedNoEffect(interactionQuote, action);
       if (noEffect) { setLocalMessage(noEffect); return; }
       if (!locked) { instance.current?.prepare(action); setScreen('confirm'); }
     } else if (screen === 'adopt' && !locked) { instance.current?.prepare('adoption', adoption); setScreen('confirm'); }
@@ -134,7 +137,7 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
   return <section className="paid-demo-shell saved-handheld" aria-label="Saved YumPals handheld">
     <header className="paid-demo-header"><div><h1 className="yumpals-title"><span className="yumpals-title-icon" aria-hidden="true"><Pixels pixels={getYumPalsFrame('mossbit', 'idle', 0, true).pixels} palette={getYumPalsFrame('mossbit', 'idle', 0, true).palette} /></span>YumPals</h1><p>A little pal to care for each day.</p></div></header>
     <p className="paid-demo-warning">Your pal is saved between visits. Donuts are spent only when you confirm the price.</p>
-    <p role="status">{!sameOwner ? 'Please sign in to see your saved pal.' : localMessage || (!state.pending && state.message) || (!quote ? 'Loading your pal…' : !quote.enabled ? 'YumPals is resting. Your teacher has paused care.' : !quote.wallet.available ? 'Your donuts could not be checked. Please ask your teacher.' : '')}</p>
+    <p className="saved-top-status" role="status">{!sameOwner ? 'Please sign in to see your saved pal.' : localMessage || (!state.pending && state.message) || (!quote ? 'Loading your pal…' : !quote.enabled ? 'YumPals is resting. Your teacher has paused care.' : !quote.wallet.available ? 'Your donuts could not be checked. Please ask your teacher.' : '')}</p>
     <div className="paid-demo-device" style={{ '--saved-case': savedCaseColor(pet) }}>
       <div className="paid-demo-brand">YUMPALS</div><div className="paid-demo-screen-frame">
         <div className={`paid-demo-lcd ${sleep.sleeping ? 'is-sleeping' : ''} ${sleep.dim ? 'is-bedtime-set' : ''}`}>
@@ -151,24 +154,27 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
               <small>{animation && !quote ? 'Updating saved care…' : pet?.game ? 'Your paid game is waiting' : quote && !quote.enabled ? 'RESTING' : 'A SELECT · B CONFIRM · C CANCEL'}</small>
             </>}
             {screen === 'choices' && <div className="saved-choices">{choices.map((action, n) => <button type="button" key={action} aria-current={n === choice ? 'true' : undefined} onClick={() => setChoice(n)}>
-              {n === choice ? '▶ ' : ''}{CARE_NAMES[action]} {action === 'game' && !gameReady ? '— not ready' : action === 'game' && pet?.game ? '· Resume' : quote ? `· ${quote.prices[action]}` : ''}</button>)}<small>{icon === 'game' && pet?.game ? 'Your paid game is kept safely. Resume without paying again.' : 'B opens price confirmation'}</small></div>}
+              {n === choice ? '▶ ' : ''}{CARE_NAMES[action]} {action === 'game' && !gameReady ? '— not ready' : action === 'game' && pet?.game ? '· Resume' : quote ? `· ${quote.prices[action]}` : ''}</button>)}<small>{icon === 'game' && pet?.game ? 'Your paid game is kept safely. Resume without paying again.' : state.pending && ['adoption', 'game'].includes(choices[choice]) ? 'Finish the saved care first.' : 'B opens price confirmation'}</small></div>}
             {screen === 'status' && <div className="saved-status">{pet ? <>{[['hunger', 'Food'], ['happiness', 'Happy'], ['cleanliness', 'Clean'], ['health', 'Health']].map(([key, label]) => <div key={key}><span>{label}</span><span aria-label={`${pet.needs[key]} of 4 hearts`} className="saved-hearts">{[0, 1, 2, 3].map(n => <Pixels key={n} className="saved-meter" pixels={YUMPALS_HEART_PIXELS} palette={{ a: n < pet.needs[key] ? '#304636' : '#81936c' }} />)}</span></div>)}<small>{pet.attention ? 'Needs a gentle reminder' : 'Feeling settled'} · {pet.careDays} care days</small></> : 'Please refresh to check your pal.'}</div>}
             {screen === 'adopt' && sameOwner && <div className="saved-adopt"><label>Name<input maxLength={16} value={adoption.name} onChange={e => setAdoption(v => ({ ...v, name: e.target.value }))} /></label><label>Case<select value={adoption.casing} onChange={e => setAdoption(v => ({ ...v, casing: e.target.value }))}>{['berry', 'mint', 'sky', 'sun'].map(c => <option key={c}>{c}</option>)}</select></label><label>Colour<input type="color" value={adoption.color} onChange={e => setAdoption(v => ({ ...v, color: e.target.value }))} /></label><small>B to review adoption price</small></div>}
-            {screen === 'confirm' && <div className="saved-confirm">{confirmation ? <><strong>{CARE_NAMES[confirmation.action]}?</strong><span>Cost {confirmation.quotedCost} donut{confirmation.quotedCost === 1 ? '' : 's'}</span><span>{savedEffect(quote, confirmation.action)}</span><span>{quote?.wallet.available && quote.wallet.balance >= confirmation.quotedCost ? `Donuts left: ${quote.wallet.balance - confirmation.quotedCost}` : 'Not enough donuts for this care'}</span><small>B CONFIRM PAYMENT · C CANCEL</small></> : <span>Saving in the background. C to return.</span>}</div>}
+            {screen === 'confirm' && <div className="saved-confirm">{confirmation ? <><strong>{CARE_NAMES[confirmation.action]}?</strong><span>Cost {confirmation.quotedCost} donut{confirmation.quotedCost === 1 ? '' : 's'}</span><span>{savedEffect(interactionQuote, confirmation.action)}</span><span>{quote?.wallet.available && projectedQuote?.wallet.available ? `Saved ${quote.wallet.balance} · after pending ${projectedQuote.wallet.balance - confirmation.quotedCost}` : 'Not enough donuts for this care'}</span><small>B CONFIRM PAYMENT · C CANCEL</small></> : <span>Care is being checked. C to return.</span>}</div>}
           </div>{rail(4)}
         </div></div>
-      <div className="paid-hardware" aria-label="Handheld buttons"><button className="paid-hardware-button" type="button" aria-label="A SELECT" onClick={cycle}><strong>A</strong><span>SELECT</span></button><button className="paid-hardware-button" type="button" aria-label="B CONFIRM" onClick={confirm} disabled={Boolean(animation) || (['confirm', 'adopt'].includes(screen) && locked)}><strong>B</strong><span>CONFIRM</span></button><button className="paid-hardware-button" type="button" aria-label="C CANCEL" onClick={cancel}><strong>C</strong><span>CANCEL</span></button></div>
+      <div className="paid-hardware" aria-label="Handheld buttons"><button className="paid-hardware-button" type="button" aria-label="A SELECT" onClick={cycle}><strong>A</strong><span>SELECT</span></button><button className="paid-hardware-button" type="button" aria-label="B CONFIRM" onClick={confirm} disabled={['confirm', 'adopt'].includes(screen) && locked && ['adoption', 'game'].includes(confirmation?.action || '')}><strong>B</strong><span>CONFIRM</span></button><button className="paid-hardware-button" type="button" aria-label="C CANCEL" onClick={cancel}><strong>C</strong><span>CANCEL</span></button></div>
     </div>
     <p className="saved-help paid-demo-hint">
       {PAID_CARE_ICON_ORDER.map(name => <span className="paid-hint-size" aria-hidden="true" key={name}>{PAID_CARE_ICON_LABELS[name]} — {helpFor(name)}</span>)}
       <span className="paid-hint-current">{help || icon ? `${PAID_CARE_ICON_LABELS[help || icon]} — ${helpFor(help || icon)}` : 'Press A SELECT to choose an icon.'}</span>
     </p>
+    <div className="saved-queue-status" role="status" aria-label="Saved and pending YumPals care">
+      {sameOwner && queue.length > 0 ? <><strong>{queue.length} care action{queue.length === 1 ? '' : 's'} waiting to finish</strong><span>Saved donuts: {quote?.wallet?.available ? quote.wallet.balance : 'checking'} · after this care: {projectedQuote?.wallet?.available ? projectedQuote.wallet.balance : 'checking'}</span><span>{queue.map(item => `${CARE_NAMES[item.action]} (${item.phase === 'uncertain' ? 'needs checking' : item.phase === 'inflight' ? 'saving' : 'waiting'}, ${item.quotedCost})`).join(' · ')}</span></> : <span aria-hidden="true">&nbsp;</span>}
+    </div>
     {sameOwner && quote && <div className="paid-demo-meta" aria-label="Your donuts and care spending">
       <span>Donuts: {quote.wallet.available ? quote.wallet.balance : 'Not available'}</span>
       <span>Care today: {quote.pet?.daily.spent ?? 0} / {quote.careCap}</span>
     </div>}
     {PAID_CARE_ICON_ORDER.map(name => <span className="paid-help-accessible" id={`${id}-${name}`} key={name}>{helpFor(name)}</span>)}
-    <p className="saved-sync" role="status">{sameOwner && state.pending ? (state.busy ? 'Saving care… Your balance updates when confirmed.' : state.message || 'Reconnecting… Your care is kept safely.') : '\u00a0'}</p>
+    <p className="saved-sync" role="status">{sameOwner && state.pending ? (state.busy ? 'Saving care… Saved balance stays unchanged until confirmed.' : state.message || 'Reconnecting… Your queued care is kept safely.') : '\u00a0'}</p>
     <div className="saved-utilities">{state.pending && !state.busy && sameOwner && <button type="button" disabled={state.storageBlocked} onClick={() => void instance.current?.retry()}>Reconnect</button>}<button type="button" disabled={state.busy || state.storageBlocked || !sameOwner} onClick={() => void instance.current?.refresh()}>Refresh pal</button></div>
     {currentGame?.pending && <button type="button" disabled={currentGame.busy || currentGame.storageBlocked} onClick={() => void gameInstance.current?.retry()}>Retry guess</button>}
     {screen === 'game' && <button type="button" disabled={!sameOwner || currentGame?.busy} onClick={() => void gameInstance.current?.refresh()}>Refresh game</button>}

@@ -8,6 +8,10 @@ import { createPaidCareController } from './paidCareClient.js';
 const require = createRequire(import.meta.url);
 const { setup } = require('../../functions/test/paidCareFixture.js');
 const { createPaidCareCallables } = require('../../functions/src/yumpals/paidCareCallables.js');
+function testLocks() {
+  let tail = Promise.resolve();
+  return { request: (_name, _options, callback) => { const run = tail.then(callback, callback); tail = run.catch(() => {}); return run; } };
+}
 test('paid priority suppresses legacy independently of authentication; saved route requires exact real UID', () => {
   for (const legacy of [false, true]) {
     assert.deepEqual(paidRoutePolicy({ paid: true, legacy, uid: 'a', authUid: 'a', anonymous: false, sandbox: false }), { legacyAllowed: false, savedAvailable: true });
@@ -26,7 +30,7 @@ test('actual controller integration: helper no-effect selection creates no purch
   const f = setup(); f.refs.refusal = (uid, id) => `refused/${uid}/${id}`;
   const api = createPaidCareCallables({ ...f, HttpsError: Error, ready: () => true, now: () => Date.parse('2026-09-07T00:00:00Z') });
   let purchases = 0; const journal = new Map();
-  const c = createPaidCareController({ ownerUid: 'student-a', projectId: 'demo-presentation', enabled: true, getIdentity: () => ({ uid: 'student-a', isAnonymous: false, sandbox: false }),
+  const c = createPaidCareController({ ownerUid: 'student-a', projectId: 'demo-presentation', enabled: true, getIdentity: () => ({ uid: 'student-a', isAnonymous: false, sandbox: false }), locks: testLocks(),
     operationId: () => 'meal', storage: { getItem: k => journal.get(k) ?? null, setItem: (k, v) => journal.set(k, v), removeItem: k => journal.delete(k) },
     transport: async (name, data) => { if (name === 'yumpalsPurchaseCare') purchases++; return api[name === 'yumpalsPurchaseCare' ? 'purchase' : 'getState']({ data, auth: { uid: 'student-a', token: { firebase: { sign_in_provider: 'password' } } } }); } });
   await c.start(); let quote = c.getState().quote;

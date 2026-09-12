@@ -1,18 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { createPaidCareController, paidCareJournalKey, validateHandheldView } from './paidCareClient.js';
+import { createPaidCareController, paidCareJournalKey, paidCareNamespaceKey, validateHandheldView } from './paidCareClient.js';
 import { createPaidCareTransport } from './paidCareTransport.js';
 const require = createRequire(import.meta.url);
 const { setup } = require('../../functions/test/paidCareFixture.js');
 const { createPaidCareCallables } = require('../../functions/src/yumpals/paidCareCallables.js');
-function fixture({ balance = 30.5 } = {}) {
-  const f = setup({ balance });
+function testLocks() {
+  let tail = Promise.resolve();
+  return { request: (_name, _options, callback) => { const run = tail.then(callback, callback); tail = run.catch(() => {}); return run; } };
+}
+function fixture({ balance = 30.5, pet = true } = {}) {
+  const f = setup({ balance, pet });
   f.refs.refusal = (uid, id) => `fixture/refusals/${uid}/${id}`;
   class HttpsError extends Error { constructor(code, message, details) { super(message); this.code = code; this.details = details; } }
   const api = createPaidCareCallables({ ...f, HttpsError, ready: () => true, now: () => Date.parse('2026-09-09T00:00:00Z') });
   let identity = { uid: 'student-a', isAnonymous: false, sandbox: false }; let count = 0; let lose = false;
-  const entries = new Map(); const events = [];
+  const entries = new Map(); const events = []; const locks = testLocks();
   const storage = { getItem: key => entries.get(key) ?? null, setItem: (key, value) => entries.set(key, value), removeItem: key => entries.delete(key) };
   const transport = async (name, data) => {
     if (name === 'yumpalsPurchaseCare') count++;
@@ -21,7 +25,7 @@ function fixture({ balance = 30.5 } = {}) {
     return result;
   };
   const options = { ownerUid: 'student-a', projectId: 'demo-paid-care', enabled: true, getIdentity: () => identity,
-    transport, storage, operationId: () => `operation-${count + 1}`, onConfirmed: value => events.push(value) };
+    transport, storage, locks, operationId: () => `operation-${count + 1}`, onConfirmed: value => events.push(value) };
   return { ...f, api, options, entries, events, count: () => count, lose: () => { lose = true; }, identity: value => { identity = value; } };
 }
 test('actual wrapper/service chain: explicit confirmation, cost journal, lost reply + gift + remount replay latest wallet', async () => {
@@ -29,9 +33,10 @@ test('actual wrapper/service chain: explicit confirmation, cost journal, lost re
   await c.start(); assert.equal(f.count(), 0);
   c.prepare('meal'); assert.equal(f.count(), 0); f.lose(); await c.confirm();
   assert.equal(c.getState().pending, true); assert.equal(f.events.length, 0);
-  const raw = [...f.entries.values()][0]; const saved = JSON.parse(raw);
-  assert.deepEqual(Object.keys(saved).sort(), ['ownerUid', 'projectId', 'quotedCost', 'request', 'schemaVersion']);
-  assert.equal(saved.quotedCost, 2); assert.equal(Object.hasOwn(saved.request, 'quotedCost'), false);
+  const raw = f.entries.get(paidCareJournalKey('demo-paid-care', 'student-a')); const saved = JSON.parse(raw);
+  assert.deepEqual(Object.keys(saved).sort(), ['basis', 'entries', 'ownerUid', 'projectId', 'schemaVersion']);
+  assert.equal(saved.entries.length, 1);
+  assert.equal(saved.entries[0].quotedCost, 2); assert.equal(Object.hasOwn(saved.entries[0].request, 'quotedCost'), false);
   assert.equal(/token|authorization|password/iu.test(raw), false);
   const wallet = f.db.read('fixture/wallets/student-a');
   f.db.seed('fixture/wallets/student-a', { ...wallet, balance: wallet.balance + 10 });
@@ -46,12 +51,12 @@ test('actual wrapper/service chain: explicit confirmation, cost journal, lost re
 test('terminal refusal unlocks; raw business HTTP errors do not clear a pending request', async () => {
   const f = fixture({ balance: 0 }); const c = createPaidCareController(f.options); await c.start(); c.prepare('meal'); await c.confirm();
   assert.equal(c.getState().pending, false); assert.equal(f.events.length, 0);
-  const options = { ...f.options, transport: async (name, ...args) => {
+  const g = fixture(); const options = { ...g.options, transport: async (name, ...args) => {
     if (name === 'yumpalsPurchaseCare') throw { details: { reason: 'INSUFFICIENT_FUNDS' } };
-    return f.options.transport(name, ...args);
+    return g.options.transport(name, ...args);
   } };
   const d = createPaidCareController(options); await d.start(); d.prepare('meal'); await d.confirm();
-  assert.equal(d.getState().pending, true); assert.equal(f.entries.size, 1);
+  assert.equal(d.getState().pending, true); assert.ok(g.entries.has(paidCareJournalKey('demo-paid-care', 'student-a')));
 });
 test('quoted cost and exact fractional subtraction tampering refuse journal cleanup', async () => {
   for (const edit of [o => { o.amount = 2; }, o => { o.walletAfter = 0.1; }, o => { o.request.extra = true; }]) {
@@ -65,13 +70,14 @@ test('quoted cost and exact fractional subtraction tampering refuse journal clea
     assert.equal(c.getState().pending, true); assert.equal(f.events.length, 0);
   }
 });
-test('storage failures, replacement journals and UUID failures prevent new dispatch', async () => {
+test('storage failures, replacement journals and namespace failures prevent new dispatch', async () => {
   const f = fixture(); const c = createPaidCareController(f.options); await c.start(); c.prepare('meal');
   f.entries.set(paidCareJournalKey('demo-paid-care', 'student-a'), 'another-controller');
   await c.confirm(); assert.equal(f.count(), 0); assert.equal(c.getState().storageBlocked, true);
   f.entries.clear();
-  const d = createPaidCareController({ ...f.options, operationId: () => { throw new Error('NO_UUID'); } });
-  await d.start(); d.prepare('meal'); await d.confirm(); assert.equal(f.count(), 0);
+  const storage = { getItem: key => f.entries.get(key) ?? null, setItem: (key, value) => { if (key === paidCareNamespaceKey('demo-paid-care', 'student-a')) throw new Error('NO_NAMESPACE'); f.entries.set(key, value); }, removeItem: key => f.entries.delete(key) };
+  const d = createPaidCareController({ ...f.options, storage });
+  await d.start(); d.prepare('meal'); await d.confirm(); assert.equal(f.count(), 0); assert.equal(d.getState().storageBlocked, true);
 });
 test('late original success after account switch preserves original journal and emits no event', async () => {
   const f = fixture(); let release; let reached;
@@ -83,7 +89,7 @@ test('late original success after account switch preserves original journal and 
   } });
   await c.start(); c.prepare('meal'); const saving = c.confirm(); await entered;
   f.identity({ uid: 'student-b', isAnonymous: false, sandbox: false }); release(); await saving;
-  assert.equal(f.entries.size, 1); assert.equal(f.events.length, 0);
+  assert.ok(f.entries.has(paidCareJournalKey('demo-paid-care', 'student-a'))); assert.equal(f.events.length, 0);
 });
 test('safe view rejects unknown wallet and extra private fields rather than defaulting', async () => {
   const f = fixture(); const c = createPaidCareController(f.options); await c.start(); const view = c.getState().quote;
@@ -108,7 +114,7 @@ test('pinned transport refuses session switch during token wait and ambiguous en
   }
 });
 test('invalid adoption never journals or dispatches; valid adoption is normalized before confirmation', async () => {
-  const f = fixture(); const c = createPaidCareController(f.options); await c.start();
+  const f = fixture({ pet: false }); const c = createPaidCareController(f.options); await c.start();
   for (const change of [{ name: 'a'.repeat(17) }, { name: '<bad>' }, { species: 'unknown' }, { casing: 'unknown' }, { color: 'pink' }]) {
     c.prepare('adoption', { name: 'Niblet', species: 'mossbit', casing: 'berry', color: '#d94878', ...change }); await c.confirm();
     assert.equal(f.count(), 0); assert.equal(f.entries.size, 0); assert.match(c.getState().message, /1–16/);
@@ -119,7 +125,7 @@ test('invalid adoption never journals or dispatches; valid adoption is normalize
 test('throwing presentation callback cannot misreport confirmed payment or prevent fresh read', async () => {
   const f = fixture(); const c = createPaidCareController({ ...f.options, onConfirmed: () => { throw new Error('PRESENTATION'); } });
   await c.start(); c.prepare('meal'); await c.confirm();
-  assert.equal(c.getState().pending, false); assert.equal(f.entries.size, 0);
+  assert.equal(c.getState().pending, false); assert.equal(f.entries.has(paidCareJournalKey('demo-paid-care', 'student-a')), false);
   assert.equal(c.getState().quote.wallet.balance, 28.5); assert.equal(c.getState().message, 'Purchase confirmed.');
 });
 test('transport validates exact request before token acquisition; safe view checks clock and pet identity', async () => {
@@ -158,7 +164,7 @@ test('double confirmation dispatches once; disposal ignores delayed read and dis
     if (args[0] === 'yumpalsPurchaseCare') { reached(); await held; } return result;
   } });
   await c.start(); c.prepare('meal'); const first = c.confirm(); await entered; await c.confirm(); assert.equal(f.count(), 1);
-  c.dispose(); release(); await first; assert.equal(f.entries.size, 1);
+  c.dispose(); release(); await first; assert.ok(f.entries.has(paidCareJournalKey('demo-paid-care', 'student-a')));
   const d = createPaidCareController({ ...f.options, enabled: false }); await d.start(); assert.match(d.getState().message, /not ready/);
 });
 test('refresh and prepare after account switch never emit the old pet, balance or confirmation', async () => {
@@ -181,13 +187,13 @@ test('read failures have actionable allowlisted copy, including inherited reason
     await c.start(); assert.match(c.getState().message, pattern); assert.equal(c.getState().quote, null);
   }
 });
-test('unexpected no-effect adoption refusal has safe fallback copy, never undefined', async () => {
-  const f = fixture(); const c = createPaidCareController({ ...f.options, transport: async (...args) => {
-    const result = await f.options.transport(...args);
-    if (args[0] === 'yumpalsPurchaseCare') { assert.equal(result.outcome.status, 'REFUSED'); result.outcome.reason = 'NO_EFFECT'; }
-    return result;
+
+test('fresh NO_EFFECT refusal releases a queued reservation after rechecking current state', async () => {
+  const f = fixture(); const pet = f.db.read(f.refs.pet('student-a')); pet.paidCare.attention = true; f.db.seed(f.refs.pet('student-a'), pet);
+  const c = createPaidCareController({ ...f.options, transport: async (...args) => {
+    if (args[0] === 'yumpalsPurchaseCare') { const changed = f.db.read(f.refs.pet('student-a')); changed.paidCare.attention = false; f.db.seed(f.refs.pet('student-a'), changed); }
+    return f.options.transport(...args);
   } });
-  await c.start(); c.prepare('adoption', { name: 'Niblet', species: 'mossbit', casing: 'berry', color: '#d94878' }); await c.confirm();
-  assert.equal(c.getState().pending, false); assert.match(c.getState().message, /not needed right now/);
-  assert.doesNotMatch(c.getState().message, /undefined/);
+  await c.start(); c.prepare('reminder'); await c.confirm();
+  assert.equal(c.getState().pending, false); assert.match(c.getState().message, /No donuts spent/); assert.equal(f.db.read('fixture/wallets/student-a').balance, 30.5);
 });

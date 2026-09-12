@@ -1,18 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { createPaidCareController } from './paidCareClient.js';
+import { createPaidCareController, paidCareJournalKey } from './paidCareClient.js';
 import { createPaidCareTransport } from './paidCareTransport.js';
 const require = createRequire(import.meta.url);
 const { setup, request } = require('../../functions/test/paidCareFixture.js');
 const { createPaidCareCallables } = require('../../functions/src/yumpals/paidCareCallables.js');
-function fixture({ fast = true, latency = 0, pet = true, edit = v => v, onQueued = () => {}, autoRecover = false } = {}) {
-  const f = setup({ pet });
+function testLocks() {
+  let tail = Promise.resolve();
+  return { request: (_name, _options, callback) => { const run = tail.then(callback, callback); tail = run.catch(() => {}); return run; } };
+}
+function fixture({ fast = true, latency = 0, pet = true, needs = { hunger: 0, happiness: 4, cleanliness: 0, health: 4 }, edit = v => v, onQueued = () => {}, autoRecover = false } = {}) {
+  const f = setup({ pet, needs });
   f.refs.refusal = (uid, id) => `fixture/refusals/${uid}/${id}`;
   class HttpsError extends Error { constructor(code, message, details) { super(message); Object.assign(this, { code, details }); } }
   const api = createPaidCareCallables({ ...f, HttpsError, ready: () => true, now: () => Date.parse('2026-09-09T00:00:00Z') });
   let calls = []; let sequence = 0; let identity = { uid: 'student-a', isAnonymous: false, sandbox: false };
-  const entries = new Map(); const events = [];
+  const entries = new Map(); const events = []; const locks = testLocks();
   const user = { uid: 'student-a', isAnonymous: false, getIdToken: async () => 'synthetic' };
   const transport = createPaidCareTransport({ projectId: 'demo-speed', enabled: true, getCurrentUser: () => user,
     fetchImpl: async (url, options) => {
@@ -26,7 +30,7 @@ function fixture({ fast = true, latency = 0, pet = true, edit = v => v, onQueued
   const controller = createPaidCareController({ ownerUid: 'student-a', projectId: 'demo-speed', enabled: true,
     getIdentity: () => identity, transport, operationId: () => `speed-${++sequence}`,
     storage: { getItem: k => entries.get(k) ?? null, setItem: (k, v) => entries.set(k, v), removeItem: k => entries.delete(k) },
-    onQueued, autoRecover, onConfirmed: e => events.push(e) });
+    locks, onQueued, autoRecover, onConfirmed: e => events.push(e) });
   return { ...f, api, controller, events, entries, calls: () => calls, resetCalls: () => { calls = []; }, setIdentity: v => { identity = v; } };
 }
 test('normal care uses one request and authoritative snapshot, legacy response still refreshes', async t => {
@@ -40,7 +44,7 @@ test('normal care uses one request and authoritative snapshot, legacy response s
     assert.equal(c.getState().busy, false); assert.equal(c.getState().pending, false);
     assert.equal(c.getState().quote.wallet.balance, 28); assert.equal(f.events.length, 1);
     assert.deepEqual(c.getState().quote.pet.needs, f.db.read(f.refs.pet('student-a')).paidCare.needs);
-    assert.equal(f.entries.size, 0);
+    assert.equal(f.entries.has(paidCareJournalKey('demo-speed', 'student-a')), false);
   }
   t.diagnostic(`Controlled 120ms/request: ${JSON.stringify(measured)}; not a live-network benchmark.`);
 });
@@ -53,18 +57,18 @@ test('old clients receive unchanged envelope; opt-in state is not persisted in r
   assert.equal(dup.duplicate, true); assert.equal('state' in dup, false);
   assert.equal('state' in f.db.read(f.refs.receipt('student-a', 'legacy')), false);
 });
-test('refused and duplicate purchases refresh current state, never replay old balance', async () => {
+test('locally detected no-effect care sends no purchase and never replays old balance', async () => {
   const f = fixture(); const c = f.controller; await c.start(); c.prepare('meal'); await c.confirm();
   c.prepare('meal'); await c.confirm(); // now full
   f.resetCalls(); c.prepare('meal'); await c.confirm();
-  assert.deepEqual(f.calls(), ['purchase', 'getState']);
+  assert.deepEqual(f.calls(), []);
   assert.equal(c.getState().pending, false); assert.match(c.getState().message, /No donuts spent/);
 });
 test('invalid authoritative state cannot release journal or animate a success', async () => {
   for (const corrupt of [s => { s.ownerUid = 'another-student'; }, s => { s.wallet.balance++; }, s => { s.serverNowMs++; }, s => { s.pet = null; }]) {
     const f = fixture({ edit: (v, method) => { if (method === 'purchase' && v.state) corrupt(v.state); return v; } });
     const c = f.controller; await c.start(); c.prepare('meal'); await c.confirm();
-    assert.equal(c.getState().pending, true); assert.equal(f.events.length, 0); assert.equal(f.entries.size, 1);
+    assert.equal(c.getState().pending, true); assert.equal(f.events.length, 0); assert.equal(f.entries.has(paidCareJournalKey('demo-speed', 'student-a')), true);
   }
 });
 test('adoption returns saved pet with one purchase request', async () => {
@@ -87,7 +91,7 @@ test('lost fast response, gift and retry use latest balance without a second cha
   const wallet = f.db.read('fixture/wallets/student-a'); f.db.seed('fixture/wallets/student-a', { ...wallet, balance: 38 });
   f.resetCalls(); await c.retry();
   assert.deepEqual(f.calls(), ['purchase', 'getState']); assert.equal(c.getState().quote.wallet.balance, 38);
-  assert.equal(f.events.length, 0); assert.equal(f.entries.size, 0);
+  assert.equal(f.events.length, 0); assert.equal(f.entries.has(paidCareJournalKey('demo-speed', 'student-a')), false);
 });
 test('concurrent opt-in requests return committed snapshot once and no extra fields', async () => {
   const f = fixture(); const view = await f.api.getState(request());
@@ -99,15 +103,16 @@ test('concurrent opt-in requests return committed snapshot once and no extra fie
   assert.equal(fresh.state.wallet.balance, 28); assert.equal(f.db.read('fixture/wallets/student-a').balance, 28);
   assert.deepEqual(fresh.state.pet.needs, f.db.read(f.refs.pet('student-a')).paidCare.needs);
 });
-test('local care begins before delayed payment, but balance and duplicate protection stay authoritative', async () => {
+test('local care begins before delayed payment, and ordinary care can queue with authoritative reservations', async () => {
   const queued = [];
   const f = fixture({ latency: 200, onQueued: e => queued.push(e) });
   const c = f.controller; await c.start(); c.prepare('meal');
   const saving = c.confirm();
-  assert.equal(queued.length, 1); assert.equal(f.entries.size, 1);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(queued.length, 1); assert.equal(f.entries.has(paidCareJournalKey('demo-speed', 'student-a')), true);
   assert.equal(c.getState().pending, true); assert.equal(c.getState().quote.wallet.balance, 30);
-  c.prepare('snack'); await c.confirm(); assert.equal(queued.length, 1);
-  await saving; assert.equal(c.getState().quote.wallet.balance, 28); assert.equal(f.events.length, 1);
+  c.prepare('snack'); await c.confirm(); assert.equal(queued.length, 2);
+  await saving; assert.equal(c.getState().quote.wallet.balance, 27); assert.equal(f.events.length, 2);
 });
 test('automatic recovery reuses operation after a lost reply without replaying local animation', async () => {
   let lose = true; const queued = [];
@@ -118,7 +123,7 @@ test('automatic recovery reuses operation after a lost reply without replaying l
   assert.equal(c.getState().pending, true); assert.ok(c.getState().quote.pet);
   await new Promise(resolve => setTimeout(resolve, 1200));
   assert.equal(c.getState().pending, false); assert.equal(c.getState().quote.wallet.balance, 28);
-  assert.equal(queued.length, 1); assert.equal(f.events.length, 0); assert.equal(f.entries.size, 0);
+  assert.equal(queued.length, 1); assert.equal(f.events.length, 0); assert.equal(f.entries.has(paidCareJournalKey('demo-speed', 'student-a')), false);
   c.dispose();
 });
 test('opening can reuse the already-loaded identity-bound state without another request', async () => {
