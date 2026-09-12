@@ -37,7 +37,13 @@ try {
       const rect = document.querySelector(selector).getBoundingClientRect();
       return [selector, { x: rect.x + window.scrollX, y: rect.y + window.scrollY, width: rect.width, height: rect.height }];
     })));
+    const chrome = () => page.evaluate(() => Object.fromEntries(['.saved-queue-status', '.saved-sync'].map(selector => {
+      const style = getComputedStyle(document.querySelector(selector));
+      return [selector, { background: style.backgroundColor, border: style.borderColor, boxShadow: style.boxShadow, color: style.color }];
+    })));
     const layoutBefore = await layout();
+    const chromeBefore = await chrome();
+    for (const selector of Object.keys(chromeBefore)) { assert.equal(chromeBefore[selector].background, 'rgba(0, 0, 0, 0)', `${selector} empty background is visible`); assert.equal(chromeBefore[selector].boxShadow, 'none', `${selector} empty shadow is visible`); }
     const start = performance.now(); await button.click();
     await page.waitForFunction(() => window.speedFrames.some(f => f.food === '3'), null, { timeout: 5000 }).catch(async error => {
       console.log({ calls, text: await page.locator('body').innerText(), errors }); throw error;
@@ -55,9 +61,11 @@ try {
     assert.ok(secondConfirmMs < 250, `Second care confirmation took ${secondConfirmMs}ms`);
     await page.getByText('2 care actions waiting to finish', { exact: true }).waitFor();
     const layoutDuring = await layout();
+    const chromeDuring = await chrome();
     const beforePurchaseCalls = calls.filter(call => call.method === 'purchase');
     assert.equal(beforePurchaseCalls.length, 1);
     assert.ok(calls.filter(call => call.method === 'getState').length <= 2, `Unexpected fresh-state call count: ${calls.map(call => call.method).join(',')}`);
+    for (const selector of Object.keys(chromeDuring)) assert.notEqual(chromeDuring[selector].background, 'rgba(0, 0, 0, 0)', `${selector} populated background is hidden`);
     for (const selector of Object.keys(layoutBefore)) assert.deepEqual(layoutDuring[selector], layoutBefore[selector], `${selector} moved while care was queued`);
     await page.keyboard.press('c');
     await page.locator('.saved-top').getByText('27 DONUTS').waitFor();
@@ -70,11 +78,13 @@ try {
     const frames = await page.evaluate(() => window.speedFrames);
     for (const food of ['3', '2', '1', '0']) assert.ok(frames.some(f => f.food === food));
     const layoutAfter = await layout();
+    const chromeAfter = await chrome();
     for (const selector of Object.keys(layoutBefore)) assert.deepEqual(layoutAfter[selector], layoutBefore[selector], `${selector} moved after care completed`);
+    for (const selector of Object.keys(chromeAfter)) { assert.equal(chromeAfter[selector].background, 'rgba(0, 0, 0, 0)', `${selector} empty background remains visible`); assert.equal(chromeAfter[selector].boxShadow, 'none', `${selector} empty shadow remains visible`); }
     await button.waitFor({ state: 'visible' }); assert.equal(await button.isEnabled(), true);
     assert.deepEqual(errors, []); assert.equal(f.db.read('fixture/wallets/student-a').balance, 27);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
-    console.log(JSON.stringify({ width, startEatingMs, secondConfirmMs, calls, outcomes, layoutBefore, layoutDuring, layoutAfter, finalBalance: 27, noDuplicateCharge: true }));
+    console.log(JSON.stringify({ width, startEatingMs, secondConfirmMs, calls, outcomes, chromeBefore, chromeDuring, chromeAfter, layoutBefore, layoutDuring, layoutAfter, finalBalance: 27, noDuplicateCharge: true }));
     await page.screenshot({ path: `/tmp/yumpals-fast-care-${width}.png`, fullPage: true });
     await page.close();
   }

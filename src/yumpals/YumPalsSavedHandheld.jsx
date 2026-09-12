@@ -74,6 +74,7 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
   const projectedQuote = sameOwner ? state.projected : null;
   const interactionQuote = projectedQuote || quote;
   const queue = sameOwner ? (state.queue || []) : [];
+  const hasQueue = sameOwner && queue.length > 0;
   const reduced = osReduced || (sameOwner && (quote?.pet || lastPet)?.reducedMotion === true);
   useEffect(() => {
     if (!animation) return undefined;
@@ -91,6 +92,7 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
   const guess = direction => { if (sameOwner && quote?.enabled && currentGame?.game?.enabled && !state.pending && !animation) void gameInstance.current?.choose(direction); };
   const icon = PAID_CARE_ICON_ORDER[selected]; const choices = SAVED_CHOICES[icon] || [];
   const sleep = savedSleep(quote); const confirmation = sameOwner ? state.confirmation : null;
+  const syncMessage = sameOwner && state.pending ? (state.busy ? 'Saving care… Saved balance stays unchanged until confirmed.' : state.message || 'Reconnecting… Your queued care is kept safely.') : '';
   useEffect(() => {
     if (!sleep.sleeping || reduced) { setSleepIndex(0); return undefined; }
     const timer = window.setInterval(() => setSleepIndex(n => 1 - n), 1000); return () => window.clearInterval(timer);
@@ -166,15 +168,15 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
       {PAID_CARE_ICON_ORDER.map(name => <span className="paid-hint-size" aria-hidden="true" key={name}>{PAID_CARE_ICON_LABELS[name]} — {helpFor(name)}</span>)}
       <span className="paid-hint-current">{help || icon ? `${PAID_CARE_ICON_LABELS[help || icon]} — ${helpFor(help || icon)}` : 'Press A SELECT to choose an icon.'}</span>
     </p>
-    <div className="saved-queue-status" role="status" aria-label="Saved and pending YumPals care">
-      {sameOwner && queue.length > 0 ? <><strong>{queue.length} care action{queue.length === 1 ? '' : 's'} waiting to finish</strong><span>Saved donuts: {quote?.wallet?.available ? quote.wallet.balance : 'checking'} · after this care: {projectedQuote?.wallet?.available ? projectedQuote.wallet.balance : 'checking'}</span><span>{queue.map(item => `${CARE_NAMES[item.action]} (${item.phase === 'uncertain' ? 'needs checking' : item.phase === 'inflight' ? 'saving' : 'waiting'}, ${item.quotedCost})`).join(' · ')}</span></> : <span aria-hidden="true">&nbsp;</span>}
+    <div className={`saved-queue-status ${hasQueue ? 'has-content' : 'is-empty'}`} role="status" aria-label="Saved and pending YumPals care">
+      {hasQueue ? <><strong>{queue.length} care action{queue.length === 1 ? '' : 's'} waiting to finish</strong><span>Saved donuts: {quote?.wallet?.available ? quote.wallet.balance : 'checking'} · after this care: {projectedQuote?.wallet?.available ? projectedQuote.wallet.balance : 'checking'}</span><span>{queue.map(item => `${CARE_NAMES[item.action]} (${item.phase === 'uncertain' ? 'needs checking' : item.phase === 'inflight' ? 'saving' : 'waiting'}, ${item.quotedCost})`).join(' · ')}</span></> : <span aria-hidden="true">&nbsp;</span>}
     </div>
     {sameOwner && quote && <div className="paid-demo-meta" aria-label="Your donuts and care spending">
       <span>Donuts: {quote.wallet.available ? quote.wallet.balance : 'Not available'}</span>
       <span>Care today: {quote.pet?.daily.spent ?? 0} / {quote.careCap}</span>
     </div>}
     {PAID_CARE_ICON_ORDER.map(name => <span className="paid-help-accessible" id={`${id}-${name}`} key={name}>{helpFor(name)}</span>)}
-    <p className="saved-sync" role="status">{sameOwner && state.pending ? (state.busy ? 'Saving care… Saved balance stays unchanged until confirmed.' : state.message || 'Reconnecting… Your queued care is kept safely.') : '\u00a0'}</p>
+    <p className={`saved-sync ${syncMessage ? 'has-content' : 'is-empty'}`} role="status">{syncMessage || '\u00a0'}</p>
     <div className="saved-utilities">{state.pending && !state.busy && sameOwner && <button type="button" disabled={state.storageBlocked} onClick={() => void instance.current?.retry()}>Reconnect</button>}<button type="button" disabled={state.busy || state.storageBlocked || !sameOwner} onClick={() => void instance.current?.refresh()}>Refresh pal</button></div>
     {currentGame?.pending && <button type="button" disabled={currentGame.busy || currentGame.storageBlocked} onClick={() => void gameInstance.current?.retry()}>Retry guess</button>}
     {screen === 'game' && <button type="button" disabled={!sameOwner || currentGame?.busy} onClick={() => void gameInstance.current?.refresh()}>Refresh game</button>}
