@@ -25,13 +25,14 @@ function fixture({ fast = true, latency = 0, pet = true, needs = { hunger: 0, ha
       const method = url.endsWith('yumpalsPurchaseCare') ? 'purchase' : 'getState';
       calls.push(method);
       if (latency) await new Promise(resolve => setTimeout(resolve, latency));
-      return { ok: true, json: async () => ({ result: edit(await api[method](request('student-a', data)), method) }) };
+      return { ok: true, json: async () => ({ result: await edit(await api[method](request('student-a', data)), method) }) };
     } });
-  const controller = createPaidCareController({ ownerUid: 'student-a', projectId: 'demo-speed', enabled: true,
+  const options = { ownerUid: 'student-a', projectId: 'demo-speed', enabled: true,
     getIdentity: () => identity, transport, operationId: () => `speed-${++sequence}`,
     storage: { getItem: k => entries.get(k) ?? null, setItem: (k, v) => entries.set(k, v), removeItem: k => entries.delete(k) },
-    locks, onQueued, autoRecover, onConfirmed: e => events.push(e) });
-  return { ...f, api, controller, events, entries, calls: () => calls, resetCalls: () => { calls = []; }, setIdentity: v => { identity = v; } };
+    locks, onQueued, autoRecover, onConfirmed: e => events.push(e) };
+  const controller = createPaidCareController(options);
+  return { ...f, api, controller, create: () => createPaidCareController(options), transport, events, entries, calls: () => calls, resetCalls: () => { calls = []; }, setIdentity: v => { identity = v; } };
 }
 test('normal care uses one request and authoritative snapshot, legacy response still refreshes', async t => {
   const measured = {};
@@ -132,4 +133,58 @@ test('opening can reuse the already-loaded identity-bound state without another 
   assert.equal(c.getState().quote.wallet.balance, 30);
   f.setIdentity({ uid: 'student-b', isAnonymous: false, sandbox: false });
   await c.start(); assert.equal(c.getState().quote, null);
+});
+
+test('background refresh does not erase a price confirmation and concurrent refreshes share one read', async () => {
+  let release; let hold = false;
+  const gate = new Promise(resolve => { release = resolve; });
+  const f = fixture({ edit: async (value, method) => { if (hold && method === 'getState') await gate; return value; } });
+  const c = f.controller; await c.start(); f.resetCalls(); hold = true;
+  const reads = [c.refresh(), c.refresh(), c.refresh()];
+  c.prepare('meal'); const confirmation = c.getState().confirmation;
+  release(); await Promise.all(reads);
+  assert.deepEqual(f.calls(), ['getState']);
+  assert.deepEqual(c.getState().confirmation, confirmation);
+  await c.confirm(); assert.equal(c.getState().quote.wallet.balance, 28);
+});
+
+test('late background snapshot cannot rewind a newer paid-care receipt or its warm cache', async () => {
+  let release; let entered; let hold = false;
+  const gate = new Promise(resolve => { release = resolve; });
+  const ready = new Promise(resolve => { entered = resolve; });
+  const f = fixture({ edit: async (value, method) => { if (hold && method === 'getState') { entered(); await gate; } return value; } });
+  const c = f.controller; await c.start(); hold = true;
+  const reading = c.refresh(); await ready;
+  c.prepare('meal'); await c.confirm();
+  assert.equal(c.getState().quote.wallet.balance, 28);
+  release(); await reading;
+  assert.equal(c.getState().quote.wallet.balance, 28);
+  assert.equal(f.transport.peek('student-a').wallet.balance, 28);
+  f.resetCalls(); await c.start(); assert.deepEqual(f.calls(), []);
+  assert.equal(c.getState().quote.pet.needs.hunger, 2);
+});
+
+test('recent same-session cache displays immediately and refreshes behind the screen', async t => {
+  let clock = Date.now(); t.mock.method(Date, 'now', () => clock);
+  let release; let hold = false;
+  const gate = new Promise(resolve => { release = resolve; });
+  const f = fixture({ edit: async (value, method) => { if (hold && method === 'getState') await gate; return value; } });
+  await f.controller.start(); f.controller.dispose();
+  const c = f.create(); clock += 11000; hold = true; f.resetCalls();
+  assert.equal(f.transport.peek('student-a'), null);
+  assert.equal(f.transport.peekRecent('student-a').wallet.balance, 30);
+  const opening = c.start();
+  assert.equal(c.getState().quote.wallet.balance, 30);
+  release(); await opening; assert.deepEqual(f.calls(), ['getState']);
+  clock += 61000; assert.equal(f.transport.peekRecent('student-a'), null);
+  assert.equal(f.transport.peekRecent('student-b'), null);
+});
+
+test('changed configuration during background refresh withdraws, rather than silently changes, confirmation', async () => {
+  const f = fixture(); const c = f.controller; await c.start(); c.prepare('meal');
+  const config = f.db.read(f.refs.config('student-a'));
+  f.db.seed(f.refs.config('student-a'), { ...config, version: 'changed', prices: { ...config.prices, meal: 3 } });
+  await c.refresh(); assert.equal(c.getState().confirmation, null);
+  assert.match(c.getState().message, /choose again/);
+  f.resetCalls(); await c.confirm(); assert.deepEqual(f.calls(), []);
 });

@@ -78,3 +78,36 @@ test('transport pins endpoint, snapshots request before token wait, and rejects 
   const changed = t('yumpalsGetSavedGame', { gameId: 'game-1' }, context); user = { ...user }; resolve('token');
   await assert.rejects(changed); assert.equal(calls, 1);
 });
+
+test('normal guesses advance from verified receipts without another read; pause/resume is immediate', async t => {
+  const f = await fixture(); const names = []; let completed = 0;
+  const original = f.options.transport;
+  const c = createSavedGameController({ ...f.options, onSettled: () => completed++, transport: async (...args) => {
+    names.push(args[0]); await new Promise(resolve => setTimeout(resolve, 120)); return original(...args);
+  } });
+  await c.start(); await c.open('game-1'); names.length = 0;
+  const resumeAt = performance.now(); await c.open('game-1');
+  assert.deepEqual(names, []); assert.ok(performance.now() - resumeAt < 50);
+  const at = performance.now(); await c.choose('left');
+  const elapsed = Math.round(performance.now() - at);
+  assert.deepEqual(names, ['yumpalsChooseSavedGame']);
+  assert.equal(c.getState().game.round, 1); assert.equal(c.getState().game.score, 1); assert.equal(c.getState().busy, false);
+  assert.equal(completed, 0);
+  await c.choose('right'); await c.choose('left');
+  assert.equal(c.getState().game.complete, true); assert.equal(completed, 1);
+  assert.deepEqual(c.getState().game, await f.service.getGame(request('student-a', { gameId: 'game-1' })));
+  names.length = 0; await c.refresh(); assert.deepEqual(names, ['yumpalsGetSavedGame']);
+  t.diagnostic(`120ms synthetic network: guess ${elapsed}ms, one request instead of two; resume uses no request.`);
+});
+
+test('invalid guess result retains recovery journal, never advances the game or reveals a result', async () => {
+  const f = await fixture(); const original = f.options.transport;
+  const c = createSavedGameController({ ...f.options, transport: async (...args) => {
+    const result = await original(...args);
+    if (args[0] === 'yumpalsChooseSavedGame') result.outcome.ownerUid = 'student-b';
+    return result;
+  } });
+  await c.start(); await c.open('game-1'); await c.choose('left');
+  assert.equal(c.getState().game.round, 0); assert.equal(c.getState().pending, true);
+  assert.equal(f.items.size, 1); assert.equal(f.counts().reveals, 0);
+});

@@ -11,4 +11,5 @@ const transport = createPaidCareTransport({ projectId: 'demo-speed', enabled: tr
   fetchImpl: (url, options) => fetch(`/__speed-api/${url.split('/').at(-1)}`, options) });
 const entries = new Map();
 const storage = { getItem: k => entries.get(k) ?? null, setItem: (k, v) => entries.set(k, v), removeItem: k => entries.delete(k) };
-createRoot(document.getElementById('root')).render(<div className="max-w-md md:max-w-2xl mx-auto p-4 yumpals-embedded-saved"><Saved ownerUid="student-a" projectId="demo-speed" enabled getIdentity={getIdentity} transport={transport} storage={storage}/></div>);
+const fixture = <div className="max-w-md md:max-w-2xl mx-auto p-4 yumpals-embedded-saved"><Saved ownerUid="student-a" projectId="demo-speed" enabled getIdentity={getIdentity} transport={transport} storage={storage}/></div>;
+createRoot(document.getElementById('root')).render(new URLSearchParams(location.search).has('strict') ? <React.StrictMode>{fixture}</React.StrictMode> : fixture);

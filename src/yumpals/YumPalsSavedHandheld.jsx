@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { memo, useEffect, useId, useRef, useState } from 'react';
 import { ignoreHandheldKey } from './handheldKeyboard.js';
 import { createPaidCareController } from './paidCareClient.js';
 import { createSavedGameController } from './savedGameClient.js';
@@ -11,11 +11,13 @@ import './savedHandheld.css';
 const storageDefault = { getItem: k => window.localStorage.getItem(k), setItem: (k, v) => window.localStorage.setItem(k, v), removeItem: k => window.localStorage.removeItem(k) };
 const operationDefault = () => crypto.randomUUID();
 const EMPTY = { quote: null, confirmation: null, pending: false, busy: false, storageBlocked: false, message: '' };
-function Pixels({ pixels, palette, className = '' }) {
+const Pixels = memo(function Pixels({ pixels, palette, className = '' }) {
   return <span aria-hidden="true" className={`saved-pixels ${className}`} style={{ gridTemplateColumns: `repeat(${pixels[0].length}, 1fr)` }}>
     {pixels.flatMap((row, y) => [...row].map((cell, x) => <span key={`${x}-${y}`} style={{ background: palette[cell] || 'transparent' }} />))}
   </span>;
-}
+}, (before, after) => before.pixels === after.pixels && before.className === after.className
+  && Object.keys(before.palette).length === Object.keys(after.palette).length
+  && Object.entries(before.palette).every(([key, value]) => after.palette[key] === value));
 function Blob({ pet, animation, blink, sleeping, reduced, sleepIndex }) {
   const type = animation?.type || (sleeping ? 'sleep' : blink ? 'blink' : 'idle');
   const frame = getYumPalsFrame(pet.species, type, animation?.index || (sleeping && !animation ? sleepIndex : 0), reduced);
@@ -30,18 +32,18 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
   const gameInstance = useRef(null); const [gameState, setGameState] = useState(null);
   const gameReady = enabled && gameEnabled === true && typeof gameTransport === 'function';
   const helpFor = name => name === 'game' && gameReady ? 'Guess left or right for three rounds. Resume a paid game without paying again.' : SAVED_HELP[name];
-  const id = useId(); const instance = useRef(null); const animationQueue = useRef([]); const [lastPet, setLastPet] = useState(null); const [sleepIndex, setSleepIndex] = useState(0);
+  const id = useId(); const instance = useRef(null); const [lastPet, setLastPet] = useState(null); const [sleepIndex, setSleepIndex] = useState(0);
   const [state, setState] = useState(EMPTY); const [selected, setSelected] = useState(null); const [help, setHelp] = useState(null);
   const [screen, setScreen] = useState('room'); const [choice, setChoice] = useState(0);
   const [animation, setAnimation] = useState(null); const [blink, setBlink] = useState(false); const [osReduced, setOsReduced] = useState(false);
   const [adoption, setAdoption] = useState({ name: 'Niblet', species: 'mossbit', casing: 'berry', color: '#d94878' });
   const [localMessage, setLocalMessage] = useState('');
   useEffect(() => {
-    let alive = true; animationQueue.current = []; setLastPet(null); setState(EMPTY); setAnimation(null); setScreen('room');
+    let alive = true; setLastPet(null); setState(EMPTY); setAnimation(null); setScreen('room');
     const controller = createPaidCareController({ ownerUid, projectId, enabled, getIdentity, transport, storage, operationId,
       autoRecover: true,
       onChange: next => { if (alive) { if (next.quote?.pet) setLastPet(next.quote.pet); if (!next.pending) setLocalMessage(''); setState({ ...next, ownerUid, projectId }); } },
-      onQueued: receipt => { if (alive) { setScreen('room'); setLocalMessage(''); if (!['game', 'adoption', 'bedtime'].includes(receipt.action)) { const next = { type: ['meal', 'snack'].includes(receipt.action) ? 'feed' : receipt.action, index: 0 }; setAnimation(current => { if (current) { animationQueue.current.push(next); return current; } return next; }); } } },
+      onQueued: receipt => { if (alive) { setScreen('room'); setLocalMessage(''); if (!['game', 'adoption', 'bedtime'].includes(receipt.action)) setAnimation({ type: ['meal', 'snack'].includes(receipt.action) ? 'feed' : receipt.action, index: 0 }); } },
       onConfirmed: receipt => { if (alive) { if (receipt.action === 'game') { setScreen('game'); void gameInstance.current?.open(receipt.operationId); } else if (receipt.action === 'adoption') setAnimation({ type: 'wake', index: 0 }); } },
     });
     instance.current = controller; void controller.start();
@@ -75,34 +77,38 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
   const interactionQuote = projectedQuote || quote;
   const queue = sameOwner ? (state.queue || []) : [];
   const hasQueue = sameOwner && queue.length > 0;
+  // Ordinary care reacts to durable local reservations. Money remains the
+  // authoritative balance, and a refusal naturally restores the server view.
+  const displayQuote = hasQueue && !state.storageBlocked && queue.every(item => !['adoption', 'game'].includes(item.action)) ? interactionQuote : quote;
   const reduced = osReduced || (sameOwner && (quote?.pet || lastPet)?.reducedMotion === true);
   useEffect(() => {
     if (!animation) return undefined;
     const sequence = getYumPalsAnimationSequence(animation.type, reduced);
-    const timer = window.setTimeout(() => setAnimation(value => value && (value.index + 1 < sequence.length ? { ...value, index: value.index + 1 } : animationQueue.current.shift() || null)), sequence[animation.index]?.duration || 700);
+    const timer = window.setTimeout(() => setAnimation(value => value === animation ? (value.index + 1 < sequence.length ? { ...value, index: value.index + 1 } : null) : value), sequence[animation.index]?.duration || 700);
     return () => window.clearTimeout(timer);
   }, [animation, reduced]);
   useEffect(() => {
     if (reduced) { setBlink(false); return undefined; }
     const timer = window.setTimeout(() => setBlink(!blink), blink ? 160 : 4800); return () => window.clearTimeout(timer);
   }, [blink, reduced]);
-  const pet = sameOwner ? (quote ? quote.pet : lastPet) : null;
+  const pet = sameOwner ? (displayQuote ? displayQuote.pet : lastPet) : null;
   const currentGame = sameOwner && gameState?.ownerUid === ownerUid && gameState?.projectId === projectId ? gameState : null;
   const locked = !sameOwner || Boolean(state.storageBlocked) || !quote?.enabled || !quote?.wallet?.available || Boolean(currentGame?.pending || currentGame?.busy || currentGame?.storageBlocked);
   const guess = direction => { if (sameOwner && quote?.enabled && currentGame?.game?.enabled && !state.pending && !animation) void gameInstance.current?.choose(direction); };
   const icon = PAID_CARE_ICON_ORDER[selected]; const choices = SAVED_CHOICES[icon] || [];
-  const sleep = savedSleep(quote); const confirmation = sameOwner ? state.confirmation : null;
+  const sleep = savedSleep(displayQuote); const confirmation = sameOwner ? state.confirmation : null;
   const syncMessage = sameOwner && state.pending ? (state.busy ? 'Saving care… Saved balance stays unchanged until confirmed.' : state.message || 'Reconnecting… Your queued care is kept safely.') : '';
   useEffect(() => {
     if (!sleep.sleeping || reduced) { setSleepIndex(0); return undefined; }
     const timer = window.setInterval(() => setSleepIndex(n => 1 - n), 1000); return () => window.clearInterval(timer);
   }, [sleep.sleeping, reduced]);
-  const chooseIcon = index => { setSelected(index); setScreen('room'); setChoice(0); instance.current?.cancel(); setLocalMessage(''); };
-  const cancel = () => { instance.current?.cancel(); setLocalMessage(''); if (screen === 'room') setSelected(null); else setScreen('room'); };
+  const chooseIcon = index => { setAnimation(null); setSelected(index); setScreen('room'); setChoice(0); instance.current?.cancel(); setLocalMessage(''); };
+  const cancel = () => { setAnimation(null); instance.current?.cancel(); setLocalMessage(''); if (screen === 'room') setSelected(null); else setScreen('room'); };
   const cycle = () => { if (screen === 'game') guess('left'); else if (screen === 'choices') setChoice(n => (n + 1) % choices.length); else if (screen === 'room') chooseIcon(selected === null ? 0 : (selected + 1) % 8); };
   const confirm = () => {
     if (screen === 'game') { guess('right'); return; }
     if (screen === 'room') {
+      setAnimation(null);
       if (!pet) { if (!locked) setScreen('adopt'); return; }
       if (icon === 'status' || icon === 'attention') setScreen('status');
       else if (choices.length) { setChoice(0); setScreen('choices'); }
@@ -115,8 +121,8 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
       }
       const noEffect = savedNoEffect(interactionQuote, action);
       if (noEffect) { setLocalMessage(noEffect); return; }
-      if (!locked) { instance.current?.prepare(action); setScreen('confirm'); }
-    } else if (screen === 'adopt' && !locked) { instance.current?.prepare('adoption', adoption); setScreen('confirm'); }
+      if (!locked) { instance.current?.prepare(action); if (instance.current?.getState().confirmation) setScreen('confirm'); }
+    } else if (screen === 'adopt' && !locked) { instance.current?.prepare('adoption', adoption); if (instance.current?.getState().confirmation) setScreen('confirm'); }
     else if (screen === 'confirm' && !locked && confirmation) void instance.current?.confirm();
   };
   useEffect(() => {
@@ -124,7 +130,7 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
       if (ignoreHandheldKey(event)) return;
       const value = event.key.toLowerCase();
       if (['a', 'arrowright'].includes(value)) { event.preventDefault(); cycle(); }
-      if (['b', 'enter'].includes(value)) { event.preventDefault(); if (!animation) confirm(); }
+      if (['b', 'enter'].includes(value)) { event.preventDefault(); confirm(); }
       if (['c', 'escape', 'arrowleft'].includes(value)) { event.preventDefault(); cancel(); }
     };
     window.addEventListener('keydown', key); return () => window.removeEventListener('keydown', key);
@@ -159,7 +165,7 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
               {n === choice ? '▶ ' : ''}{CARE_NAMES[action]} {action === 'game' && !gameReady ? '— not ready' : action === 'game' && pet?.game ? '· Resume' : quote ? `· ${quote.prices[action]}` : ''}</button>)}<small>{icon === 'game' && pet?.game ? 'Your paid game is kept safely. Resume without paying again.' : state.pending && ['adoption', 'game'].includes(choices[choice]) ? 'Finish the saved care first.' : 'B opens price confirmation'}</small></div>}
             {screen === 'status' && <div className="saved-status">{pet ? <>{[['hunger', 'Food'], ['happiness', 'Happy'], ['cleanliness', 'Clean'], ['health', 'Health']].map(([key, label]) => <div key={key}><span>{label}</span><span aria-label={`${pet.needs[key]} of 4 hearts`} className="saved-hearts">{[0, 1, 2, 3].map(n => <Pixels key={n} className="saved-meter" pixels={YUMPALS_HEART_PIXELS} palette={{ a: n < pet.needs[key] ? '#304636' : '#81936c' }} />)}</span></div>)}<small>{pet.attention ? 'Needs a gentle reminder' : 'Feeling settled'} · {pet.careDays} care days</small></> : 'Please refresh to check your pal.'}</div>}
             {screen === 'adopt' && sameOwner && <div className="saved-adopt"><label>Name<input maxLength={16} value={adoption.name} onChange={e => setAdoption(v => ({ ...v, name: e.target.value }))} /></label><label>Case<select value={adoption.casing} onChange={e => setAdoption(v => ({ ...v, casing: e.target.value }))}>{['berry', 'mint', 'sky', 'sun'].map(c => <option key={c}>{c}</option>)}</select></label><label>Colour<input type="color" value={adoption.color} onChange={e => setAdoption(v => ({ ...v, color: e.target.value }))} /></label><small>B to review adoption price</small></div>}
-            {screen === 'confirm' && <div className="saved-confirm">{confirmation ? <><strong>{CARE_NAMES[confirmation.action]}?</strong><span>Cost {confirmation.quotedCost} donut{confirmation.quotedCost === 1 ? '' : 's'}</span><span>{savedEffect(interactionQuote, confirmation.action)}</span><span>{quote?.wallet.available && projectedQuote?.wallet.available ? `Saved ${quote.wallet.balance} · after pending ${projectedQuote.wallet.balance - confirmation.quotedCost}` : 'Not enough donuts for this care'}</span><small>B CONFIRM PAYMENT · C CANCEL</small></> : <span>Care is being checked. C to return.</span>}</div>}
+            {screen === 'confirm' && <div className="saved-confirm">{confirmation ? <><strong>{CARE_NAMES[confirmation.action]}?</strong><span>Cost {confirmation.quotedCost} donut{confirmation.quotedCost === 1 ? '' : 's'}</span><span>{savedEffect(interactionQuote, confirmation.action)}</span><span>{quote?.wallet.available && projectedQuote?.wallet.available ? `Saved ${quote.wallet.balance} · after pending ${projectedQuote.wallet.balance - confirmation.quotedCost}` : 'Not enough donuts for this care'}</span><small>B CONFIRM PAYMENT · C CANCEL</small></> : <span>{state.message || 'Keeping your care safe… C to go back.'}</span>}</div>}
           </div>{rail(4)}
         </div></div>
       <div className="paid-hardware" aria-label="Handheld buttons"><button className="paid-hardware-button" type="button" aria-label="A SELECT" onClick={cycle}><strong>A</strong><span>SELECT</span></button><button className="paid-hardware-button" type="button" aria-label="B CONFIRM" onClick={confirm} disabled={['confirm', 'adopt'].includes(screen) && locked && ['adoption', 'game'].includes(confirmation?.action || '')}><strong>B</strong><span>CONFIRM</span></button><button className="paid-hardware-button" type="button" aria-label="C CANCEL" onClick={cancel}><strong>C</strong><span>CANCEL</span></button></div>

@@ -22,6 +22,14 @@ export function validSavedGameView(v, ownerUid, gameId) {
   }
   return v.score === v.turns.filter(turn => turn.correct).length;
 }
+// Only called after validating the immutable server outcome. A normal next
+// round contains everything needed to advance; recovery still reads the server.
+export function advanceSavedGameView(view, outcome) {
+  if (!validSavedGameView(view, outcome.ownerUid, outcome.gameId) || view.round !== outcome.round || view.complete) return null;
+  const turns = [...view.turns, Object.fromEntries(turnKeys.map(key => [key, outcome[key]]))];
+  const next = { ...view, turns, round: turns.length, complete: turns.length === 3, score: turns.filter(turn => turn.correct).length };
+  return validSavedGameView(next, outcome.ownerUid, outcome.gameId) ? next : null;
+}
 export async function validSavedGameOutcome(v, ownerUid, request) {
   if (!validSavedGameChoice(request) || !exact(v, ['outcome', 'duplicate']) || typeof v.duplicate !== 'boolean') return false;
   const o = v.outcome;

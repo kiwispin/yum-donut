@@ -200,6 +200,7 @@ function operationInstance() { try { return globalThis.crypto.randomUUID(); } ca
 export function createPaidCareController({ ownerUid, projectId, enabled, getIdentity, transport, storage,
   locks, onChange = () => {}, onConfirmed = () => {}, onQueued = () => {}, autoRecover = false }) {
   let active = true; let networkBusy = false; let blocked = false; let pumping = false; let journal = null; let currentQuote = null;
+  let viewRevision = 0; let refreshing = null;
   let recoveryTimer; let recoveryCount = 0; const instanceId = operationInstance(); const freshOperationIds = new Set(); const lockProvider = getLockProvider(locks);
   let state = { quote: null, projected: null, confirmation: null, pending: false, busy: false, storageBlocked: false, queue: [], reserved: { wallet: 0, daily: 0 }, message: '' };
   const key = paidCareJournalKey(projectId, ownerUid); const sequenceKey = paidCareSequenceKey(projectId, ownerUid); const namespaceKey = paidCareNamespaceKey(projectId, ownerUid); const lockName = paidCareLockName(projectId, ownerUid);
@@ -219,6 +220,7 @@ export function createPaidCareController({ ownerUid, projectId, enabled, getIden
     storage.setItem(key, serialized); if (storage.getItem(key) !== serialized) throw new Error('JOURNAL_WRITE_FAILED'); return serialized;
   };
   const syncStateFromJournal = (next, message = state.message) => {
+    viewRevision++;
     journal = next; let projection = null; let reserved = { wallet: 0, daily: 0 };
     if (next?.basis) { try { const projected = projectedFor(next); projection = projected.view; reserved = { wallet: projected.reserved, daily: Math.max(0, (projection.pet?.daily.spent || 0) - (next.basis.pet?.daily.spent || 0)) }; }
       catch { storageError('Your saved queue no longer matches its original prices or needs. No new charge was sent; refresh to review it.'); return; } }
@@ -228,19 +230,30 @@ export function createPaidCareController({ ownerUid, projectId, enabled, getIden
   };
   async function readFresh() {
     if (!current()) return null;
-    try { const value = validateHandheldView(await transport('yumpalsGetPaidCareState', {}, { ownerUid, isActive: current }), ownerUid); if (!current()) return null; currentQuote = structuredClone(value); return value; }
+    try { const value = validateHandheldView(await transport('yumpalsGetPaidCareState', {}, { ownerUid, isActive: current }), ownerUid); if (!current()) return null; return value; }
     catch (error) { if (current()) emit({ message: readErrorMessage(error) }); return null; }
   }
   async function read(message = '') {
+    const revision = viewRevision;
     const value = await readFresh(); if (!value || !current()) return;
-    if (!journal) emit({ quote: value, projected: value, confirmation: null, message });
+    if (revision !== viewRevision) return; // A newer local reservation/receipt wins over an old background read.
+    if (!journal) {
+      currentQuote = structuredClone(value);
+      const confirmation = state.confirmation;
+      const stillValid = confirmation && value.enabled && value.wallet.available
+        && confirmation.expectedConfigVersion === value.configVersion && confirmation.expectedConfigHash === value.configHash
+        && confirmation.quotedCost === value.prices[confirmation.action];
+      emit({ quote: value, projected: value, confirmation: stillValid ? confirmation : null,
+        message: confirmation && !stillValid ? 'Care choices have changed. Please choose again before paying.' : message });
+    }
     else if (journal.entries[0]?.phase === 'uncertain' || journal.entries[0]?.phase === 'inflight') emit({ message: message || 'A purchase needs checking. Use Retry purchase.' });
     else await rebase(value, message);
   }
   async function refresh() {
     if (!current()) { showBlocked(); return; }
     if (blocked || networkBusy) return;
-    await read(journal ? 'A purchase needs checking. Use Retry purchase.' : '');
+    if (!refreshing) refreshing = read(journal ? 'A purchase needs checking. Use Retry purchase.' : '').finally(() => { refreshing = null; });
+    await refreshing;
   }
   async function rebase(view, message = '') {
     if (!current()) return;
@@ -297,7 +310,7 @@ export function createPaidCareController({ ownerUid, projectId, enabled, getIden
     if (!current() || !result || result.failed || result.stale) return result;
     const wasOriginal = freshOperationIds.has(head.request.operationId); freshOperationIds.delete(head.request.operationId);
     if (result.next) syncStateFromJournal(result.next, result.released?.length ? 'Some queued care was released after checking your saved pal. Review the latest price and needs.' : '');
-    else { journal = null; currentQuote = structuredClone(resolvedView); emit({ quote: resolvedView, projected: resolvedView, pending: false, queue: [], reserved: { wallet: 0, daily: 0 }, message: outcome.status === 'REFUSED' ? refusalMessage(outcome) : 'Purchase confirmed.' }); }
+    else { viewRevision++; journal = null; currentQuote = structuredClone(resolvedView); transport.remember?.(resolvedView); emit({ quote: resolvedView, projected: resolvedView, pending: false, queue: [], reserved: { wallet: 0, daily: 0 }, message: outcome.status === 'REFUSED' ? refusalMessage(outcome) : 'Purchase confirmed.' }); }
     if (wasOriginal && !response.duplicate && outcome.status === 'COMMITTED') { try { onConfirmed(outcome); } catch { /* Presentation cannot undo a confirmed purchase. */ } }
     return result;
   }
@@ -356,7 +369,8 @@ export function createPaidCareController({ ownerUid, projectId, enabled, getIden
     start: async () => { if (!current()) { showBlocked(); return; }
       try { const loaded = readJournal(); if (loaded.legacy) await withLock(() => { try { const latest = readJournal(); if (latest.legacy) writeJournal(latest.journal, latest.raw); } catch { storageError(); } });
         const after = readJournal(); journal = after.journal; if (journal?.basis) { currentQuote = structuredClone(journal.basis); syncStateFromJournal(journal, journal.entries.length ? 'A purchase needs checking. Use Retry purchase.' : ''); }
-        const warm = transport.peek?.(ownerUid); if (warm && !journal?.basis) { currentQuote = validateHandheldView(warm, ownerUid); emit({ quote: currentQuote, projected: journal ? null : currentQuote }); }
+        const warm = transport.peek?.(ownerUid); const recent = warm || transport.peekRecent?.(ownerUid);
+        if (recent && !journal?.basis) { currentQuote = validateHandheldView(recent, ownerUid); emit({ quote: currentQuote, projected: journal ? null : currentQuote }); }
         if (journal?.entries.length) { if (autoRecover) await pump(); } else if (!warm) await refresh();
       } catch { storageError(); }
     },

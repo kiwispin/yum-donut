@@ -1,4 +1,4 @@
-import { validSavedGameChoice, validSavedGameView, validSavedGameOutcome } from './savedGameProtocol.js';
+import { validSavedGameChoice, validSavedGameView, validSavedGameOutcome, advanceSavedGameView } from './savedGameProtocol.js';
 
 export function createSavedGameController({ ownerUid, projectId, enabled, getIdentity, transport, storage,
   operationId = () => crypto.randomUUID(), onChange = () => {}, onReveal = () => {}, onSettled = () => {} }) {
@@ -43,8 +43,9 @@ export function createSavedGameController({ ownerUid, projectId, enabled, getIde
     if (!validSavedGameView(view, ownerUid, gameId)) throw new Error();
     state.game = structuredClone(view); return view;
   }
-  async function open(gameId) {
+  async function open(gameId, fresh = false) {
     if (!active() || state.busy || state.storageBlocked) return;
+    if (!fresh && !pending && state.game?.gameId === gameId) { state.message = ''; emit(); return; }
     state.busy = true; emit();
     try { await read(pending?.gameId || gameId); }
     catch { if (active()) state.message = 'We could not load your game. Please try again.'; }
@@ -59,8 +60,10 @@ export function createSavedGameController({ ownerUid, projectId, enabled, getIde
       if (!active() || !await validSavedGameOutcome(result, ownerUid, request) || !active()) throw new Error();
       if (!clear()) return;
       if (!retry && result.duplicate === false) safely(() => onReveal(structuredClone(result.outcome)));
-      safely(onSettled);
-      await read(request.gameId);
+      const next = !retry && !result.duplicate ? advanceSavedGameView(state.game, result.outcome) : null;
+      if (next) state.game = next;
+      else await read(request.gameId);
+      if (state.game?.complete) safely(onSettled);
     } catch {
       if (!active()) return;
       state.message = pending ? 'Your guess is saved on this device. Retry to check what happened.'
@@ -92,7 +95,7 @@ export function createSavedGameController({ ownerUid, projectId, enabled, getIde
   return {
     getState: snapshot, open, choose, retry: () => send(true),
     async start() { if (!active()) return; load(); emit(); if (pending && !state.storageBlocked) await open(pending.gameId); },
-    refresh: () => open(pending?.gameId || state.game?.gameId),
+    refresh: () => open(pending?.gameId || state.game?.gameId, true),
     dispose() { disposed = true; },
   };
 }

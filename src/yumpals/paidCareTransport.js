@@ -1,11 +1,11 @@
-import { validPaidCareRequest } from './paidCareClient.js';
+import { validPaidCareRequest, validateHandheldView } from './paidCareClient.js';
 const NAMES = ['yumpalsGetPaidCareState', 'yumpalsPurchaseCare'];
 const plain = v => v !== null && typeof v === 'object' && Object.getPrototypeOf(v) === Object.prototype;
 const failure = (reason = 'UNAVAILABLE') => Object.assign(new Error('Your request could not be confirmed.'), { details: { reason } });
 // HTTP failures never provide terminal purchase proof. Only normal validated
 // receipt/refusal outcomes can release a purchase journal.
 export function createPaidCareTransport({ projectId, enabled, getCurrentUser, fetchImpl = (...args) => fetch(...args), timeoutMs = 15000 }) {
-  let warm = null;
+  let warm = null; let cacheVersion = 0; let readSerial = 0;
   const transport = async (name, data, context) => {
     if (enabled !== true) throw failure('ROLLOUT_NOT_READY');
     if (typeof projectId !== 'string' || !/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/u.test(projectId) || !NAMES.includes(name)
@@ -16,7 +16,9 @@ export function createPaidCareTransport({ projectId, enabled, getCurrentUser, fe
       && typeof context.isActive === 'function' && context.isActive() === true
       && getCurrentUser() === captured && captured?.uid === context.ownerUid && captured.isAnonymous === false;
     if (!current()) throw failure('UNAUTHENTICATED');
-    if (name === 'yumpalsPurchaseCare') warm = null;
+    if (name === 'yumpalsPurchaseCare') { warm = null; cacheVersion++; }
+    const version = cacheVersion;
+    const serial = name === 'yumpalsGetPaidCareState' ? ++readSerial : null;
     const abort = new AbortController(); let timer;
     const timeout = new Promise((_, reject) => { timer = setTimeout(() => { abort.abort(); reject(failure()); }, timeoutMs); });
     try {
@@ -40,14 +42,24 @@ export function createPaidCareTransport({ projectId, enabled, getCurrentUser, fe
         throw failure();
       }
       if (!response.ok || !Object.hasOwn(body, 'result')) throw failure();
-      if (current() && name === 'yumpalsGetPaidCareState') warm = { user: captured, at: Date.now(), value: structuredClone(body.result) };
+      if (current() && name === 'yumpalsGetPaidCareState' && version === cacheVersion && serial === readSerial) warm = { user: captured, at: Date.now(), value: structuredClone(body.result) };
       return body.result;
     } catch (error) {
       const reason = error?.details?.reason;
       throw failure(typeof reason === 'string' && ['UNAUTHENTICATED', 'PERMISSION_DENIED', 'ROLLOUT_NOT_READY', 'MIGRATION_REQUIRED'].includes(reason) ? reason : 'UNAVAILABLE');
     } finally { clearTimeout(timer); }
   };
-  transport.peek = ownerUid => warm && enabled === true && getCurrentUser() === warm.user && warm.user?.uid === ownerUid
-    && !warm.user.isAnonymous && Date.now() - warm.at < 10000 ? structuredClone(warm.value) : null;
+  const peek = (ownerUid, age) => warm && enabled === true && getCurrentUser() === warm.user && warm.user?.uid === ownerUid
+    && !warm.user.isAnonymous && Date.now() - warm.at < age ? structuredClone(warm.value) : null;
+  transport.peek = ownerUid => peek(ownerUid, 10000);
+  // Older in-memory state is only for immediate display while start refreshes.
+  transport.peekRecent = ownerUid => peek(ownerUid, 60000);
+  transport.remember = value => {
+    const user = getCurrentUser();
+    if (enabled !== true || !user || user.isAnonymous !== false || user.uid !== value?.ownerUid) return;
+    const checked = validateHandheldView(value, user.uid);
+    cacheVersion++;
+    warm = { user, at: Date.now(), value: checked };
+  };
   return transport;
 }

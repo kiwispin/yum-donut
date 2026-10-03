@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { memo, useEffect, useRef, useState } from 'react';
 import { ignoreHandheldKey } from './handheldKeyboard.js';
 import {
     PAID_CARE_ADOPTION_PRICE,
@@ -64,7 +64,7 @@ const PROP_PALETTES = {
     illness: { a: '#7c4b52', b: '#b46870' },
 };
 
-function PixelGrid({ pixels, palette, className = 'paid-pixel-grid' }) {
+const PixelGrid = memo(function PixelGrid({ pixels, palette, className = 'paid-pixel-grid' }) {
     return (
         <span className={className} style={{ '--pixel-grid-columns': pixels[0]?.length || 1 }} aria-hidden="true">
             {pixels.flatMap((row, rowIndex) => [...row].map((cell, columnIndex) => (
@@ -76,7 +76,9 @@ function PixelGrid({ pixels, palette, className = 'paid-pixel-grid' }) {
             )))}
         </span>
     );
-}
+}, (before, after) => before.pixels === after.pixels && before.className === after.className
+    && Object.keys(before.palette).length === Object.keys(after.palette).length
+    && Object.entries(before.palette).every(([key, value]) => after.palette[key] === value));
 
 function PixelProp({ type, variant = '' }) {
     const pixels = PROP_PIXELS[`${type}${variant}`] || PROP_PIXELS[type];
@@ -273,8 +275,15 @@ export default function YumPalsHandheldDemo() {
     const submenu = selectedMenu ? SUBMENUS[selectedMenu] || [] : [];
     const currentSubItem = submenu[subMenuIndex] || submenu[0];
 
+    const interruptVisual = () => {
+        if (propTimerRef.current) window.clearTimeout(propTimerRef.current);
+        cleanTimersRef.current.forEach(timer => window.clearTimeout(timer));
+        cleanTimersRef.current = [];
+        setVisualAction(null);
+        setAnimationState(current => startYumPalsAnimation(current, 'idle', reducedMotion));
+    };
     const chooseIcon = (index) => {
-        if (visualAction || gameInputLocked) return;
+        interruptVisual();
         setSelectedIcon(index);
         setScreen('room');
         setSelectedMenu(null);
@@ -283,7 +292,7 @@ export default function YumPalsHandheldDemo() {
     };
 
     const cycle = () => {
-        if (visualAction) return;
+        if (visualAction) interruptVisual();
         if (screen === 'room') {
             if (!pet) return;
             setSelectedIcon((index) => (index === null ? 0 : (index + 1) % PAID_CARE_ICON_ORDER.length));
@@ -330,7 +339,7 @@ export default function YumPalsHandheldDemo() {
     };
 
     const confirmAction = () => {
-        if (!selectedAction || visualAction) return;
+        if (!selectedAction) return;
         const operationId = nextOperationId();
         const result = beginPaidCare(state, selectedAction, operationId);
         if (result.code !== 'OK') {
@@ -379,7 +388,7 @@ export default function YumPalsHandheldDemo() {
     };
 
     const cancel = () => {
-        if (visualAction && screen === 'room') return;
+        if (visualAction) interruptVisual();
         if (screen === 'room') {
             if (selectedIcon !== null) setSelectedIcon(null);
             return;
@@ -399,6 +408,7 @@ export default function YumPalsHandheldDemo() {
     };
 
     const confirm = () => {
+        if (visualAction && screen !== 'game') interruptVisual();
         if (screen === 'room') {
             if (!pet) setScreen('adopt');
             else openSelectedIcon();
@@ -416,7 +426,6 @@ export default function YumPalsHandheldDemo() {
     useEffect(() => {
         const onKeyDown = (event) => {
             if (ignoreHandheldKey(event)) return;
-            if (visualAction && screen === 'room') return;
             const key = event.key.toLowerCase();
             if (screen === 'game') {
                 if (gameReveal && !['c', 'escape'].includes(key)) return;
@@ -547,9 +556,9 @@ export default function YumPalsHandheldDemo() {
                             </div>
                         </div>
                         <div className="paid-hardware" aria-label="YumPals hardware controls">
-                            <button className="paid-hardware-button" disabled={Boolean((visualAction && screen === 'room') || gameInputLocked)} onClick={screen === 'game' ? () => gameChoice('left') : cycle} type="button" aria-label="A SELECT"><strong>A</strong><span>SELECT</span></button>
-                            <button className="paid-hardware-button paid-hardware-select" disabled={Boolean((visualAction && screen === 'room') || gameInputLocked)} onClick={screen === 'game' ? () => gameChoice('right') : confirm} type="button" aria-label="B CONFIRM"><strong>B</strong><span>CONFIRM</span></button>
-                            <button className="paid-hardware-button" disabled={Boolean(visualAction && screen === 'room')} onClick={cancel} type="button" aria-label="C CANCEL"><strong>C</strong><span>CANCEL</span></button>
+                            <button className="paid-hardware-button" disabled={gameInputLocked} onClick={screen === 'game' ? () => gameChoice('left') : cycle} type="button" aria-label="A SELECT"><strong>A</strong><span>SELECT</span></button>
+                            <button className="paid-hardware-button paid-hardware-select" disabled={gameInputLocked} onClick={screen === 'game' ? () => gameChoice('right') : confirm} type="button" aria-label="B CONFIRM"><strong>B</strong><span>CONFIRM</span></button>
+                            <button className="paid-hardware-button" onClick={cancel} type="button" aria-label="C CANCEL"><strong>C</strong><span>CANCEL</span></button>
                         </div>
                         <div className="paid-device-screw screw-left" />
                         <div className="paid-device-screw screw-right" />
