@@ -1,5 +1,6 @@
 import React, { memo, useEffect, useId, useRef, useState } from 'react';
 import { ignoreHandheldKey } from './handheldKeyboard.js';
+import PixelDrawing from './PixelDrawing.jsx';
 import { createPaidCareController } from './paidCareClient.js';
 import { createSavedGameController } from './savedGameClient.js';
 import { PAID_CARE_ICON_ORDER, PAID_CARE_ICON_LABELS, PAID_CARE_ICON_PIXELS } from './paidCareIcons.js';
@@ -13,7 +14,7 @@ const operationDefault = () => crypto.randomUUID();
 const EMPTY = { quote: null, confirmation: null, pending: false, busy: false, storageBlocked: false, message: '' };
 const Pixels = memo(function Pixels({ pixels, palette, className = '' }) {
   return <span aria-hidden="true" className={`saved-pixels ${className}`} style={{ gridTemplateColumns: `repeat(${pixels[0].length}, 1fr)` }}>
-    {pixels.flatMap((row, y) => [...row].map((cell, x) => <span key={`${x}-${y}`} style={{ background: palette[cell] || 'transparent' }} />))}
+    <PixelDrawing pixels={pixels} palette={palette} />
   </span>;
 }, (before, after) => before.pixels === after.pixels && before.className === after.className
   && Object.keys(before.palette).length === Object.keys(after.palette).length
@@ -44,7 +45,7 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
       autoRecover: true,
       onChange: next => { if (alive) { if (next.quote?.pet) setLastPet(next.quote.pet); if (!next.pending) setLocalMessage(''); setState({ ...next, ownerUid, projectId }); } },
       onQueued: receipt => { if (alive) { setScreen('room'); setLocalMessage(''); if (!['game', 'adoption', 'bedtime'].includes(receipt.action)) setAnimation({ type: ['meal', 'snack'].includes(receipt.action) ? 'feed' : receipt.action, index: 0 }); } },
-      onConfirmed: receipt => { if (alive) { if (receipt.action === 'game') { setScreen('game'); void gameInstance.current?.open(receipt.operationId); } else if (receipt.action === 'adoption') setAnimation({ type: 'wake', index: 0 }); } },
+      onConfirmed: receipt => { if (alive) { if (receipt.action === 'game') { setScreen('game'); if (!gameInstance.current?.openPurchased(receipt)) void gameInstance.current?.open(receipt.operationId); } else if (receipt.action === 'adoption') setAnimation({ type: 'wake', index: 0 }); } },
     });
     instance.current = controller; void controller.start();
     const refresh = () => { if (!document.hidden) { const next = controller.getState(); if (next.pending) void controller.retry(); else if (!next.confirmation && !transport.peek?.(ownerUid)) void controller.refresh(); } };
@@ -77,6 +78,10 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
   const interactionQuote = projectedQuote || quote;
   const queue = sameOwner ? (state.queue || []) : [];
   const hasQueue = sameOwner && queue.length > 0;
+  const savedGameId = quote?.pet?.game?.id;
+  useEffect(() => {
+    if (gameReady && savedGameId && !hasQueue) void gameInstance.current?.open(savedGameId);
+  }, [gameReady, savedGameId, hasQueue]);
   // Ordinary care reacts to durable local reservations. Money remains the
   // authoritative balance, and a refusal naturally restores the server view.
   const displayQuote = hasQueue && !state.storageBlocked && queue.every(item => !['adoption', 'game'].includes(item.action)) ? interactionQuote : quote;

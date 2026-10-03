@@ -6,7 +6,8 @@ const failure = (reason = 'UNAVAILABLE') => Object.assign(new Error('Your reques
 // receipt/refusal outcomes can release a purchase journal.
 export function createPaidCareTransport({ projectId, enabled, getCurrentUser, fetchImpl = (...args) => fetch(...args), timeoutMs = 15000 }) {
   let warm = null; let cacheVersion = 0; let readSerial = 0;
-  const transport = async (name, data, context) => {
+  let sharedRead = null;
+  const send = async (name, data, context) => {
     if (enabled !== true) throw failure('ROLLOUT_NOT_READY');
     if (typeof projectId !== 'string' || !/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/u.test(projectId) || !NAMES.includes(name)
       || !plain(data) || !Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 60000) throw failure();
@@ -48,6 +49,23 @@ export function createPaidCareTransport({ projectId, enabled, getCurrentUser, fe
       const reason = error?.details?.reason;
       throw failure(typeof reason === 'string' && ['UNAUTHENTICATED', 'PERMISSION_DENIED', 'ROLLOUT_NOT_READY', 'MIGRATION_REQUIRED'].includes(reason) ? reason : 'UNAVAILABLE');
     } finally { clearTimeout(timer); }
+  };
+  const transport = async (name, data, context) => {
+    const user = getCurrentUser();
+    const active = () => enabled === true && user && user === getCurrentUser() && user.isAnonymous === false
+      && context?.ownerUid === user.uid && typeof context.isActive === 'function' && context.isActive() === true;
+    if (name !== 'yumpalsGetPaidCareState' || !plain(data) || Object.keys(data).length || !active()) return send(name, data, context);
+    // Each consumer retains its own cancellation/identity check. Writes never join.
+    if (!sharedRead || sharedRead.user !== user || sharedRead.version !== cacheVersion) {
+      const entry = { user, version: cacheVersion, subscribers: [active], promise: null };
+      sharedRead = entry;
+      entry.promise = send(name, data, { ownerUid: user.uid, isActive: () => entry.subscribers.some(check => check()) })
+        .finally(() => { if (sharedRead === entry) sharedRead = null; });
+    } else sharedRead.subscribers.push(active);
+    return sharedRead.promise.then(value => {
+      if (!active()) throw failure('UNAUTHENTICATED');
+      return structuredClone(value);
+    });
   };
   const peek = (ownerUid, age) => warm && enabled === true && getCurrentUser() === warm.user && warm.user?.uid === ownerUid
     && !warm.user.isAnonymous && Date.now() - warm.at < age ? structuredClone(warm.value) : null;

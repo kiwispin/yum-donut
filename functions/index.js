@@ -1,8 +1,6 @@
 const admin = require('firebase-admin');
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret, defineBoolean } = require('firebase-functions/params');
-const { CloudAdapter, ConfigurationBotFrameworkAuthentication } = require('botbuilder');
-const { handleTeamsTurn } = require('./src/teamsBot');
 const { createYumPalsHandlers } = require('./src/yumpals/callables');
 const { createTeacherSettingsCallables } = require('./src/yumpals/teacherSettingsCallables');
 const { paidSettingsRefs } = require('./src/yumpals/paidSettingsPaths');
@@ -23,6 +21,8 @@ const MICROSOFT_APP_PASSWORD = defineSecret('MICROSOFT_APP_PASSWORD');
 const MICROSOFT_APP_TENANT_ID = defineSecret('MICROSOFT_APP_TENANT_ID');
 
 function createAdapter() {
+  // YumPals endpoints share this entrypoint, but do not use the Teams SDK.
+  const { CloudAdapter, ConfigurationBotFrameworkAuthentication } = require('botbuilder');
   const botFrameworkAuthentication = new ConfigurationBotFrameworkAuthentication({
     MicrosoftAppType: 'SingleTenant',
     MicrosoftAppId: MICROSOFT_APP_ID.value(),
@@ -51,6 +51,7 @@ exports.teamsBot = onRequest({
 
   const adapter = createAdapter();
   await adapter.process(req, res, async (context) => {
+    const { handleTeamsTurn } = require('./src/teamsBot');
     await handleTeamsTurn(context, {
       db: admin.firestore(),
       FieldValue: admin.firestore.FieldValue,

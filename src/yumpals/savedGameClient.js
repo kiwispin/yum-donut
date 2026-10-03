@@ -94,6 +94,18 @@ export function createSavedGameController({ ownerUid, projectId, enabled, getIde
   }
   return {
     getState: snapshot, open, choose, retry: () => send(true),
+    // Called only with the paid-care controller's validated fresh receipt.
+    // A newly purchased game has no turns yet, so avoid a redundant initial read.
+    openPurchased(receipt) {
+      if (!active() || state.busy || pending || state.storageBlocked || receipt?.schemaVersion !== 1
+        || receipt.status !== 'COMMITTED' || receipt.ownerUid !== ownerUid || receipt.action !== 'game'
+        || receipt.benefit?.type !== 'happiness' || !Number.isInteger(receipt.benefit.amount)
+        || receipt.benefit.amount < 1 || receipt.benefit.amount > 4) return false;
+      const game = { schemaVersion: 1, ownerUid, gameId: receipt.operationId, enabled: true, round: 0, complete: false, score: 0, turns: [] };
+      if (!validSavedGameView(game, ownerUid, receipt.operationId)) return false;
+      if (state.game?.gameId === receipt.operationId) return true; // Never reset an already-started round.
+      state.game = game; state.message = ''; emit(); return true;
+    },
     async start() { if (!active()) return; load(); emit(); if (pending && !state.storageBlocked) await open(pending.gameId); },
     refresh: () => open(pending?.gameId || state.game?.gameId, true),
     dispose() { disposed = true; },

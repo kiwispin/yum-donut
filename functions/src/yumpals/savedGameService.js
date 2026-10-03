@@ -93,12 +93,14 @@ function createSavedGameService({ db, refs, ready, now = Date.now, chooseTarget 
       const binding = digest(data); const p = paths(uid, data.gameId, data.operationId);
       const playedAtMs = now(); aucklandNow(playedAtMs);
       return db.runTransaction(async t => {
-        const prior = await t.get(p.audit);
+        // Independent reads share one network wait. All existing receipt,
+        // entitlement, turn-audit and config checks still precede every write.
+        const [prior, loaded] = await Promise.all([t.get(p.audit), load(t, p, uid, data.gameId)]);
         if (prior.exists) {
           validateAudit(prior.data(), uid, data.operationId);
           requireValue(prior.data().binding === binding, 'OPERATION_CONFLICT');
         }
-        const { config, pet, receipt, session } = await load(t, p, uid, data.gameId);
+        const { config, pet, receipt, session } = loaded;
         if (prior.exists) {
           const outcome = prior.data(); const saved = session.turns[data.round];
           requireValue(saved && JSON.stringify(turnOf(saved)) === JSON.stringify(turnOf(outcome)), 'CORRUPT_GAME_TURN');

@@ -8,6 +8,9 @@ const RESTORES = Object.freeze({ meal: 2, snack: 1, game: 2, pat: 1, clean: 2, m
 const KEYS = Object.freeze({ meal: 'hunger', snack: 'hunger', game: 'happiness', pat: 'happiness', clean: 'cleanliness', medicine: 'health' });
 const DAY = 86400000;
 const FULL = Object.freeze({ hunger: 4, happiness: 4, cleanliness: 4, health: 4 });
+const AUCKLAND_CLOCK = new Intl.DateTimeFormat('en-NZ', {
+  timeZone: 'Pacific/Auckland', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23',
+});
 
 function fail(code) { const error = new Error(code); error.code = code; throw error; }
 function requireValue(condition, code = 'CORRUPT_STATE') { if (!condition) fail(code); }
@@ -21,9 +24,7 @@ function dayNumber(key) {
 function dateKey(day) { return new Date(day * DAY).toISOString().slice(0, 10); }
 function aucklandNow(nowMs) {
   requireValue(integer(nowMs, 0, 253402214400000), 'INVALID_CLOCK');
-  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-NZ', {
-    timeZone: 'Pacific/Auckland', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23',
-  }).formatToParts(new Date(nowMs)).map(({ type, value }) => [type, value]));
+  const parts = Object.fromEntries(AUCKLAND_CLOCK.formatToParts(new Date(nowMs)).map(({ type, value }) => [type, value]));
   return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour) };
 }
 function digest(value) { return createHash('sha256').update(JSON.stringify(value)).digest('hex'); }

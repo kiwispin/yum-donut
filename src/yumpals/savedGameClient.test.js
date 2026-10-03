@@ -111,3 +111,16 @@ test('invalid guess result retains recovery journal, never advances the game or 
   assert.equal(c.getState().game.round, 0); assert.equal(c.getState().pending, true);
   assert.equal(f.items.size, 1); assert.equal(f.counts().reveals, 0);
 });
+
+test('validated new purchase opens immediately with no game read and cannot reset existing progress', async () => {
+  const f = await fixture(); const names = []; const original = f.options.transport;
+  const c = createSavedGameController({ ...f.options, transport: (...args) => { names.push(args[0]); return original(...args); } });
+  await c.start(); const receipt = f.db.read(f.refs.receipt('student-a', 'game-1'));
+  assert.equal(c.openPurchased({ ...receipt, ownerUid: 'student-b' }), false);
+  assert.equal(c.openPurchased({ ...receipt, action: 'meal' }), false);
+  assert.equal(c.openPurchased(receipt), true); assert.deepEqual(names, []);
+  assert.equal(c.getState().game.round, 0);
+  await c.choose('left'); assert.equal(c.getState().game.round, 1);
+  assert.equal(c.openPurchased(receipt), true); assert.equal(c.getState().game.round, 1);
+  assert.deepEqual(names, ['yumpalsChooseSavedGame']);
+});

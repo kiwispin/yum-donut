@@ -88,6 +88,7 @@ try {
   await wide.screenshot({ path: '/tmp/yum-navigation-wide-placement.png' });
   await wide.keyboard.press('Escape');
   await wide.locator('#navigation-fixture').evaluate(element => { element.style.maxWidth = '320px'; });
+  await wide.waitForFunction(() => document.querySelectorAll('.app-navigation > button').length === 3);
   await more.waitFor(); await more.press('ArrowDown');
   const focusedId = await wide.evaluate(() => document.activeElement.dataset.navId);
   await wide.locator('#navigation-fixture').evaluate(element => { element.style.maxWidth = '672px'; });

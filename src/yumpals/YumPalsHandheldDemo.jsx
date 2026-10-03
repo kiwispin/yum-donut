@@ -1,5 +1,6 @@
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { ignoreHandheldKey } from './handheldKeyboard.js';
+import PixelDrawing from './PixelDrawing.jsx';
 import {
     PAID_CARE_ADOPTION_PRICE,
     PAID_CARE_LABELS,
@@ -67,13 +68,7 @@ const PROP_PALETTES = {
 const PixelGrid = memo(function PixelGrid({ pixels, palette, className = 'paid-pixel-grid' }) {
     return (
         <span className={className} style={{ '--pixel-grid-columns': pixels[0]?.length || 1 }} aria-hidden="true">
-            {pixels.flatMap((row, rowIndex) => [...row].map((cell, columnIndex) => (
-                <span
-                    className="paid-pixel-cell"
-                    key={`${rowIndex}-${columnIndex}`}
-                    style={{ backgroundColor: palette[cell] || 'transparent' }}
-                />
-            )))}
+            <PixelDrawing pixels={pixels} palette={palette} />
         </span>
     );
 }, (before, after) => before.pixels === after.pixels && before.className === after.className

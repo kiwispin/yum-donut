@@ -7,6 +7,7 @@ const RESTORES = ['meal', 'snack', 'game', 'pat', 'clean', 'medicine'];
 const NEEDS = ['hunger', 'happiness', 'cleanliness', 'health'];
 const REFUSALS = ['DISABLED', 'RECONFIRM_CONFIG', 'NO_EFFECT', 'INSUFFICIENT_FUNDS', 'CARE_CAP', 'NO_PET', 'ALREADY_ADOPTED', 'GAME_ACTIVE'];
 const JOURNAL_VERSION = 2;
+const AUCKLAND_CLOCK = new Intl.DateTimeFormat('en-NZ', { timeZone: 'Pacific/Auckland', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' });
 const LEGACY_JOURNAL_VERSION = 1;
 const CLAIM_TIMEOUT_MS = 15000;
 const plain = v => v !== null && typeof v === 'object' && Object.getPrototypeOf(v) === Object.prototype;
@@ -48,7 +49,7 @@ export function validateHandheldView(v, ownerUid) {
     || !integer(v.serverNowMs, 0, 253402214400000) || !date(v.aucklandDate) || !integer(v.aucklandHour, 0, 23)) invalid();
   if (v.wallet?.available === true ? !exact(v.wallet, ['available', 'balance']) || !money(v.wallet.balance)
     : !exact(v.wallet, ['available']) || v.wallet.available !== false) invalid();
-  const clock = Object.fromEntries(new Intl.DateTimeFormat('en-NZ', { timeZone: 'Pacific/Auckland', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(v.serverNowMs)).map(p => [p.type, p.value]));
+  const clock = Object.fromEntries(AUCKLAND_CLOCK.formatToParts(new Date(v.serverNowMs)).map(p => [p.type, p.value]));
   if (v.aucklandDate !== `${clock.year}-${clock.month}-${clock.day}` || v.aucklandHour !== Number(clock.hour)) invalid();
   const p = v.pet;
   if (p !== null && (!exact(p, ['name', 'species', 'casing', 'color', 'reducedMotion', 'careDays', 'earnedMilestones', 'needs', 'daily', 'sleepDate', 'attention', 'game'])
@@ -386,7 +387,7 @@ export function createPaidCareController({ ownerUid, projectId, enabled, getIden
       catch (error) { const messages = { INSUFFICIENT_FUNDS: 'You do not have enough saved donuts for this care.', CARE_CAP: 'This would exceed today’s care limit.', NO_EFFECT: 'This care is not needed right now. No donuts spent.', NO_PET: 'Adopt a pal before buying care.', GAME_ACTIVE: 'Your paid game is waiting. Finish it before buying another game.', RECONFIRM_CONFIG: 'Care choices have changed. Refresh before buying.' }; emit({ confirmation: null, message: messages[error.code] || 'This care is not available right now.' }); return; }
       emit({ confirmation: { action, ...(action === 'adoption' ? { adoption: normalizedAdoption(adoption) } : {}), quotedCost, expectedConfigVersion: base.configVersion, expectedConfigHash: base.configHash } });
     },
-    cancel: () => { if (current()) emit({ confirmation: null }); },
+    cancel: () => { if (current() && state.confirmation) emit({ confirmation: null }); },
     confirm: async () => { if (!current() || blocked || !state.confirmation) return; const confirmation = structuredClone(state.confirmation); emit({ confirmation: null }); await enqueue(confirmation); },
     retry: async () => { recoveryCount = 0; await pump(); },
     refresh, dispose: () => { active = false; clearTimeout(recoveryTimer); if (typeof globalThis.removeEventListener === 'function') globalThis.removeEventListener('storage', externalStorage); },
