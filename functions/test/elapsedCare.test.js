@@ -37,3 +37,13 @@ test('DST uses actual hours rather than date-length assumptions',()=>{
  const next=advanceElapsed(s,config,s.elapsedClock.at+8*HOUR,ms=>aucklandNow(ms).date);
  assert.equal(next.needs.hunger,3);
 });
+test('long holiday history preserves touching boundaries, partial hours and open pauses',()=>{
+ const history=Array.from({length:509},(_,i)=>({from:start-(510-i)*2*HOUR,to:start-(510-i)*2*HOUR+HOUR}));
+ history.push({from:start+3.5*HOUR,to:start+7.25*HOUR},{from:start+7.25*HOUR,to:start+12*HOUR},{from:start+24*HOUR,to:null});
+ const c=Object.freeze({...config,holidayPeriods:Object.freeze(history.map(p=>Object.freeze(p)))});
+ const expected={needs:{hunger:3,happiness:3,cleanliness:4,health:4},elapsedClock:{version:1,at:start+28*HOUR,hunger:7.5*HOUR,happiness:3.5*HOUR,cleanliness:15.5*HOUR,health:0}};
+ assert.deepEqual(advance(state(),28,c),expected);
+ let stepped=state();for(let n=1;n<=112;n++)stepped=advance(stepped,n/4,c);
+ assert.deepEqual(stepped,expected);
+ assert.deepEqual(advance(stepped,28,c),stepped);
+});

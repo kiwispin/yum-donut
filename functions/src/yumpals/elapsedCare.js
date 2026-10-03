@@ -22,11 +22,18 @@ function advanceElapsed(state, config, nowMs, dateForMs) {
   if (nowMs < state.elapsedClock.at) throw Object.assign(new Error('CLOCK_REVERSED'), { code: 'CLOCK_REVERSED' });
   const clock = { ...state.elapsedClock };
   let cursor = clock.at;
+  // Holiday history is immutable for this calculation. Sort upcoming edges
+  // once instead of rebuilding/scanning the same boundary array every hour.
+  const boundaries = (config.holidayPeriods || []).flatMap(p => [p.from, p.to])
+    .filter(n => n !== null && n > cursor).sort((a, b) => a - b);
+  const relevantHolidays = (config.holidayPeriods || [])
+    .filter(p => p.from < nowMs && (p.to === null || p.to > cursor));
+  let boundaryIndex = 0;
   while (cursor < nowMs) {
     // Auckland midnight (including DST) is aligned with a UTC hour boundary.
-    const boundaries = (config.holidayPeriods || []).flatMap(p => [p.from, p.to]).filter(n => n !== null && n > cursor);
-    const end = Math.min(nowMs, (Math.floor(cursor / HOUR) + 1) * HOUR, ...boundaries);
-    const holiday = (config.holidayPeriods || []).some(p => p.from <= cursor && (p.to === null || cursor < p.to));
+    while (boundaries[boundaryIndex] <= cursor) boundaryIndex++;
+    const end = Math.min(nowMs, (Math.floor(cursor / HOUR) + 1) * HOUR, boundaries[boundaryIndex] ?? Infinity);
+    const holiday = relevantHolidays.some(p => p.from <= cursor && (p.to === null || cursor < p.to));
     if (!holiday && !isRestDate(config, dateForMs(cursor))) {
       let left = end - cursor;
       while (left > 0) {
