@@ -52,6 +52,7 @@ try {
             if (!baseline) { assert.equal(dim, true); assert.ok(localMs < 250); }
           } else {
             await page.keyboard.press('b');
+            if (!baseline) await page.locator('.saved-choices').waitFor({ state: 'visible', timeout: 250 });
             const keyboardWorksDuringFeed = await page.locator('.saved-choices').isVisible();
             await page.getByRole('button', { name: 'Health and status', exact: true }).click();
             await page.getByRole('button', { name: 'B CONFIRM', exact: true }).click();

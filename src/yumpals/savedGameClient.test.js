@@ -124,3 +124,19 @@ test('validated new purchase opens immediately with no game read and cannot rese
   assert.equal(c.openPurchased(receipt), true); assert.equal(c.getState().game.round, 1);
   assert.deepEqual(names, ['yumpalsChooseSavedGame']);
 });
+
+test('a guess is acknowledged immediately without advancing or inventing a result before confirmation', async () => {
+  const f = await fixture(); let release; const gate = new Promise(r => { release = r; });
+  const original = f.options.transport;
+  const c = createSavedGameController({ ...f.options, transport: async (...args) => {
+    if (args[0] === 'yumpalsChooseSavedGame') await gate;
+    return original(...args);
+  } });
+  await c.start(); await c.open('game-1'); const sending = c.choose('right');
+  assert.equal(c.getState().pendingChoice, 'right'); assert.equal(c.getState().busy, true);
+  assert.equal(c.getState().game.round, 0); assert.equal(f.counts().reveals, 0);
+  await c.choose('left'); assert.equal(c.getState().pendingChoice, 'right');
+  release(); await sending; assert.equal(c.getState().pendingChoice, null);
+  assert.equal(c.getState().game.round, 1); assert.deepEqual(f.counts(), { sends: 1, reveals: 1 });
+  c.dispose();
+});

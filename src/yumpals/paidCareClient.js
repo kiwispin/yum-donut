@@ -390,6 +390,22 @@ export function createPaidCareController({ ownerUid, projectId, enabled, getIden
     cancel: () => { if (current() && state.confirmation) emit({ confirmation: null }); },
     confirm: async () => { if (!current() || blocked || !state.confirmation) return; const confirmation = structuredClone(state.confirmation); emit({ confirmation: null }); await enqueue(confirmation); },
     retry: async () => { recoveryCount = 0; await pump(); },
-    refresh, dispose: () => { active = false; clearTimeout(recoveryTimer); if (typeof globalThis.removeEventListener === 'function') globalThis.removeEventListener('storage', externalStorage); },
+    refresh, dispose: () => {
+      const release = current() && (pumping || networkBusy);
+      active = false; clearTimeout(recoveryTimer);
+      if (typeof globalThis.removeEventListener === 'function') globalThis.removeEventListener('storage', externalStorage);
+      if (!release) return;
+      // A departed view can no longer finalize its reply. Hand over only its
+      // own claim under the existing cross-tab lock; preserve the exact request
+      // so a reopened view retries idempotently, never creates another charge.
+      return withLock(() => {
+        try {
+          const latest = readJournal(); const head = latest.journal?.entries[0];
+          if (head?.phase !== 'inflight' || head.claimedBy !== instanceId) return;
+          head.phase = 'uncertain'; head.claimedBy = null; head.claimedAtMs = null;
+          writeJournal(latest.journal, latest.raw);
+        } catch { /* Keep the existing durable journal and timeout if handover fails. */ }
+      });
+    },
   };
 }

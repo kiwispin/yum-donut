@@ -14,12 +14,15 @@ test('outside polish preserves handheld markup and original device stylesheet ex
  assert.equal(normalize(after),device(before));
  assert.equal(readFileSync('src/yumpals/paidCareDemo.css','utf8'),execFileSync('git',['show','1649d82:src/yumpals/paidCareDemo.css'],{encoding:'utf8'}));
 });
-test('saved surround preserves device artwork; background-save copy is the only device markup change', () => {
+test('saved surround preserves device artwork while background-save and immediate acknowledgement copy may change', () => {
  const path='src/yumpals/YumPalsSavedHandheld.jsx';
  const before=execFileSync('git',['show',`821d951:${path}`],{encoding:'utf8'});
  const after=readFileSync(path,'utf8');
  const device=s=>s.slice(s.indexOf('<div className="paid-demo-device"'),s.indexOf('<p className="saved-help'));
  const normalize=s=>device(s)
+   .replace('{currentGame?.game && !openingGame ?', '{currentGame?.game ?')
+   .replace("<p>{openingGame ? 'Starting game…' : 'Loading your game…'}</p>", '<p>Checking your game…</p>')
+   .replace("{openingGame ? 'Saving your game. C to return to your pal.' : currentGame?.message || (currentGame?.busy ? currentGame.pendingChoice ? `${currentGame.pendingChoice === 'left' ? 'Left' : 'Right'} chosen. Waiting for your pal…` : 'Loading your game…'", "{currentGame?.message || (currentGame?.busy ? 'Saving…'")
    .replace('{savedEffect(interactionQuote, confirmation.action)}','{savedEffect(quote, confirmation.action)}')
    .replace("{quote?.wallet.available && projectedQuote?.wallet.available ? `Saved ${quote.wallet.balance} · after pending ${projectedQuote.wallet.balance - confirmation.quotedCost}` : 'Not enough donuts for this care'}", "{quote?.wallet.available && quote.wallet.balance >= confirmation.quotedCost ? `Donuts left: ${quote.wallet.balance - confirmation.quotedCost}` : 'Not enough donuts for this care'}")
    .replace("{icon === 'game' && pet?.game ? 'Your paid game is kept safely. Resume without paying again.' : state.pending && ['adoption', 'game'].includes(choices[choice]) ? 'Finish the saved care first.' : 'B opens price confirmation'}", "{icon === 'game' && pet?.game ? 'Your paid game is kept safely. Resume without paying again.' : 'B opens price confirmation'}")

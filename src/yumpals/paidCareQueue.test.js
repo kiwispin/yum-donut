@@ -73,9 +73,43 @@ test('duplicate confirmation clicks create one durable operation and one network
   const f = fixture(); const c = await load(f); c.prepare('meal'); const first = c.confirm(); const second = c.confirm(); await Promise.all([first, second]); const purchases = f.calls.filter(call => call.name === 'yumpalsPurchaseCare'); assert.equal(purchases.length, 1); assert.equal(c.getState().pending, false); c.dispose();
 });
 
+test('leaving a saving screen releases only its own claim; reopening reconciles the same payment immediately', async () => {
+  const gate = deferred(); const f = fixture({ transportAfter: async n => { if (n === 1) await gate.promise; } });
+  const a = await load(f); const other = await load(f); const first = queue(a, 'meal'); await tick();
+  const before = f.journal(); const operation = before.entries[0].request;
+  await other.dispose(); assert.deepEqual(f.journal(), before, 'another view cannot release this owner');
+  await a.dispose();
+  assert.equal(f.journal().entries[0].phase, 'uncertain');
+  assert.deepEqual(f.journal().entries[0].request, operation);
+  const b = await load(f, { autoRecover: true });
+  assert.equal(b.getState().pending, false); assert.equal(f.db.read('fixture/wallets/student-a').balance, 8);
+  assert.deepEqual(f.calls.filter(c => c.name === 'yumpalsPurchaseCare').map(c => c.data.operationId), [operation.operationId, operation.operationId]);
+  gate.resolve(); await first; assert.equal(f.db.read('fixture/wallets/student-a').balance, 8); b.dispose();
+});
+
 test('same-account tabs share the namespace/counter and never overwrite each other queue entries', async () => {
   const gate = deferred(); const f = fixture({ transportAfter: async (n) => { if (n === 1) await gate.promise; } }); const a = await load(f); const b = await load(f);
   const first = queue(a, 'meal'); await tick(); const second = queue(b, 'clean'); await second; assert.equal(f.journal().entries.length, 2); assert.notEqual(f.journal().entries[0].request.operationId, f.journal().entries[1].request.operationId); assert.equal(f.namespace().length, 32); assert.equal(f.sequence(), '2'); gate.resolve(); await first; assert.equal(f.db.read('fixture/wallets/student-a').balance, 7); assert.equal(f.entries.has(paidCareJournalKey('queue-test', 'student-a')), false); a.dispose(); b.dispose();
+});
+
+test('claim handover failure preserves the exact durable journal for normal recovery', async () => {
+  const gate = deferred(); const f = fixture({ transportAfter: async n => { if (n === 1) await gate.promise; } });
+  const c = await load(f); const first = queue(c, 'meal'); await tick();
+  const before = f.journal(); const setItem = f.options.storage.setItem;
+  f.options.storage.setItem = () => { throw new Error('STORAGE_UNAVAILABLE'); };
+  await c.dispose(); assert.deepEqual(f.journal(), before);
+  f.options.storage.setItem = setItem;
+  gate.resolve(); await first;
+  assert.deepEqual(f.journal(), before); assert.equal(f.db.read('fixture/wallets/student-a').balance, 8);
+});
+
+test('disposal after an account switch does not alter the previous account claim', async () => {
+  const gate = deferred(); const f = fixture({ transportAfter: async n => { if (n === 1) await gate.promise; } });
+  const c = await load(f); const first = queue(c, 'meal'); await tick(); const before = f.journal();
+  f.setIdentity({ uid: 'student-b', isAnonymous: false, sandbox: false });
+  await c.dispose(); assert.deepEqual(f.journal(), before);
+  gate.resolve(); await first; assert.deepEqual(f.journal(), before);
+  assert.equal(f.calls.filter(call => call.name === 'yumpalsPurchaseCare').length, 1);
 });
 
 test('a config change never silently reprices a queued tail', async () => {

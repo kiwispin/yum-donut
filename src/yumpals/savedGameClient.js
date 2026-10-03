@@ -4,7 +4,7 @@ export function createSavedGameController({ ownerUid, projectId, enabled, getIde
   operationId = () => crypto.randomUUID(), onChange = () => {}, onReveal = () => {}, onSettled = () => {} }) {
   const key = `yumpals-saved-guess-v1:${encodeURIComponent(projectId)}:${encodeURIComponent(ownerUid)}`;
   let disposed = false; let pending = null; let raw = null;
-  const state = { game: null, pending: false, busy: false, storageBlocked: false, message: '' };
+  const state = { game: null, pending: false, pendingChoice: null, busy: false, storageBlocked: false, message: '' };
   const active = () => {
     const identity = getIdentity();
     return !disposed && enabled === true && typeof ownerUid === 'string' && ownerUid.length > 0
@@ -22,7 +22,7 @@ export function createSavedGameController({ ownerUid, projectId, enabled, getIde
       const value = JSON.parse(raw);
       if (!value || Object.keys(value).length !== 4 || value.schemaVersion !== 1
         || value.ownerUid !== ownerUid || value.projectId !== projectId || !validSavedGameChoice(value.request)) throw new Error();
-      pending = value.request; state.pending = true;
+      pending = value.request; state.pending = true; state.pendingChoice = pending.choice;
     } catch { state.storageBlocked = true; state.message = 'Your saved guess needs checking. Please ask your teacher.'; }
   }
   function unchanged() {
@@ -34,7 +34,7 @@ export function createSavedGameController({ ownerUid, projectId, enabled, getIde
     try {
       storage.removeItem(key);
       if (storage.getItem(key) !== null) throw new Error();
-      raw = null; pending = null; state.pending = false; return true;
+      raw = null; pending = null; state.pending = false; state.pendingChoice = null; return true;
     } catch { state.storageBlocked = true; state.message = 'We could not save your progress on this device.'; return false; }
   }
   async function read(gameId) {
@@ -88,7 +88,7 @@ export function createSavedGameController({ ownerUid, projectId, enabled, getIde
       const next = JSON.stringify({ schemaVersion: 1, ownerUid, projectId, request });
       storage.setItem(key, next); raw = next;
       if (!unchanged()) { emit(); return; }
-      pending = request; state.pending = true;
+      pending = request; state.pending = true; state.pendingChoice = request.choice;
     } catch { state.storageBlocked = true; state.message = 'We could not save your guess. Nothing was sent.'; emit(); return; }
     await send(false);
   }

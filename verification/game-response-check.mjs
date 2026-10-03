@@ -40,6 +40,7 @@ try {
     if (!saved) await page.keyboard.press('b');
     const at = await page.evaluate(() => performance.now()); await page.keyboard.press('b');
     await page.locator('.saved-status > strong').getByText('Round 1 of 3', { exact: true }).waitFor();
+    await page.waitForFunction(() => window.gamePaints.some(p => p.text === 'Round 1 of 3'));
     const openingMs = await page.evaluate(at => Math.round(window.gamePaints.find(p => p.text === 'Round 1 of 3').at - at), at);
     assert.equal(calls.filter(n => n === 'yumpalsGetSavedGame').length, saved ? 1 : 0);
     const initialCalls = calls.length;
@@ -52,6 +53,7 @@ try {
     for (let i = 0; i < 3; i++) {
       const start = await page.evaluate(() => performance.now()); await page.keyboard.press('a');
       await page.locator('.saved-status > strong').getByText(i === 2 ? 'Finished! 3 of 3' : `Round ${i + 2} of 3`, { exact: true }).waitFor();
+      await page.waitForFunction(i => window.gamePaints.some(p => p.text === (i === 2 ? 'Finished! 3 of 3' : `Round ${i + 2} of 3`)), i);
       rounds.push(await page.evaluate(({ start, i }) => Math.round(window.gamePaints.find(p => p.text === (i === 2 ? 'Finished! 3 of 3' : `Round ${i + 2} of 3`)).at - start), { start, i }));
       await page.waitForFunction(() => document.querySelector('.saved-blob')?.dataset.frameKey === 'idle-a');
     }

@@ -31,6 +31,7 @@ function Blob({ pet, animation, blink, sleeping, reduced, sleepIndex }) {
 }
 export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = false, gameEnabled = false, gameTransport, getIdentity, transport, storage = storageDefault, operationId = operationDefault }) {
   const gameInstance = useRef(null); const [gameState, setGameState] = useState(null);
+  const navigation = useRef(0); const careIntent = useRef(null); const gameVisible = useRef(false);
   const gameReady = enabled && gameEnabled === true && typeof gameTransport === 'function';
   const helpFor = name => name === 'game' && gameReady ? 'Guess left or right for three rounds. Resume a paid game without paying again.' : SAVED_HELP[name];
   const id = useId(); const instance = useRef(null); const [lastPet, setLastPet] = useState(null); const [sleepIndex, setSleepIndex] = useState(0);
@@ -40,12 +41,35 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
   const [adoption, setAdoption] = useState({ name: 'Niblet', species: 'mossbit', casing: 'berry', color: '#d94878' });
   const [localMessage, setLocalMessage] = useState('');
   useEffect(() => {
-    let alive = true; setLastPet(null); setState(EMPTY); setAnimation(null); setScreen('room');
+    let alive = true; let hadPending = false; navigation.current++; careIntent.current = null; gameVisible.current = false;
+    setLastPet(null); setState(EMPTY); setAnimation(null); setScreen('room');
     const controller = createPaidCareController({ ownerUid, projectId, enabled, getIdentity, transport, storage, operationId,
       autoRecover: true,
-      onChange: next => { if (alive) { if (next.quote?.pet) setLastPet(next.quote.pet); if (!next.pending) setLocalMessage(''); setState({ ...next, ownerUid, projectId }); } },
-      onQueued: receipt => { if (alive) { setScreen('room'); setLocalMessage(''); if (!['game', 'adoption', 'bedtime'].includes(receipt.action)) setAnimation({ type: ['meal', 'snack'].includes(receipt.action) ? 'feed' : receipt.action, index: 0 }); } },
-      onConfirmed: receipt => { if (alive) { if (receipt.action === 'game') { setScreen('game'); if (!gameInstance.current?.openPurchased(receipt)) void gameInstance.current?.open(receipt.operationId); } else if (receipt.action === 'adoption') setAnimation({ type: 'wake', index: 0 }); } },
+      onChange: next => { if (alive) {
+        const intent = careIntent.current;
+        if (hadPending && !next.pending && intent?.action === 'game' && intent.operationId
+          && intent.navigation === navigation.current && !next.quote?.pet?.game) {
+          gameVisible.current = false; setScreen('room');
+        }
+        hadPending = next.pending;
+        if (next.quote?.pet) setLastPet(next.quote.pet); if (!next.pending) setLocalMessage(''); setState({ ...next, ownerUid, projectId });
+      } },
+      onQueued: receipt => {
+        const intent = careIntent.current;
+        if (!alive || !intent || intent.navigation !== navigation.current || intent.action !== receipt.action) return;
+        careIntent.current = { ...intent, operationId: receipt.operationId };
+        gameVisible.current = receipt.action === 'game'; setScreen(gameVisible.current ? 'game' : 'room'); setLocalMessage('');
+        if (!['game', 'adoption', 'bedtime'].includes(receipt.action)) setAnimation({ type: ['meal', 'snack'].includes(receipt.action) ? 'feed' : receipt.action, index: 0 });
+      },
+      onConfirmed: receipt => {
+        if (!alive) return;
+        const intent = careIntent.current;
+        const stillHere = intent?.navigation === navigation.current && intent?.operationId === receipt.operationId;
+        if (receipt.action === 'game') {
+          if (!gameInstance.current?.openPurchased(receipt)) void gameInstance.current?.open(receipt.operationId);
+          if (stillHere) { gameVisible.current = true; setScreen('game'); }
+        } else if (receipt.action === 'adoption' && stillHere) setAnimation({ type: 'wake', index: 0 });
+      },
     });
     instance.current = controller; void controller.start();
     const refresh = () => { if (!document.hidden) { const next = controller.getState(); if (next.pending) void controller.retry(); else if (!next.confirmation && !transport.peek?.(ownerUid)) void controller.refresh(); } };
@@ -61,7 +85,7 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
     if (!gameReady) return undefined;
     const controller = createSavedGameController({ ownerUid, projectId, enabled: gameReady, getIdentity, transport: gameTransport, storage, operationId,
       onChange: next => setGameState({ ...next, ownerUid, projectId }),
-      onReveal: outcome => setAnimation({ type: outcome.target === 'left' ? 'lookLeft' : 'lookRight', index: 0 }),
+      onReveal: outcome => { if (gameVisible.current) setAnimation({ type: outcome.target === 'left' ? 'lookLeft' : 'lookRight', index: 0 }); },
       onSettled: () => { void instance.current?.refresh(); },
     });
     gameInstance.current = controller; void controller.start();
@@ -78,6 +102,7 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
   const interactionQuote = projectedQuote || quote;
   const queue = sameOwner ? (state.queue || []) : [];
   const hasQueue = sameOwner && queue.length > 0;
+  const openingGame = hasQueue && queue.some(item => item.action === 'game');
   const savedGameId = quote?.pet?.game?.id;
   useEffect(() => {
     if (gameReady && savedGameId && !hasQueue) void gameInstance.current?.open(savedGameId);
@@ -98,8 +123,14 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
   }, [blink, reduced]);
   const pet = sameOwner ? (displayQuote ? displayQuote.pet : lastPet) : null;
   const currentGame = sameOwner && gameState?.ownerUid === ownerUid && gameState?.projectId === projectId ? gameState : null;
-  const locked = !sameOwner || Boolean(state.storageBlocked) || !quote?.enabled || !quote?.wallet?.available || Boolean(currentGame?.pending || currentGame?.busy || currentGame?.storageBlocked);
-  const guess = direction => { if (sameOwner && quote?.enabled && currentGame?.game?.enabled && !state.pending && !animation) void gameInstance.current?.choose(direction); };
+  const locked = !sameOwner || Boolean(state.storageBlocked) || !quote?.enabled || !quote?.wallet?.available;
+  const gameLocked = Boolean(currentGame?.pending || currentGame?.busy || currentGame?.storageBlocked);
+  const guess = direction => {
+    const latest = gameInstance.current?.getState();
+    if (sameOwner && quote?.enabled && latest?.game?.enabled && !state.pending && !latest.busy && !latest.pending && !latest.storageBlocked && !latest.game.complete) {
+      setAnimation(null); void gameInstance.current.choose(direction);
+    }
+  };
   const icon = PAID_CARE_ICON_ORDER[selected]; const choices = SAVED_CHOICES[icon] || [];
   const sleep = savedSleep(displayQuote); const confirmation = sameOwner ? state.confirmation : null;
   const syncMessage = sameOwner && state.pending ? (state.busy ? 'Saving care… Saved balance stays unchanged until confirmed.' : state.message || 'Reconnecting… Your queued care is kept safely.') : '';
@@ -107,8 +138,8 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
     if (!sleep.sleeping || reduced) { setSleepIndex(0); return undefined; }
     const timer = window.setInterval(() => setSleepIndex(n => 1 - n), 1000); return () => window.clearInterval(timer);
   }, [sleep.sleeping, reduced]);
-  const chooseIcon = index => { setAnimation(null); setSelected(index); setScreen('room'); setChoice(0); instance.current?.cancel(); setLocalMessage(''); };
-  const cancel = () => { setAnimation(null); instance.current?.cancel(); setLocalMessage(''); if (screen === 'room') setSelected(null); else setScreen('room'); };
+  const chooseIcon = index => { navigation.current++; gameVisible.current = false; setAnimation(null); setSelected(index); setScreen('room'); setChoice(0); instance.current?.cancel(); setLocalMessage(''); };
+  const cancel = () => { navigation.current++; gameVisible.current = false; setAnimation(null); instance.current?.cancel(); setLocalMessage(''); if (screen === 'room') setSelected(null); else setScreen('room'); };
   const cycle = () => { if (screen === 'game') guess('left'); else if (screen === 'choices') setChoice(n => (n + 1) % choices.length); else if (screen === 'room') chooseIcon(selected === null ? 0 : (selected + 1) % 8); };
   const confirm = () => {
     if (screen === 'game') { guess('right'); return; }
@@ -122,13 +153,17 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
       if (state.pending && ['adoption', 'game'].includes(action)) { setLocalMessage(action === 'game' ? 'Finish saving your care before starting a game.' : 'Adoption will be ready after your saved care finishes.'); return; }
       if (action === 'game') {
         if (!gameReady) { setLocalMessage('Game is not ready yet. Pat is available.'); return; }
-        if (pet?.game || currentGame?.pending) { setScreen('game'); void gameInstance.current?.open(pet?.game?.id); return; }
+        if (pet?.game || currentGame?.pending) { gameVisible.current = true; setScreen('game'); void gameInstance.current?.open(pet?.game?.id); return; }
+        if (gameLocked) { setLocalMessage('Your game is still being checked. You can care for your pal while you wait.'); return; }
       }
       const noEffect = savedNoEffect(interactionQuote, action);
       if (noEffect) { setLocalMessage(noEffect); return; }
       if (!locked) { instance.current?.prepare(action); if (instance.current?.getState().confirmation) setScreen('confirm'); }
-    } else if (screen === 'adopt' && !locked) { instance.current?.prepare('adoption', adoption); if (instance.current?.getState().confirmation) setScreen('confirm'); }
-    else if (screen === 'confirm' && !locked && confirmation) void instance.current?.confirm();
+    } else if (screen === 'adopt' && !locked && !gameLocked) { instance.current?.prepare('adoption', adoption); if (instance.current?.getState().confirmation) setScreen('confirm'); }
+    else if (screen === 'confirm' && !locked && confirmation && (!['game', 'adoption'].includes(confirmation.action) || !gameLocked)) {
+      careIntent.current = { navigation: navigation.current, action: confirmation.action };
+      void instance.current?.confirm();
+    }
   };
   useEffect(() => {
     const key = event => {
@@ -156,10 +191,10 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
         <div className={`paid-demo-lcd ${sleep.sleeping ? 'is-sleeping' : ''} ${sleep.dim ? 'is-bedtime-set' : ''}`}>
           {rail(0)}<div className="saved-centre">
             {screen === 'game' && <div className="saved-status">
-              {currentGame?.game ? <><strong>{currentGame.game.complete ? `Finished! ${currentGame.game.score} of 3` : `Round ${currentGame.game.round + 1} of 3`}</strong>
+              {currentGame?.game && !openingGame ? <><strong>{currentGame.game.complete ? `Finished! ${currentGame.game.score} of 3` : `Round ${currentGame.game.round + 1} of 3`}</strong>
                 {pet && <Blob pet={pet} animation={animation} blink={false} sleeping={false} reduced={reduced} sleepIndex={0} />}
-                <small>{currentGame.game.complete ? 'C to return' : '← A LEFT · B RIGHT → · C PAUSE'}</small></> : <p>Checking your game…</p>}
-              <small role="status">{currentGame?.message || (currentGame?.busy ? 'Saving…' : currentGame?.game?.complete ? 'All done! C to return to your pal.' : !quote?.enabled ? 'Your teacher has paused YumPals.' : 'Guess which way your pal will look.')}</small>
+                <small>{currentGame.game.complete ? 'C to return' : '← A LEFT · B RIGHT → · C PAUSE'}</small></> : <p>{openingGame ? 'Starting game…' : 'Loading your game…'}</p>}
+              <small role="status">{openingGame ? 'Saving your game. C to return to your pal.' : currentGame?.message || (currentGame?.busy ? currentGame.pendingChoice ? `${currentGame.pendingChoice === 'left' ? 'Left' : 'Right'} chosen. Waiting for your pal…` : 'Loading your game…' : currentGame?.game?.complete ? 'All done! C to return to your pal.' : !quote?.enabled ? 'Your teacher has paused YumPals.' : 'Guess which way your pal will look.')}</small>
             </div>}
             {screen === 'room' && <>
               <div className="saved-top"><span>{pet?.name || 'YUMPALS'}</span><span>{quote?.wallet.available ? `${quote.wallet.balance} DONUTS` : 'DONUTS —'}</span></div>
