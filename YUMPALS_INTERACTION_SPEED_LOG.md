@@ -45,4 +45,8 @@ No backend, prices, artwork, banking/gifting or settings changes planned. Tests 
 
 Frontend build: `index-DUsk2nqf.js`, SHA-256 `3ab08a77491d4197a37de327864b158fb98115c5021d919b28ea9b8babb1bcf5`; unchanged CSS `index-BASmV3CR.css`.
 
-Pending publication and live-byte verification. Rollback source tag remains `codex/yumpals-interaction-baseline-20261004` at `5b4b168`. Rollback would rebuild that source with the same three feature flags and republish the frontend; no data migration to undo.
+Published from implementation commit `9db55e3` with the prepared build (no unflagged predeploy rebuild). GitHub Pages returned HTTP 200 and references `index-DUsk2nqf.js`; both served JS and CSS SHA-256 hashes exactly match the tested local build. The first check still saw the previous JS during normal publication propagation; the subsequent check confirmed the new bytes. Frontend only—no backend deployment or real student purchases.
+
+Final held-payment browser rerun also passed on both widths (`/tmp/yumpals-interaction-care-final.jsonl`): two operations/receipts, one debit per operation, unchanged layout, final balance 27. Final frontend unit/lint/diff checks passed before the implementation commit.
+
+Rollback source tag remains `codex/yumpals-interaction-baseline-20261004` at `5b4b168`. Rollback would rebuild that source with the same three feature flags and republish the frontend; no data migration to undo.
