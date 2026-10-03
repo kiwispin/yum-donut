@@ -2,7 +2,8 @@
 // refs/config and walletAdapter are trusted server dependencies, never request data.
 const { PRICES, RESTORES, validateConfig, validatePet, advancePet, migrateLegacyPet, purchaseEffect, digest, requireValue, integer, aucklandNow, dayNumber } = require('./paidCareEngine');
 const { walletNumber, debitAfter } = require('./walletNumber');
-const { withHolidayMode } = require('./holidayMode');
+const { withHolidayMode, holidayRefs, applyHolidayMode } = require('./holidayMode');
+const { readDocuments } = require('./readDocuments');
 const { isValidPersistedState } = require('./rules');
 
 const ID = /^[A-Za-z0-9_-]{1,80}$/u;
@@ -140,6 +141,25 @@ function createPaidCareService({ db, refs, walletAdapter, now = Date.now, elapse
     return withHolidayMode(transaction, validateConfig(elapsedCare ? { ...config, elapsedCare: true } : config), refs);
   }
 
+  async function readCareContext(transaction, uid) {
+    const [configSnap, snapshot, ...holiday] = await readDocuments(transaction,
+      [refs.config(uid), refs.pet(uid), ...holidayRefs(refs)]);
+    requireValue(configSnap.exists, 'CONFIG_MISSING');
+    const config = configSnap.data();
+    return { config: applyHolidayMode(validateConfig(elapsedCare ? { ...config, elapsedCare: true } : config), holiday), snapshot };
+  }
+
+  async function readHandheldWallet(transaction, uid) {
+    try {
+      const result = await walletAdapter.read(transaction, uid);
+      requireValue(result && result.ownerUid === uid && walletNumber(result.balance), 'CORRUPT_WALLET');
+      return { available: true, balance: result.balance };
+    } catch (error) {
+      if (!WALLET_UNAVAILABLE.has(error?.code)) throw error;
+      return { available: false };
+    }
+  }
+
   return {
     getState: async (request) => {
       const uid = authenticatedUid(request);
@@ -163,21 +183,14 @@ function createPaidCareService({ db, refs, walletAdapter, now = Date.now, elapse
       const nowMs = now();
       aucklandNow(nowMs);
       return runTransaction(async transaction => {
-        const config = await readConfig(transaction, uid);
-        const snapshot = await transaction.get(refs.pet(uid));
+        const [{ config, snapshot }, wallet] = await Promise.all([
+          readCareContext(transaction, uid), readHandheldWallet(transaction, uid),
+        ]);
         const pet = snapshot.exists ? snapshot.data() : null;
         if (pet) {
           requireValue(isValidPersistedState(pet, uid), 'CORRUPT_STATE');
           requireValue(Object.hasOwn(pet, 'paidCare'), 'MIGRATION_REQUIRED');
           validatePet(pet, uid);
-        }
-        let wallet = { available: false };
-        try {
-          const result = await walletAdapter.read(transaction, uid);
-          requireValue(result && result.ownerUid === uid && walletNumber(result.balance), 'CORRUPT_WALLET');
-          wallet = { available: true, balance: result.balance };
-        } catch (error) {
-          if (!WALLET_UNAVAILABLE.has(error?.code)) throw error;
         }
         const next = pet ? advancePet(pet, uid, config, nowMs) : null;
         if (pet && digest(pet.paidCare) !== digest(next.paidCare)) transaction.set(refs.pet(uid), next);
@@ -225,8 +238,7 @@ function createPaidCareService({ db, refs, walletAdapter, now = Date.now, elapse
           const paths = [receiptRef, refusalRef].map(ref => typeof ref === 'string' ? ref : ref?.path);
           requireValue(paths.every(path => typeof path === 'string' && path.length > 0) && paths[0] !== paths[1], 'INVALID_REFUSAL_REFS');
         }
-        const prior = await transaction.get(receiptRef);
-        const refused = refusalRef ? await transaction.get(refusalRef) : null;
+        const [prior, refused = null] = await readDocuments(transaction, [receiptRef, ...(refusalRef ? [refusalRef] : [])]);
         requireValue(!(prior.exists && refused?.exists), 'CORRUPT_REFUSAL');
         if (refused?.exists) {
           const refusal = refused.data();
@@ -241,12 +253,14 @@ function createPaidCareService({ db, refs, walletAdapter, now = Date.now, elapse
           // A committed retry returns the original receipt even after config/day changes.
           return { receipt, duplicate: true };
         }
-        const config = await readConfig(transaction, uid);
+        // Recover old outcomes above before requiring any current account data.
+        // New purchases still read and validate every live financial mirror.
+        const [{ config, snapshot }, wallet] = await Promise.all([
+          readCareContext(transaction, uid), walletAdapter.read(transaction, uid),
+        ]);
         if (!refusalRef) requireValue(config.version === data.expectedConfigVersion && digest(config) === data.expectedConfigHash, 'RECONFIRM_CONFIG');
         const petRef = refs.pet(uid);
-        const snapshot = await transaction.get(petRef);
         const pet = snapshot.exists ? snapshot.data() : null;
-        const wallet = await walletAdapter.read(transaction, uid);
         requireValue(wallet && wallet.ownerUid === uid && walletNumber(wallet.balance), 'CORRUPT_WALLET');
         let effect;
         try {

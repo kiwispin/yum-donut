@@ -1,3 +1,4 @@
+const { readDocuments } = require('./readDocuments');
 function createHolidayMode({ db, globalRef, historyRef, receiptRef, HttpsError, now = Date.now }) {
   return async request => {
     if (!request.auth?.uid || request.auth.token?.yumpalsAdmin !== true || request.auth.token?.firebase?.sign_in_provider === 'anonymous') throw new HttpsError('permission-denied', 'Please sign in as the teacher.');
@@ -31,13 +32,19 @@ function createHolidayMode({ db, globalRef, historyRef, receiptRef, HttpsError, 
     });
   };
 }
-async function withHolidayMode(t, config, refs) {
-  if (!refs.holidayGlobal) return config;
-  const [global, history] = await Promise.all([refs.holidayGlobal(), refs.holidayHistory()].map(r=>t.get(r)));
+function holidayRefs(refs) {
+  return refs.holidayGlobal ? [refs.holidayGlobal(), refs.holidayHistory()] : [];
+}
+function applyHolidayMode(config, snapshots) {
+  if (!snapshots.length) return config;
+  const [global, history] = snapshots;
   const enabled = global.exists && global.data().holiday_mode === true;
   const data = history.exists ? history.data() : {enabled:false,periods:[]};
   // Fail closed if an old client changed the global switch outside the paired update.
   const matched = enabled === data.enabled;
   return { ...config, enabled:config.enabled && !enabled && matched, holidayPeriods:data.periods };
 }
-module.exports = { createHolidayMode, withHolidayMode };
+async function withHolidayMode(t, config, refs) {
+  return applyHolidayMode(config, await readDocuments(t, holidayRefs(refs)));
+}
+module.exports = { createHolidayMode, withHolidayMode, holidayRefs, applyHolidayMode };

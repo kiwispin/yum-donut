@@ -6,6 +6,7 @@ const { createTeacherSettingsCallables } = require('./src/yumpals/teacherSetting
 const { paidSettingsRefs } = require('./src/yumpals/paidSettingsPaths');
 const { createAppConnection } = require('./src/yumpals/appConnection');
 const { createHolidayMode } = require('./src/yumpals/holidayMode');
+const { withPreflightCache } = require('./src/yumpals/preflightCache');
 const { yumPalsRoot } = require('./src/yumpals/paths');
 
 admin.initializeApp();
@@ -82,7 +83,7 @@ exports.yumpalsUpdatePaidSettings = onCall({ region: 'us-central1' }, paidSettin
 const YUMPALS_PAID_CARE_READY = defineBoolean('YUMPALS_PAID_CARE_READY', { default: false });
 const savedYumPals = createAppConnection({ db: admin.firestore(), authAdmin: admin.auth(), HttpsError,
   ready: () => YUMPALS_PAID_CARE_READY.value() });
-exports.yumpalsGetPaidCareState = onCall({ region: 'us-central1' }, savedYumPals.paid.getState);
-exports.yumpalsPurchaseCare = onCall({ region: 'us-central1' }, savedYumPals.paid.purchase);
-exports.yumpalsGetSavedGame = onCall({ region: 'us-central1' }, savedYumPals.game.getGame);
-exports.yumpalsChooseSavedGame = onCall({ region: 'us-central1' }, savedYumPals.game.choose);
+exports.yumpalsGetPaidCareState = withPreflightCache(onCall({ region: 'us-central1' }, savedYumPals.paid.getState));
+exports.yumpalsPurchaseCare = withPreflightCache(onCall({ region: 'us-central1' }, savedYumPals.paid.purchase));
+exports.yumpalsGetSavedGame = withPreflightCache(onCall({ region: 'us-central1' }, savedYumPals.game.getGame));
+exports.yumpalsChooseSavedGame = withPreflightCache(onCall({ region: 'us-central1' }, savedYumPals.game.choose));

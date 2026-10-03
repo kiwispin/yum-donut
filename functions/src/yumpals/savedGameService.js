@@ -2,6 +2,8 @@
 const { randomInt } = require('node:crypto');
 const { authenticatedUid, validateReceipt } = require('./paidCareService');
 const { validateConfig, validatePet, requireValue, integer, digest, aucklandNow } = require('./paidCareEngine');
+const { readDocuments } = require('./readDocuments');
+const { holidayRefs, applyHolidayMode } = require('./holidayMode');
 const ID = /^[A-Za-z0-9_-]{1,80}$/u;
 const id = value => typeof value === 'string' && ID.test(value);
 const direction = value => value === 'left' || value === 'right';
@@ -55,9 +57,11 @@ function createSavedGameService({ db, refs, ready, now = Date.now, chooseTarget 
     return result;
   }
   async function load(t, p, uid, gameId) {
-    const [configSnap, petSnap, receiptSnap, gameSnap] = await Promise.all([p.config, p.pet, p.receipt, p.game].map(ref => t.get(ref)));
+    const [configSnap, petSnap, receiptSnap, gameSnap, ...extra] = await readDocuments(t,
+      [p.config, p.pet, p.receipt, p.game, ...holidayRefs(refs), ...(p.audit ? [p.audit] : [])]);
+    const prior = p.audit ? extra.pop() : null;
     requireValue(configSnap.exists, 'CONFIG_MISSING');
-    const config = await require('./holidayMode').withHolidayMode(t, validateConfig(configSnap.data()), refs);
+    const config = applyHolidayMode(validateConfig(configSnap.data()), extra);
     requireValue(receiptSnap.exists, 'GAME_PURCHASE_REQUIRED');
     const receipt = receiptSnap.data(); validateReceipt(receipt, uid, gameId);
     requireValue(receipt.action === 'game' && receipt.benefit.type === 'happiness', 'GAME_PURCHASE_REQUIRED');
@@ -65,7 +69,7 @@ function createSavedGameService({ db, refs, ready, now = Date.now, chooseTarget 
     const pet = petSnap.data(); const care = validatePet(pet, uid);
     const session = gameSnap.exists ? validateSession(gameSnap.data(), uid, gameId, receipt)
       : { schemaVersion: 1, ownerUid: uid, gameId, purchaseBinding: receipt.binding, benefit: receipt.benefit.amount, turns: [], complete: false };
-    const audits = await Promise.all(session.turns.map(turn => t.get(refs.gameTurn(uid, turn.operationId))));
+    const audits = await readDocuments(t, session.turns.map(turn => refs.gameTurn(uid, turn.operationId)));
     audits.forEach((snapshot, round) => {
       requireValue(snapshot.exists, 'CORRUPT_GAME_TURN');
       const audit = snapshot.data(); validateAudit(audit, uid, session.turns[round].operationId);
@@ -73,7 +77,7 @@ function createSavedGameService({ db, refs, ready, now = Date.now, chooseTarget 
     });
     if (session.complete) requireValue(care.game?.id !== gameId, 'CORRUPT_GAME');
     else requireValue(care.game?.id === gameId && care.game.benefit === receipt.benefit.amount, 'GAME_ENTITLEMENT_MISSING');
-    return { config, pet, receipt, session };
+    return { config, pet, receipt, session, prior };
   }
   return {
     getGame: async request => {
@@ -95,12 +99,11 @@ function createSavedGameService({ db, refs, ready, now = Date.now, chooseTarget 
       return db.runTransaction(async t => {
         // Independent reads share one network wait. All existing receipt,
         // entitlement, turn-audit and config checks still precede every write.
-        const [prior, loaded] = await Promise.all([t.get(p.audit), load(t, p, uid, data.gameId)]);
+        const { config, pet, receipt, session, prior } = await load(t, p, uid, data.gameId);
         if (prior.exists) {
           validateAudit(prior.data(), uid, data.operationId);
           requireValue(prior.data().binding === binding, 'OPERATION_CONFLICT');
         }
-        const { config, pet, receipt, session } = loaded;
         if (prior.exists) {
           const outcome = prior.data(); const saved = session.turns[data.round];
           requireValue(saved && JSON.stringify(turnOf(saved)) === JSON.stringify(turnOf(outcome)), 'CORRUPT_GAME_TURN');

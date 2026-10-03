@@ -16,16 +16,19 @@ function createAppWalletAdapter({ authAdmin, publicProfiles, privateProfile }) {
     async read(transaction, uid) {
       requireValue(typeof uid === 'string' && uid.length > 0 && uid.length <= 128 && !uid.includes('/'), 'INVALID_WALLET_UID');
       requireValue(!reads.has(transaction), 'WALLET_ALREADY_READ'); reads.add(transaction);
-      const identity = await authAdmin.getUser(uid);
+      const privateRef = privateProfile(uid);
+      const [identity, found, privateSnapshot] = await Promise.all([
+        authAdmin.getUser(uid),
+        transaction.get(publicProfiles().where('uid', '==', uid).limit(2)),
+        transaction.get(privateRef),
+      ]);
       requireValue(identity?.uid === uid && identity.disabled === false && typeof identity.email === 'string'
         && identity.providerData?.some(p => p.providerId === 'password'), 'WALLET_OWNER_CONFLICT');
-      const found = await transaction.get(publicProfiles().where('uid', '==', uid).limit(2));
       requireValue(found.docs?.length === 1, 'TRUSTED_MAPPING_REQUIRED');
       const publicSnapshot = found.docs[0]; const publicData = publicSnapshot.data();
       requireValue(publicData?.uid === uid && publicData.claimed === true && typeof publicData.name === 'string'
         && publicData.name.trim().length > 0 && publicData.name.length <= 1500
         && emailCandidates(publicData.name).includes(identity.email.toLowerCase()), 'WALLET_OWNER_CONFLICT');
-      const privateRef = privateProfile(uid); const privateSnapshot = await transaction.get(privateRef);
       requireValue(privateSnapshot.exists, 'WALLET_MIRROR_MISSING'); const privateData = privateSnapshot.data();
       requireValue(privateData && (!Object.hasOwn(privateData, 'uid') || privateData.uid === uid), 'WALLET_OWNER_CONFLICT');
       for (const data of [publicData, privateData]) {
