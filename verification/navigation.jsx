@@ -8,8 +8,9 @@ function Fixture() {
   const [view, setView] = useState('feed');
   const [pals, setPals] = useState(true);
   const [preview, setPreview] = useState(false);
+  const [training, setTraining] = useState(true);
   const [count, setCount] = useState(0);
-  const tabs = ['give', 'jobs', 'arcade', 'shop', 'bank', 'training', 'goal', 'feed', 'leaderboard', ...(pals ? ['yumpals-saved'] : []), ...(preview ? ['yumpals-preview'] : [])];
+  const tabs = ['give', 'jobs', 'arcade', 'shop', 'bank', ...(training ? ['training'] : []), 'goal', 'feed', 'leaderboard', ...(pals ? ['yumpals-saved'] : []), ...(preview ? ['yumpals-preview'] : [])];
   return <main className="max-w-md md:max-w-2xl mx-auto px-4 py-8" id="navigation-fixture">
     <p className="text-xs text-slate-400 mb-5">Navigation preview · no live account or payments</p>
     <AppNavigation activeView={view}>{tabs.map(tab => <button type="button" key={tab} data-nav-id={tab} aria-current={view === tab ? 'page' : undefined} onClick={() => { setView(tab); setCount(value => value + 1); }}>
@@ -20,7 +21,7 @@ function Fixture() {
       <p className="text-sm text-slate-500 mt-2">Use the navigation above to try the layout.</p>
     </section>
     <details className="mt-12 text-xs text-slate-500" id="fixture-controls"><summary>Preview controls</summary>
-      <div className="flex gap-5 mt-4"><label><input type="checkbox" checked={pals} onChange={event => setPals(event.target.checked)} /> Show YumPals</label><label><input type="checkbox" checked={preview} onChange={event => setPreview(event.target.checked)} /> Show admin preview</label></div>
+      <div className="flex flex-wrap gap-5 mt-4"><label><input type="checkbox" checked={pals} onChange={event => setPals(event.target.checked)} /> Show YumPals</label><label><input type="checkbox" checked={preview} onChange={event => setPreview(event.target.checked)} /> Show admin preview</label><label><input type="checkbox" checked={training} onChange={event => setTraining(event.target.checked)} /> Show Training</label></div>
       <p className="mt-3" data-picks={count}>Selections: {count}</p>
     </details>
   </main>;
