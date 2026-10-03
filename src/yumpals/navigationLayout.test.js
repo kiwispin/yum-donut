@@ -10,9 +10,16 @@ test('app navigation uses a labelled disclosure without sideways scrolling', () 
   assert.match(component, /'give', 'goal', 'yumpals', 'yumpals-saved', 'arcade', 'bank', 'shop'/);
   assert.match(component, /ResizeObserver/);
   assert.match(component, /aria-expanded/);
-  assert.match(component, /Explore YumDonut/);
+  assert.doesNotMatch(component, /Explore YumDonut/);
+  assert.match(component, /app-navigation-overflow/);
+  assert.match(component, /ArrowDown/);
+  assert.match(component, /Home/);
+  assert.match(component, /onBlur/);
   assert.match(component, /Escape/);
   const css = readFileSync(new URL('./appNavigation.css', import.meta.url), 'utf8');
   assert.doesNotMatch(css, /flex-wrap/);
   assert.doesNotMatch(css, /overflow-x: auto/);
+  assert.match(css, /right: 0/);
+  assert.match(css, /width: 232px/);
+  assert.match(css, /prefers-reduced-motion/);
 });
