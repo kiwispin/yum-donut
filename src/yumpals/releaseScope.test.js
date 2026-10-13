@@ -31,6 +31,16 @@ test('YumPals-only release preserves every existing named action handler from th
       assert.match(current.get(name)[0], /yumpalsSetHolidayMode/);
       continue;
     }
+    if (name === 'handleAddUser') {
+      assert.match(current.get(name)[0], /yumpalsManageStudentAccount/);
+      assert.match(current.get(name)[0], /action: 'add'/);
+      continue;
+    }
+    if (name === 'handleResetPassword') {
+      assert.match(current.get(name)[0], /yumpalsManageStudentAccount/);
+      assert.match(current.get(name)[0], /action: 'set-password'/);
+      continue;
+    }
     assert.deepEqual(current.get(name), bodies, `${name} must remain parked, not replaced`);
   }
   assert.equal(source.includes('ProtectedBankView'), false);

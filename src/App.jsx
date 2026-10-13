@@ -5342,33 +5342,29 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
     const [resettingPassword, setResettingPassword] = useState(null); // Name currently being reset
 
     const handleResetPassword = async (name) => {
+        if (isSandbox) {
+            alert("Switch to your live teacher account before setting a student password.");
+            return;
+        }
         const newPassword = prompt(`Enter a new password for ${name} (min 6 chars):`);
         if (!newPassword) return;
-        if (newPassword.length < 6) {
-            alert("Password must be at least 6 characters.");
+        if (newPassword.length < 6 || newPassword.length > 128) {
+            alert("Password must be between 6 and 128 characters.");
             return;
         }
 
         setResettingPassword(name);
         try {
-            const resetPassFn = httpsCallable(functions, 'resetStudentPassword');
-            let lastError = null;
-            for (const email of accountEmailCandidatesForName(name)) {
-                try {
-                    const result = await resetPassFn({ email, newPassword });
-                    alert(`✅ Success: ${result.data.message}`);
-                    lastError = null;
-                    break;
-                } catch (error) {
-                    lastError = error;
-                }
-            }
-            if (lastError) throw lastError;
+            const result = await httpsCallable(functions, 'yumpalsManageStudentAccount')({ action: 'set-password', name, password: newPassword });
+            alert(result.data.created
+                ? `✅ Account created for ${name}. They can now sign in with this password.`
+                : `✅ Password set for ${name}. They can sign in with this password.`);
         } catch (e) {
             console.error(e);
-            alert(`❌ Failed to reset password: ${e.message}`);
+            alert(`❌ Account setup failed: ${e.message || 'Please refresh Settings and try again.'}`);
+        } finally {
+            setResettingPassword(null);
         }
-        setResettingPassword(null);
     };
 
     // Initialize local shop drafts from the base catalog plus saved overrides.
@@ -5411,23 +5407,29 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
     }, [sponsorshipSlotOverrides]);
 
     const handleAddUser = async () => {
+        if (isSandbox) {
+            setError("Switch to your live teacher account before adding a student login.");
+            return;
+        }
         const name = newName.trim();
         if (!name) return;
         if (roster.some(existingName => existingName.trim().toLowerCase() === name.toLowerCase())) {
             setError("Name already exists.");
             return;
         }
+        const password = prompt(`Set an initial password for ${name} (6–128 characters):`);
+        if (!password) return;
+        if (password.length < 6 || password.length > 128) {
+            setError("Password must be between 6 and 128 characters.");
+            return;
+        }
         try {
-            const rosterRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'roster');
-            await setDoc(rosterRef, {
-                names: arrayUnion(name),
-                removed_names: arrayRemove(name)
-            }, { merge: true });
+            await httpsCallable(functions, 'yumpalsManageStudentAccount')({ action: 'add', name, password });
             setNewName("");
             setError("");
         } catch (e) {
             console.error(e);
-            setError("Failed to add user.");
+            setError(e.message || "Could not add the student account. Please try again.");
         }
     };
 
@@ -5872,7 +5874,8 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                                             <button
                                                 onClick={() => handleResetPassword(name)}
                                                 className="bg-amber-100 hover:bg-amber-200 text-amber-600 rounded p-1 transition-colors"
-                                                title="Reset Password"
+                                                aria-label={`Set or reset password for ${name}`}
+                                                title="Set or reset password; creates a missing account"
                                                 disabled={resettingPassword === name}
                                             >
                                                 <span className="text-sm">{resettingPassword === name ? '⏳' : '🔑'}</span>

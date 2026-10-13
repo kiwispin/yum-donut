@@ -8,6 +8,7 @@ const { createAppConnection } = require('./src/yumpals/appConnection');
 const { createHolidayMode } = require('./src/yumpals/holidayMode');
 const { withPreflightCache } = require('./src/yumpals/preflightCache');
 const { yumPalsRoot } = require('./src/yumpals/paths');
+const { createStudentAccountService } = require('./src/studentAccountService');
 
 admin.initializeApp();
 exports.yumpalsSetHolidayMode = onCall({ region: 'us-central1' }, createHolidayMode({
@@ -87,3 +88,9 @@ exports.yumpalsGetPaidCareState = withPreflightCache(onCall({ region: 'us-centra
 exports.yumpalsPurchaseCare = withPreflightCache(onCall({ region: 'us-central1' }, savedYumPals.paid.purchase));
 exports.yumpalsGetSavedGame = withPreflightCache(onCall({ region: 'us-central1' }, savedYumPals.game.getGame));
 exports.yumpalsChooseSavedGame = withPreflightCache(onCall({ region: 'us-central1' }, savedYumPals.game.choose));
+
+const manageStudentAccount = createStudentAccountService({ authAdmin: admin.auth(), db: admin.firestore(), HttpsError,
+  arrayUnion: (...values) => admin.firestore.FieldValue.arrayUnion(...values),
+  arrayRemove: (...values) => admin.firestore.FieldValue.arrayRemove(...values),
+});
+exports.yumpalsManageStudentAccount = onCall({ region: 'us-central1' }, manageStudentAccount);
