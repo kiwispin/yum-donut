@@ -33,4 +33,8 @@ Scope: make Admin Add create a sign-in and roster entry together; let the existi
 
 ## Release
 
-Source commit, targeted Functions deployment, frontend publication and live callable/asset checks are pending.
+Implementation commit: `1840b80`. Targeted deployment of `functions:teams:yumpalsManageStudentAccount` completed successfully to project `yum-donut-school`, region `us-central1`, Node.js 22. Read-only Functions inventory lists the new callable and still lists `resetStudentPassword` and `teamsBot`; no existing function was removed.
+
+Frontend deployed to GitHub Pages. Live page now references `index-iur3WECL.js` (SHA-256 `cee921714f33b06d51b322180138678fcb551c252acb259639f93c9a72d0f6d4`) and `index-BASmV3CR.css` (SHA-256 `79951ab31a95f92e00a633faf983553ecc505a8b79246b7d8c53fc9ff93d64d3`); both match the local production build byte for byte, and the JS contains the new callable wiring. A direct unauthenticated request to the callable was rejected as `PERMISSION_DENIED`; no real student account was touched during verification.
+
+The Cloud CLI reported the existing `firebase-functions` SDK as outdated; it was not changed. Existing dependency-age and bundle-size build notices remain.
