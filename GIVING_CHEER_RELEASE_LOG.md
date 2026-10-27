@@ -78,7 +78,7 @@ nothing new. Release B (server grants cheers) follows as a targeted deploy of on
   `PHONE_JOBS_BUTTON_LOG.md`, not new. The page was returned to Give.
 - Rollback: rebuild and publish `codex/giving-cheer-app-baseline-20261028`.
 
-## Release B — server (built and tested; not deployed, see "Deploying Release B from a school computer")
+## Release B — server (deployed 28 October 2026; see "Release B release")
 
 - ACCEPTED — `functions/src/yumpals/givingCheer.js`:
   - `givingDateKey` converts "Wed Oct 28 2026" (browser `toDateString` and the
@@ -225,6 +225,35 @@ git switch --detach codex/giving-cheer-server-baseline-20261028
 npx --yes firebase-tools@15.34.1 deploy --only functions:teams:yumpalsGetPaidCareState --project yum-donut-school
 git switch main
 ```
+
+## Release B release
+
+- Access: the owner, who is the school's IT manager, approved giving their personal
+  Google account Editor access (not Owner) to `yum-donut-school`, so it can deploy
+  from this PC. The school account remains the only Owner. The personal account
+  signed in to the CLI (`npx --yes firebase-tools@15.34.1`), and `projects:list`
+  showed `yum-donut-school`.
+- Before deploying: 10 functions were live (`resetStudentPassword`, `teamsBot` and 8
+  `yumpals*`). A `--dry-run` of the exact targeted deploy completed with no changes.
+  The existing warning that `firebase-functions` is outdated was left alone:
+  upgrading affects every function and is out of scope.
+- Source: rollback tag `codex/giving-cheer-server-baseline-20261028` → `e1768b8`.
+  `main` was fast-forwarded to `9986f7b`. Server tests 156/156 (1.36s), server lint
+  exit 0, app tests 150/150, `git diff --check` clean. Atomic push of `main`,
+  `codex/yumpals-only-release` and the tag; the remote IDs were verified.
+- RELEASE VERIFIED — `deploy --only functions:teams:yumpalsGetPaidCareState
+  --project yum-donut-school`: "Successful update operation" for that function only
+  (Node.js 22, us-central1, 165.33 KB source). `functions:list` afterwards still
+  lists all 10 functions.
+- Live check, owner signed in on the live site. The owner gave one real donut to a
+  student (Wednesday 28 October, a school day), then YumPals was opened. Both
+  `yumpalsGetPaidCareState` calls returned 200, and the status line showed
+  "Fizzgig heard you gave a donut! Happy +1." with the pat animation. The free
+  Health and status screen showed Happy 1 of 4 (Food, Clean and Health 0, so
+  happiness had been 0). Donuts stayed 26 and care today stayed 0/25: no charge and
+  no cap use. Leaving YumPals and reopening it did not replay the cheer.
+- Rollback: `git switch --detach codex/giving-cheer-server-baseline-20261028`, then
+  the same targeted deploy.
 
 ## Not tamper-proof
 
