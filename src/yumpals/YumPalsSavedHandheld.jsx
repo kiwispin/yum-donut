@@ -1,6 +1,7 @@
 import React, { memo, useEffect, useId, useRef, useState } from 'react';
 import { cheerMessage, claimOnce, visitAnimation, visitMessage } from './givingCheer.js';
 import { handheldScrollTarget, measureScreenInsets, PHONE_QUERY } from './handheldScroll.js';
+import { markPalVisited } from './visitReminder.js';
 import { ignoreHandheldKey } from './handheldKeyboard.js';
 import PixelDrawing from './PixelDrawing.jsx';
 import { createPaidCareController } from './paidCareClient.js';
@@ -136,6 +137,11 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
     });
     return () => window.cancelAnimationFrame(frame);
   }, [loaded]);
+  // Today's visit clears the gift-waiting dot on the Pals / YumPals buttons.
+  const visitedDate = quote?.aucklandDate; const hasPal = quote ? quote.pet !== null : null;
+  useEffect(() => {
+    if (visitedDate && hasPal !== null) markPalVisited(ownerUid, visitedDate, hasPal);
+  }, [ownerUid, visitedDate, hasPal]);
   // Gifts from the server: today's visit gift and giving cheer, each once per date.
   const visit = sameOwner && quote?.pet ? quote.visit : null;
   const cheer = sameOwner && quote?.pet ? quote.cheer : null;

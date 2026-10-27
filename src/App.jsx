@@ -24,6 +24,7 @@ import { synchronizePetWallet } from './yumpals/syncWallet.js';
 import { canShowYumPalsPreview } from './yumpals/previewGate.js';
 import AppNavigation from './yumpals/AppNavigation.jsx';
 import VisionMixerModal from './arcade/VisionMixerModal.jsx';
+import { PAL_VISITED_EVENT, palGiftWaiting } from './yumpals/visitReminder.js';
 import './yumpals/appSurround.css';
 import { useSavedVisibility } from './yumpals/useSavedVisibility.js';
 import {
@@ -913,7 +914,7 @@ const Button = ({ onClick, disabled, children, variant = "primary", className = 
     );
 };
 
-const NavBtn = ({ icon, label, active, onClick, badge }) => (
+const NavBtn = ({ icon, label, active, onClick, badge, dot }) => (
     <button
         onClick={onClick}
         className={`flex flex-col items-center gap-1 w-16 transition-colors relative ${active ? 'text-pink-500' : 'text-slate-400 hover:text-slate-600'}`}
@@ -925,7 +926,8 @@ const NavBtn = ({ icon, label, active, onClick, badge }) => (
                     {badge}
                 </span>
             )}
-            <span className="text-[10px] font-medium">{label}</span>
+            {dot && <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-pink-500 ring-2 ring-white" aria-hidden="true" />}
+            <span className="text-[10px] font-medium">{label}{dot && <span className="sr-only"> (gift waiting)</span>}</span>
         </div>
     </button>
 );
@@ -1830,6 +1832,7 @@ function YumDonutDashboard() {
     const [isAdminSettingsOpen, setIsAdminSettingsOpen] = useState(false);
     const [shopDailyPurchases, setShopDailyPurchases] = useState({});
     const [currentDateKey, setCurrentDateKey] = useState(() => getLocalDateKey());
+    const [palVisitTick, setPalVisitTick] = useState(0);
     const [sponsorships, setSponsorships] = useState({});
     const [sponsorshipSlotOverrides, setSponsorshipSlotOverrides] = useState({});
     const [yumpalsState, setYumpalsState] = useState(null);
@@ -1841,6 +1844,14 @@ function YumDonutDashboard() {
         uid: user?.uid, authUid: auth.currentUser?.uid, anonymous: auth.currentUser?.isAnonymous, sandbox: isSandbox }).savedAvailable;
     const savedYumpalsAvailable = useSavedVisibility({ eligible: savedYumpalsEligible, uid: user?.uid,
         transport: paidCareTransport, refreshKey: isAdminSettingsOpen });
+    // Gift-waiting dot on Pals / YumPals until today's visit; re-read when a visit is recorded.
+    useEffect(() => {
+        const bump = () => setPalVisitTick(tick => tick + 1);
+        window.addEventListener(PAL_VISITED_EVENT, bump);
+        return () => window.removeEventListener(PAL_VISITED_EVENT, bump);
+    }, []);
+    const palDot = useMemo(() => savedYumpalsAvailable && view !== 'yumpals-saved' && palGiftWaiting(user?.uid, currentDateKey),
+        [savedYumpalsAvailable, view, user?.uid, currentDateKey, palVisitTick]);
 
     const yumpalsRequestRef = useRef(0);
 
@@ -4042,6 +4053,10 @@ function YumDonutDashboard() {
                                     {openBountyCount}
                                 </span>
                             )}
+                            {tab === 'yumpals-saved' && palDot && (
+                                <span className="absolute top-1 right-0 h-2.5 w-2.5 rounded-full bg-pink-500" aria-hidden="true" />
+                            )}
+                            {tab === 'yumpals-saved' && palDot && <span className="sr-only"> (gift waiting)</span>}
                         </button>
                     ))}
                 </AppNavigation>
@@ -4195,7 +4210,7 @@ function YumDonutDashboard() {
                 <NavBtn icon={Keyboard} label="Train" active={view === 'training'} onClick={() => setView('training')} />
                 <NavBtn icon={Activity} label="Feed" active={view === 'feed'} onClick={() => setView('feed')} />
                 {yumpalsAvailable && <NavBtn icon={PawPrint} label="Pals" active={view === 'yumpals'} onClick={() => setView('yumpals')} />}
-                {savedYumpalsAvailable && <NavBtn icon={PawPrint} label="Pals" active={view === 'yumpals-saved'} onClick={() => setView('yumpals-saved')} />}
+                {savedYumpalsAvailable && <NavBtn icon={PawPrint} label="Pals" active={view === 'yumpals-saved'} onClick={() => setView('yumpals-saved')} dot={palDot} />}
             </div>
         </div>
     );
@@ -5122,7 +5137,7 @@ function PatchNotesModal({ onClose }) {
                         <h2 className="text-2xl font-bold flex items-center gap-2">
                             <Sparkles className="text-yellow-300" /> What's New
                         </h2>
-                        <p className="opacity-90 text-sm mt-1">Give a donut, cheer up your pal.</p>
+                        <p className="opacity-90 text-sm mt-1">Visit your pal every day for a free heart.</p>
                     </div>
                     <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
                         <XCircle size={24} />
@@ -5131,6 +5146,13 @@ function PatchNotesModal({ onClose }) {
 
                 <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
                     <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                        <Gift className="text-pink-500" size={20} /> A free gift every day you visit
+                    </h3>
+                    <p className="text-slate-600 text-sm">
+                        The first time you open YumPals each day, your pal gets a free heart in whatever it needs most. Been away a week or more? You’ll get a welcome-back heart in every need. Look for the pink dot on Pals.
+                    </p>
+
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2 pt-2 border-t border-slate-100">
                         <Heart className="text-pink-500" size={20} /> Giving cheers up your pal
                     </h3>
                     <p className="text-slate-600 text-sm">
