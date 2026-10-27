@@ -5122,7 +5122,7 @@ function PatchNotesModal({ onClose }) {
                         <h2 className="text-2xl font-bold flex items-center gap-2">
                             <Sparkles className="text-yellow-300" /> What's New
                         </h2>
-                        <p className="opacity-90 text-sm mt-1">New in the Arcade: run the gallery.</p>
+                        <p className="opacity-90 text-sm mt-1">Give a donut, cheer up your pal.</p>
                     </div>
                     <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
                         <XCircle size={24} />
@@ -5131,6 +5131,13 @@ function PatchNotesModal({ onClose }) {
 
                 <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
                     <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                        <Heart className="text-pink-500" size={20} /> Giving cheers up your pal
+                    </h3>
+                    <p className="text-slate-600 text-sm">
+                        The first donut you give a teammate each school day makes your YumPal happy. Next time you open YumPals, they’ll cheer and get a free Happy heart. It doesn’t cost any donuts.
+                    </p>
+
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2 pt-2 border-t border-slate-100">
                         <Gamepad2 className="text-red-500" size={20} /> New in the Arcade: Vision Mixer
                     </h3>
                     <p className="text-slate-600 text-sm">
