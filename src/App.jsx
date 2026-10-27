@@ -23,6 +23,7 @@ import { paidRoutePolicy } from './yumpals/savedHandheldPresentation.js';
 import { synchronizePetWallet } from './yumpals/syncWallet.js';
 import { canShowYumPalsPreview } from './yumpals/previewGate.js';
 import AppNavigation from './yumpals/AppNavigation.jsx';
+import VisionMixerModal from './arcade/VisionMixerModal.jsx';
 import './yumpals/appSurround.css';
 import { useSavedVisibility } from './yumpals/useSavedVisibility.js';
 import {
@@ -1681,6 +1682,7 @@ function ArcadeView({ user, profile, onWinBonus, sponsorships, sponsorshipSlots 
     const [showDailyRushes, setShowDailyRushes] = useState(false);
     const [showCableCommander, setShowCableCommander] = useState(false);
     const [showMemoryMatch, setShowMemoryMatch] = useState(false);
+    const [showVisionMixer, setShowVisionMixer] = useState(false);
 
     return (
         <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 p-4 sm:p-6">
@@ -1725,12 +1727,20 @@ function ArcadeView({ user, profile, onWinBonus, sponsorships, sponsorshipSlots 
                     onPlay={() => setShowDailyRushes(true)}
                 />
                 <GameRow
+                    title="Vision Mixer"
+                    subtitle="Cut to the right camera on cue."
+                    icon="🎛️"
+                    color="bg-red-100"
+                    onPlay={() => setShowVisionMixer(true)}
+                    badge="NEW"
+                />
+
+                <GameRow
                     title="Memory Match"
                     subtitle="Finish fast for a bonus donut."
                     icon="🎞️"
                     color="bg-indigo-100"
                     onPlay={() => setShowMemoryMatch(true)}
-                    badge="NEW"
                 />
 
                 <GameRow
@@ -1785,6 +1795,15 @@ function ArcadeView({ user, profile, onWinBonus, sponsorships, sponsorshipSlots 
                     lastPlayed={profile?.last_memory_match_win}
                     onClose={() => setShowMemoryMatch(false)}
                     onWin={(prize) => onWinBonus(prize, 'last_memory_match_win', 'Memory Match')}
+                />
+            )}
+
+            {showVisionMixer && (
+                <VisionMixerModal
+                    user={user}
+                    lastPlayed={profile?.last_vision_mixer_win}
+                    onClose={() => setShowVisionMixer(false)}
+                    onWin={(prize) => onWinBonus(prize, 'last_vision_mixer_win', 'Vision Mixer')}
                 />
             )}
         </div>
