@@ -29,14 +29,14 @@ any changes already on GitHub when merging. Verify the remote commit IDs.
 The current production frontend is built and published with:
 
 ```bash
-VITE_YUMPALS_PAID_CARE=enabled \
-VITE_YUMPALS_SAVED_GAME=enabled \
-VITE_YUMPALS_PAID_CONTROLS=enabled npm run build
-npx gh-pages -d dist
+npm run deploy
 ```
 
-Publish that prepared `dist` directly: `npm run deploy` invokes a fresh build and
-can omit these feature flags. Deploy only the changed Firebase callable targets
+The production YumPals feature flags (`VITE_YUMPALS_PAID_CARE`,
+`VITE_YUMPALS_SAVED_GAME`, `VITE_YUMPALS_PAID_CONTROLS`) live in
+`.env.production`, which Vite loads for every production build, so `npm run build`
+and `npm run deploy` always include them. `npm run dev` does not load that file.
+Change a flag only as a deliberate release decision. Deploy only the changed Firebase callable targets
 when backend source changes. Verify the live site and targeted function after
 deployment. Compiled files on `gh-pages` do not replace pushing the editable source.
 

@@ -36,3 +36,27 @@ GitHub, including when publishing the website. The prior deployments updated
   as a documentation-only follow-up; runtime code still matches the live release.
 
 No force-push, app redeployment or production data change is required.
+
+# Safe default deploy — 27 October 2026
+
+`npm run deploy` previously rebuilt without the YumPals feature flags, so a plain
+deploy would have removed saved YumPals, paid care and teacher paid controls from
+the live site.
+
+## Accepted changes
+
+- Added `.env.production` with `VITE_YUMPALS_PAID_CARE`, `VITE_YUMPALS_SAVED_GAME`
+  and `VITE_YUMPALS_PAID_CONTROLS` set to `enabled`. Vite loads it for production
+  builds only; `npm run dev` and the verification fixtures are unaffected, and
+  shell-set values still take precedence. **Accepted**.
+- README publishing steps now use `npm run deploy`. **Accepted**.
+
+## Verification
+
+- `npm run build` with no flags in the shell produced JS and CSS byte-identical
+  (MD5) to the live `gh-pages` assets; `index.html` differs only in Windows line
+  endings. No deployment was made.
+- `npm run lint` exit 0 (existing stale `baseline-browser-mapping` warning only).
+- `node --test src/*.test.js src/yumpals/*.test.js`: 124/124 in an LF checkout.
+  On this Windows `core.autocrlf=true` checkout the same 3 exact-source tests fail
+  before and after the change because files are compared with CRLF line endings.
