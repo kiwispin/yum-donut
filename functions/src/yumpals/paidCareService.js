@@ -6,6 +6,7 @@ const { withHolidayMode, holidayRefs, applyHolidayMode } = require('./holidayMod
 const { readDocuments } = require('./readDocuments');
 const { isValidPersistedState } = require('./rules');
 const { applyGivingCheer } = require('./givingCheer');
+const { applyVisitGift } = require('./visitGift');
 
 const ID = /^[A-Za-z0-9_-]{1,80}$/u;
 const REFUSALS = new Set(['DISABLED', 'RECONFIRM_CONFIG', 'NO_EFFECT', 'INSUFFICIENT_FUNDS', 'CARE_CAP', 'NO_PET', 'ALREADY_ADOPTED', 'GAME_ACTIVE']);
@@ -194,6 +195,18 @@ function createPaidCareService({ db, refs, walletAdapter, now = Date.now, elapse
           validatePet(pet, uid);
         }
         let next = pet ? advancePet(pet, uid, config, nowMs) : null;
+        // Daily visit gift is opt-in through refs; its record is written after every read.
+        let visit = null; let visitRecord = null;
+        if (next && refs.visit) {
+          const granted = applyVisitGift({ pet: next, config, nowMs, lastSeenMs: pet.paidCare.elapsedClock?.at ?? null });
+          if (granted) {
+            ({ visit } = granted);
+            next = granted.pet;
+            visitRecord = { schemaVersion: 1, ownerUid: uid, type: visit.welcomeBack ? 'welcome_back' : 'daily_visit', date: visit.date,
+              gains: visit.gains, amount: 0, needsBefore: granted.needsBefore, needsAfter: next.paidCare.needs,
+              lastSeenMs: pet.paidCare.elapsedClock?.at ?? null, committedAtMs: nowMs };
+          }
+        }
         let cheer = null;
         // Giving cheer is opt-in through refs; the read happens before any write.
         if (next && refs.giving && refs.cheer) {
@@ -208,8 +221,9 @@ function createPaidCareService({ db, refs, walletAdapter, now = Date.now, elapse
               givingDate: profile.last_given_date, givenToday: profile.given_today, committedAtMs: nowMs });
           }
         }
+        if (visitRecord) transaction.set(refs.visit(uid, visit.date), visitRecord);
         if (pet && digest(pet.paidCare) !== digest(next.paidCare)) transaction.set(refs.pet(uid), next);
-        return { ...projectHandheldState(uid, config, nowMs, next, wallet), ...(cheer ? { cheer } : {}) };
+        return { ...projectHandheldState(uid, config, nowMs, next, wallet), ...(visit ? { visit } : {}), ...(cheer ? { cheer } : {}) };
       });
     },
 
