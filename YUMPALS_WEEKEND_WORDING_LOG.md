@@ -32,3 +32,5 @@ Baseline: `e6a7b52` (`main`, live). Branch `codex/yumpals-weekend-wording`.
 - Frontend suite 155/155, lint exit 0. Preview design guard (`surround.test.js`)
   unchanged: the notice is outside the guarded device markup.
 - Not deployed; preview-only text, to ship with the next release.
+- Released with the visit gift app release: merged into `main` as `3eaecfe` and
+  published as `gh-pages` `7a954b8` (see `YUMPALS_VISIT_GIFT_LOG.md`).

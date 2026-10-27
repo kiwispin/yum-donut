@@ -86,3 +86,55 @@ so the app must accept new fields before the server sends them):
   message and animation, no clipping, and no replay after reload. A visit gift
   with a cheer showed both messages in order. Zero page errors.
 - The dot needs the signed-in app, so it is to be checked live after release C.
+
+## Releases (owner approved A, then B, then C, with the weekend wording fix in A)
+
+- A — `main` fast-forwarded to `a265745`, then the weekend wording branch merged
+  (`3eaecfe`). Frontend 158/158, lint exit 0, no server code. Rollback tag
+  `codex/visit-gift-app-baseline-20261028` → `e6a7b52`. RELEASE VERIFIED —
+  `gh-pages` `7a954b8`, live after ~90s, files byte-identical (JS `index-BhP9Lr8H.js`
+  MD5 `96982bc372be7102c183b99f1b81918b`). The owner's pal loaded normally
+  (`yumpalsGetPaidCareState` 200, no gift yet). The two startup `documents:commit`
+  400s were followed by successful commits: the known retry pattern.
+- B — merged as `1ed733f`. Server 165/165, server lint exit 0, frontend 159/159.
+  Rollback tag `codex/visit-gift-server-baseline-20261028` → `3eaecfe`. RELEASE
+  VERIFIED — `deploy --only functions:teams:yumpalsGetPaidCareState`: "Successful
+  update operation"; `functions:list` still lists all 10 functions. The owner's
+  `visits` record for 2026-10-28 exists (`daily_visit`, Food +1; the only record).
+- FINDING (B live check), FIXED in C: the gift was granted, but opening YumPals
+  showed no message. `useSavedVisibility` (the YumPals tab visibility check) calls
+  `yumpalsGetPaidCareState` on app open, every 60s and on focus, so it was the read
+  that granted the gift. Its reply was ignored, and once the transport's 60s warm
+  cache expired the handheld never saw `visit`. The giving cheer has the same
+  latent issue; it only showed in its earlier live check because YumPals was opened
+  before a background read ran. The hearts were still granted correctly and for
+  free.
+- ACCEPTED (C) — `src/yumpals/giftStash.js`: the visibility check now calls
+  `stashGifts(uid, result)`, which keeps a `visit` or `cheer` for today only after
+  `validateHandheldView` accepts the reply for that student. The handheld shows
+  `quote.visit || stashed.visit` (likewise for cheer), still once per owner and date
+  via `claimOnce`, and re-reads on a stash event. Tampered or broken stored values
+  are ignored. Tests: `giftStash.test.js` (4). `visit-gift-check.mjs` adds a kept
+  background gift that shows on opening, once: PASS.
+- C — merged as `fffc628`. Frontend 167/167, lint exit 0; server 165/165. Rollback
+  tag `codex/visit-gift-reminder-baseline-20261028` → `1ed733f`. RELEASE VERIFIED —
+  `gh-pages` `b364495`, live after ~45s, files byte-identical (JS
+  `index-BuHEh_rm.js` MD5 `e9bd2bcdc857fca78aade557b259e50b`, CSS
+  `index-CJZ2KnV1.css` MD5 `88a61d67d6a9c98b68a43d4d75cf67fe`).
+- Live checks for C, signed in as the owner:
+  - Top menu: the YumPals item showed the dot and "(gift waiting)" before the
+    visit; after opening YumPals and returning, it was cleared and the visit record
+    saved.
+  - 390×844: after removing this browser's own visit record, the bottom-bar button
+    read "Pals (gift waiting)" with the dot. It cleared while on YumPals and stayed
+    cleared after leaving. The pane's screenshot did not reach the bottom bar at
+    that size, so this was checked through the page itself.
+  - What's New: the subtitle "Visit your pal every day for a free heart.", then "A
+    free gift every day you visit", "Giving cheers up your pal", Vision Mixer and
+    YumPals. No failed requests.
+- Not yet seen live: a kept background gift on the live site. The owner's gift
+  today was granted (by B, before C) without being kept, so the first live showing
+  will be the next day's visit. The same path passed on the test page.
+- Rollback: rebuild and publish the matching baseline tag for the site; redeploy
+  `yumpalsGetPaidCareState` from `codex/visit-gift-server-baseline-20261028` for the
+  server.
