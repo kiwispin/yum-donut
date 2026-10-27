@@ -57,5 +57,25 @@ scan, no sound.
   Stage 3, and the start screen at 320×640.
 - Production build exit 0, 1719 modules, 2.00s. JS 924.92kB (+1.26kB) / 273.57kB
   gzip; CSS 94.30kB / 17.28kB gzip.
-- Not released: on branch `codex/vision-mixer` for the owner to play first. `main`
-  and the live site still serve the previous version.
+- The first push of the branch was rejected because the local branch was one
+  commit behind GitHub (`ffe3ac5`, a log-only commit). The change was rebased onto it
+  and pushed as `0e3d87b`, with no force-push.
+
+## Release
+
+- Owner played the preview ("properly hard now") and approved.
+- Merged to `main` (fast-forward) and `codex/yumpals-only-release` at `0e3d87b`.
+  Rollback tag `codex/vision-mixer-difficulty-baseline-20261027` → `ffe3ac5` (the
+  easier live version). Atomic push, and the remote IDs were verified.
+- RELEASE VERIFIED — published with `npm run deploy` as `gh-pages` commit `422f221`,
+  live after ~45s. Live `index.html` is byte-identical to the build; JS
+  `index-Cg9_e2H7.js` (MD5 `490febb2a55ba6f1e289ddadbf64a341`) and CSS
+  `index-BkUmfaxK.css` (MD5 `fec83a9294d1782fc11077e27cc9374d`) match locally. The live
+  bundle contains the new calls ("No, Ready Cam", "HOLD!", "Good hold.", "You cut on
+  a hold!").
+- Live app, signed in as the owner: loads the new bundle, Vision Mixer opens and
+  shows DAILY LIMIT REACHED from the owner's earlier win today, so the daily lock
+  carried across the update. No failed requests after load. No new real win was
+  played because today's play was already used; game behaviour is covered by the
+  identical bundle and the preview play-throughs above.
+- Rollback: rebuild and publish `codex/vision-mixer-difficulty-baseline-20261027`.
