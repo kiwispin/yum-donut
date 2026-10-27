@@ -21,3 +21,13 @@ Baseline: `4a1b44c`, preserved by `codex/whats-new-vision-mixer-baseline-2026102
   warning only). `git diff --check` clean.
 - Production build exit 0, 1719 modules, 2.05s. JS `index-C6XKeTMn.js` 925.56kB /
   273.80kB gzip; CSS `index-p6o1Gwbm.css` 94.32kB / 17.29kB gzip.
+- RELEASE VERIFIED — source `98a3d8f` (on `main` and `codex/yumpals-only-release`,
+  with the rollback tag pushed atomically and the remote IDs verified) published with
+  `npm run deploy` as `gh-pages` commit `5d990fa`, live after ~60s. Live
+  `index.html` is byte-identical to the build; JS `index-C6XKeTMn.js` (MD5
+  `3df7b3ac019ce88e003b33fef77ca746`) and CSS `index-p6o1Gwbm.css` (MD5
+  `994918df7bdf0821de23900ee23f1cf7`) match locally. Signed in as the owner, What's New
+  opens with the new subtitle, "New in the Arcade: Vision Mixer" first and
+  "Meet YumPals!" below. The screenshot was inspected, and the panel was closed with
+  "Got it!". Rollback: rebuild and publish
+  `codex/whats-new-vision-mixer-baseline-20261027`.
