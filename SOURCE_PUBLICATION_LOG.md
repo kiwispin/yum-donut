@@ -16,7 +16,8 @@ GitHub, including when publishing the website. The prior deployments updated
 - Updated README with the actual production source/publication workflow and
   required YumPals build flags. Corrected the outdated rollout status. **Accepted**.
 - Publish the complete release source to `main` and
-  `codex/yumpals-only-release`, plus its rollback tags. **Pending push**.
+  `codex/yumpals-only-release`, plus all 28 local rollback/checkpoint tags.
+  Atomic push succeeded. **Accepted**.
 
 ## Verification
 
@@ -27,6 +28,11 @@ GitHub, including when publishing the website. The prior deployments updated
   results remain recorded in the implementation logs. No repeat test run needed.
 - The tracked Functions `.env` contains only the two rollout flag names; no
   credential/key files were found among tracked filenames.
-- Remote branch and rollback-tag verification is pending.
+- Verified GitHub's `main` and `codex/yumpals-only-release` both pointed to
+  `b0d276dcf71cbf987bfd1063d799717741223a16`, containing the complete release
+  history and the source-publication policy. All 28 remote tag IDs matched their
+  local tag IDs. The release branch now tracks its GitHub upstream.
+- This final verification record is committed and pushed to both source branches
+  as a documentation-only follow-up; runtime code still matches the live release.
 
 No force-push, app redeployment or production data change is required.
