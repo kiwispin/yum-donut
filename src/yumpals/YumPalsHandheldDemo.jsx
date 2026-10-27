@@ -1,6 +1,7 @@
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { ignoreHandheldKey } from './handheldKeyboard.js';
 import PixelDrawing from './PixelDrawing.jsx';
+import { applyGivingCheer, cheerMessage } from './givingCheer.js';
 import {
     PAID_CARE_ADOPTION_PRICE,
     PAID_CARE_LABELS,
@@ -151,6 +152,7 @@ function DemoSprite({ animationState, forceAnimation, idleBlink = false, reduced
 }
 
 function receiptLine(receipt) {
+    if (receipt.amount === 0) return `${receipt.label.toUpperCase()} FREE`;
     return `${receipt.label.toUpperCase()} -${receipt.amount} DONUT${receipt.amount === 1 ? '' : 'S'}`;
 }
 
@@ -206,6 +208,7 @@ export default function YumPalsHandheldDemo() {
         setCleanFrame(0);
         const animation = action === 'meal' || action === 'snack'
             ? 'feed'
+            : action === 'cheer' ? 'pat'
             : action === 'pat' || action === 'clean' || action === 'medicine' || action === 'reminder'
                 ? action
                 : action === 'bedtime' ? 'sleep' : 'idle';
@@ -466,6 +469,16 @@ export default function YumPalsHandheldDemo() {
         showNotice('The demo clock moved forward one hour.');
     };
 
+    // Stands in for the student's first real gift of the day.
+    const pretendGive = () => {
+        const result = applyGivingCheer(state, { dateKey: state.dateKey, mode: 'give' });
+        showNotice(cheerMessage(result.code, pet?.name));
+        if (result.code !== 'OK' && result.code !== 'OK_FULL') return;
+        setDemoState(result.state);
+        setScreen('room');
+        showVisual('cheer');
+    };
+
     const advanceDay = () => {
         setDemoState((current) => advanceLocalDay(current));
         setScreen('room');
@@ -591,8 +604,8 @@ export default function YumPalsHandheldDemo() {
                         <option value="night">Night · auto sleep / wake</option>
                         <option value="new-adoption">New adoption · 30 → 25</option>
                     </select>
-                    <div className="paid-inspector-actions"><button onClick={advanceClock} type="button">Advance fake clock 1h</button><button onClick={advanceDay} type="button">Advance local day</button><button onClick={() => setDemoState(resetPaidCareDemo(new Date(), 'post-adoption'))} type="button">Reset local demo</button></div>
-                    <div className="paid-inspector-readout"><span>Fake clock {formatDemoClock(state.fakeClockMinutes)} · {isDemoNight(state) ? 'night' : 'school hours'}</span><span>Date {state.dateKey}</span><span>Recovery estimate {recovery.total} donuts ({recovery.care} care{recovery.reminder ? ` + ${recovery.reminder} reminder` : ''}{recovery.bedtime ? ` + ${recovery.bedtime} bedtime` : ''})</span></div>
+                    <div className="paid-inspector-actions"><button onClick={pretendGive} type="button">Pretend I gave a donut today</button><button onClick={advanceClock} type="button">Advance fake clock 1h</button><button onClick={advanceDay} type="button">Advance local day</button><button onClick={() => setDemoState(resetPaidCareDemo(new Date(), 'post-adoption'))} type="button">Reset local demo</button></div>
+                    <div className="paid-inspector-readout"><span>Fake clock {formatDemoClock(state.fakeClockMinutes)} · {isDemoNight(state) ? 'night' : 'school hours'}</span><span>Date {state.dateKey}</span><span>Giving cheer {state.cheerDateKey === state.dateKey ? 'used today' : 'not used today'}</span><span>Recovery estimate {recovery.total} donuts ({recovery.care} care{recovery.reminder ? ` + ${recovery.reminder} reminder` : ''}{recovery.bedtime ? ` + ${recovery.bedtime} bedtime` : ''})</span></div>
                     {state.scenario === 'new-adoption' && <button className="paid-inspector-adopt" onClick={() => setScreen('adopt')} type="button">Open adoption screen</button>}
                 </details>
             </section>

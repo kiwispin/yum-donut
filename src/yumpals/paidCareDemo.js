@@ -26,6 +26,7 @@ export const PAID_CARE_LABELS = Object.freeze({
     medicine: 'Medicine',
     bedtime: 'Bedtime',
     reminder: 'Reminder',
+    cheer: 'Cheer',
 });
 
 export const PAID_CARE_PROP_PIXELS = Object.freeze({
