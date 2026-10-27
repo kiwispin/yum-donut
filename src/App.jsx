@@ -5122,7 +5122,7 @@ function PatchNotesModal({ onClose }) {
                         <h2 className="text-2xl font-bold flex items-center gap-2">
                             <Sparkles className="text-yellow-300" /> What's New
                         </h2>
-                        <p className="opacity-90 text-sm mt-1">A little pal. A new daily adventure.</p>
+                        <p className="opacity-90 text-sm mt-1">New in the Arcade: run the gallery.</p>
                     </div>
                     <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
                         <XCircle size={24} />
@@ -5131,6 +5131,16 @@ function PatchNotesModal({ onClose }) {
 
                 <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
                     <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                        <Gamepad2 className="text-red-500" size={20} /> New in the Arcade: Vision Mixer
+                    </h3>
+                    <p className="text-slate-600 text-sm">
+                        You’re in the gallery. The director calls “Ready…” then “TAKE!”, so cut to the right camera before the shot is missed.
+                    </p>
+                    <p className="text-slate-600 text-sm">
+                        It gets faster as you go, the director changes their mind, and sometimes the call is “HOLD!” (don’t cut!). Get 20 clean takes to win a donut, or 2 for a perfect show.
+                    </p>
+
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2 pt-2 border-t border-slate-100">
                         <PawPrint className="text-pink-500" size={20} /> Meet YumPals!
                     </h3>
                     <p className="text-slate-600 text-sm">
