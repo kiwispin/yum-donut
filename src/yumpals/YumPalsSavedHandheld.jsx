@@ -1,5 +1,6 @@
 import React, { memo, useEffect, useId, useRef, useState } from 'react';
 import { cheerMessage, claimCheerDisplay } from './givingCheer.js';
+import { handheldScrollTarget, measureScreenInsets, PHONE_QUERY } from './handheldScroll.js';
 import { ignoreHandheldKey } from './handheldKeyboard.js';
 import PixelDrawing from './PixelDrawing.jsx';
 import { createPaidCareController } from './paidCareClient.js';
@@ -42,6 +43,7 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
   const [adoption, setAdoption] = useState({ name: 'Niblet', species: 'mossbit', casing: 'berry', color: '#d94878' });
   const [localMessage, setLocalMessage] = useState('');
   const [cheerNote, setCheerNote] = useState('');
+  const shellRef = useRef(null); const autoScrolled = useRef(false); const userScrolled = useRef(false);
   useEffect(() => {
     let alive = true; let hadPending = false; navigation.current++; careIntent.current = null; gameVisible.current = false;
     setLastPet(null); setState(EMPTY); setAnimation(null); setScreen('room');
@@ -120,6 +122,27 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
     setAnimation({ type: 'pat', index: 0 });
     setCheerNote(cheerMessage(cheer.gain ? 'OK' : 'OK_FULL', cheerPetName));
   }, [cheer, ownerUid, cheerPetName]);
+  // Phones: once the pal has loaded, bring the whole handheld into view between
+  // the app's pinned header and bottom icon bar, unless the student has scrolled.
+  useEffect(() => {
+    const mark = () => { userScrolled.current = true; };
+    const key = event => { if (['PageDown', 'PageUp', 'Home', 'End', ' '].includes(event.key)) mark(); };
+    window.addEventListener('wheel', mark, { passive: true }); window.addEventListener('touchmove', mark, { passive: true }); window.addEventListener('keydown', key);
+    return () => { window.removeEventListener('wheel', mark); window.removeEventListener('touchmove', mark); window.removeEventListener('keydown', key); };
+  }, []);
+  const loaded = quote !== null;
+  useEffect(() => {
+    if (!loaded || autoScrolled.current) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      autoScrolled.current = true;
+      const device = shellRef.current?.querySelector('.paid-demo-device');
+      if (!device || userScrolled.current || !window.matchMedia(PHONE_QUERY).matches) return;
+      const rect = device.getBoundingClientRect();
+      const target = handheldScrollTarget({ deviceTop: rect.top, deviceHeight: rect.height, scrollY: window.scrollY, viewportHeight: window.innerHeight, ...measureScreenInsets() });
+      if (target !== null) window.scrollTo({ top: target, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [loaded]);
   useEffect(() => {
     if (!cheerNote) return undefined;
     const timer = window.setTimeout(() => setCheerNote(''), 8000);
@@ -200,7 +223,7 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
       <Pixels className="saved-icon" pixels={PAID_CARE_ICON_PIXELS[name]} palette={{ a: selected === start + n ? '#f5efac' : '#304837' }} />
     </button>)}
   </nav>;
-  return <section className="paid-demo-shell saved-handheld" aria-label="Saved YumPals handheld">
+  return <section ref={shellRef} className="paid-demo-shell saved-handheld" aria-label="Saved YumPals handheld">
     <header className="paid-demo-header"><div><h1 className="yumpals-title"><span className="yumpals-title-icon" aria-hidden="true"><Pixels pixels={getYumPalsFrame('mossbit', 'idle', 0, true).pixels} palette={getYumPalsFrame('mossbit', 'idle', 0, true).palette} /></span>YumPals</h1><p>A little pal to care for each day.</p></div></header>
     <p className="saved-top-status" role="status">{!sameOwner ? 'Please sign in to see your saved pal.' : localMessage || pendingMessage || cheerNote || (!state.pending && state.message) || (!quote ? 'Loading your pal…' : !quote.enabled ? 'YumPals is resting. Your teacher has paused care.' : !quote.wallet.available ? 'Your donuts could not be checked. Please ask your teacher.' : '')}</p>
     <div className="paid-demo-device" style={{ '--saved-case': savedCaseColor(pet) }}>
