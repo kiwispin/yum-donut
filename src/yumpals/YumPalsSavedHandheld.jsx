@@ -1,7 +1,8 @@
-import React, { memo, useEffect, useId, useRef, useState } from 'react';
+import React, { memo, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { cheerMessage, claimOnce, visitAnimation, visitMessage } from './givingCheer.js';
 import { handheldScrollTarget, measureScreenInsets, PHONE_QUERY } from './handheldScroll.js';
 import { markPalVisited } from './visitReminder.js';
+import { GIFT_STASHED_EVENT, readStashedGifts } from './giftStash.js';
 import { ignoreHandheldKey } from './handheldKeyboard.js';
 import PixelDrawing from './PixelDrawing.jsx';
 import { createPaidCareController } from './paidCareClient.js';
@@ -142,9 +143,18 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
   useEffect(() => {
     if (visitedDate && hasPal !== null) markPalVisited(ownerUid, visitedDate, hasPal);
   }, [ownerUid, visitedDate, hasPal]);
-  // Gifts from the server: today's visit gift and giving cheer, each once per date.
-  const visit = sameOwner && quote?.pet ? quote.visit : null;
-  const cheer = sameOwner && quote?.pet ? quote.cheer : null;
+  // Gifts from the server: today's visit gift and giving cheer, each once per date,
+  // from this read or kept from a background read that granted them earlier today.
+  const [stashTick, setStashTick] = useState(0);
+  useEffect(() => {
+    const bump = () => setStashTick(tick => tick + 1);
+    window.addEventListener(GIFT_STASHED_EVENT, bump);
+    return () => window.removeEventListener(GIFT_STASHED_EVENT, bump);
+  }, []);
+  const giftDate = sameOwner ? quote?.aucklandDate : null;
+  const stashed = useMemo(() => (giftDate ? readStashedGifts(ownerUid, giftDate) : null), [ownerUid, giftDate, stashTick]);
+  const visit = sameOwner && quote?.pet ? (quote.visit || stashed?.visit || null) : null;
+  const cheer = sameOwner && quote?.pet ? (quote.cheer || stashed?.cheer || null) : null;
   const giftPetName = quote?.pet?.name;
   useEffect(() => {
     if (!visit || !claimOnce('visit', ownerUid, visit.date)) return;

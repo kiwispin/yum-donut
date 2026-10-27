@@ -47,6 +47,23 @@ try {
     console.log(`PASS ${kind}: "${message}" with ${animation}, unclipped, no replay`);
     await context.close();
   }
+  // A gift granted earlier by a background read (kept in storage) shows on opening.
+  {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    await context.addInitScript(() => {
+      if (sessionStorage.getItem('seeded')) return; sessionStorage.setItem('seeded', '1');
+      localStorage.setItem('yumpals_pending_gifts_student-a', JSON.stringify({ date: '2026-09-07',
+        visit: { date: '2026-09-07', welcomeBack: false, gains: { hunger: 0, happiness: 0, cleanliness: 1, health: 0 } } }));
+    });
+    const page = await context.newPage();
+    page.on('pageerror', error => errors.push(error.message));
+    await page.goto(base);
+    await page.waitForFunction(() => document.querySelector('.saved-top-status')?.textContent === 'Niblet loves your visit! Clean +1.', null, { timeout: 5000 });
+    await page.reload(); await page.locator('.saved-top').filter({ hasText: 'DONUTS' }).waitFor(); await page.waitForTimeout(1200);
+    assert.notEqual(await page.locator('.saved-top-status').textContent(), 'Niblet loves your visit! Clean +1.', 'kept gift plays once');
+    console.log('PASS kept background gift: shown on opening, once');
+    await context.close();
+  }
   // Visit and cheer together: both messages, one after the other.
   const { page, context } = await open('visit=hunger&cheer=1');
   await page.waitForFunction(() => window.__seen.status.includes('Niblet heard you gave a donut! Happy +1.'), null, { timeout: 15000 });
