@@ -87,3 +87,25 @@ just below the first screen there. To be measured live after release.
 - Production build exit 0, 1720 modules. JS 928.01kB / 274.90kB gzip; CSS 94.73kB /
   17.33kB gzip.
 - Before and after full-page screenshots at 390px were inspected.
+
+## Release
+
+- Owner approved. Merged to `main` (fast-forward) and `codex/yumpals-only-release`
+  at `911e33a`. Rollback tag `codex/yumpals-tidy-up-baseline-20261028` → `d8986ab`.
+  Atomic push, and the remote IDs were verified.
+- RELEASE VERIFIED — published with `npm run deploy` as `gh-pages` commit `c4bb5d0`,
+  live after ~60s. Live `index.html` is byte-identical to the build; JS
+  `index-BTUUwHM-.js` (MD5 `8433e555ca691767d008b4413fadca84`) and CSS
+  `index-DIiztJ8z.css` (MD5 `be123254c15f02ab9596406fb2c384fe`) match locally.
+- Live, signed in as the owner: the saved pal (Fizzgig, 26 donuts) loads on the new
+  bundle. The notice now opens How to play, the queue and sync boxes are gone,
+  Refresh pal is a link, there are no stray scrollbars and no sideways scroll, and
+  no requests failed after load.
+- Live phone layout, 390×844 including the app's top bar, menu and 73px bottom icon
+  bar: device top 611 → 453px (−158px); YumPals page bottom 1646 → 1290px (−356px).
+  Hovering all icons moved nothing. The whole device still does not fit the first
+  screen in the real app: the visible area ends at 771px, and the device ends at
+  966px. The pal's screen (524–832px) is mostly visible, including name, donuts and
+  the pal down to 790px; its bottom icon row and the A/B/C buttons need a short
+  scroll. Before, only about the top 90px of the screen was visible.
+- Rollback: rebuild and publish `codex/yumpals-tidy-up-baseline-20261028`.
