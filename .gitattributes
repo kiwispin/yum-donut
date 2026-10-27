@@ -1,0 +1,14 @@
+# Keep LF line endings in every checkout (including Windows) so exact-source
+# tests and builds match the published site.
+* text=auto eol=lf
+
+# Never touch binary files.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.zip binary
+*.woff binary
+*.woff2 binary
