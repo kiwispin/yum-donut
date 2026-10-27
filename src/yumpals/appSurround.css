@@ -107,6 +107,11 @@
     text-align: center; color: #26283b; background: #fff3bd; border: 2px solid #26283b;
     border-radius: 0; font: 700 14px/1.6 'Trebuchet MS', sans-serif; padding: 14px 18px;
 }
+/* The saved status line reserves 2.8em to avoid layout movement: one line fits
+   that exactly, and a longer message grows instead of being clipped. */
+.yumpals-embedded-saved .saved-handheld > p.saved-top-status[role='status']:not(:empty) {
+    height: auto; min-height: 2.8em; padding: 6px 18px; overflow: visible;
+}
 @media (max-width: 420px) {
     :is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-shell { padding: 24px 12px 32px; box-shadow: 3px 3px 0 #26283b; }
     .yumpals-title-icon { width: 40px; height: 40px; flex-basis: 40px; }

@@ -41,8 +41,11 @@ async function binding(v) {
   const bytes = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(canonical(v))));
   return [...new Uint8Array(bytes)].map(byte => byte.toString(16).padStart(2, '0')).join('');
 }
+const VIEW_KEYS = ['schemaVersion', 'ownerUid', 'enabled', 'configVersion', 'configHash', 'prices', 'restores', 'careCap', 'serverNowMs', 'aucklandDate', 'aucklandHour', 'pet', 'wallet'];
 export function validateHandheldView(v, ownerUid) {
-  if (!exact(v, ['schemaVersion', 'ownerUid', 'enabled', 'configVersion', 'configHash', 'prices', 'restores', 'careCap', 'serverNowMs', 'aucklandDate', 'aucklandHour', 'pet', 'wallet'])
+  // `cheer` is present only on the read that granted today's giving cheer.
+  const hasCheer = plain(v) && Object.hasOwn(v, 'cheer');
+  if (!exact(v, hasCheer ? [...VIEW_KEYS, 'cheer'] : VIEW_KEYS)
     || v.schemaVersion !== 1 || v.ownerUid !== ownerUid || typeof v.enabled !== 'boolean' || !id(v.configVersion) || !hash(v.configHash)
     || !exact(v.prices, ACTIONS) || !ACTIONS.every(k => integer(v.prices[k], 1, 10000))
     || !exact(v.restores, RESTORES) || !RESTORES.every(k => integer(v.restores[k], 1, 4)) || !integer(v.careCap, 1, 10000)
@@ -59,6 +62,7 @@ export function validateHandheldView(v, ownerUid) {
     || !needs(p.needs) || !exact(p.daily, ['date', 'spent']) || !date(p.daily.date) || !integer(p.daily.spent)
     || p.daily.date > v.aucklandDate || (p.sleepDate !== null && (!date(p.sleepDate) || p.sleepDate > p.daily.date)) || typeof p.attention !== 'boolean'
     || (p.game !== null && (!exact(p.game, ['id', 'benefit', 'round']) || !id(p.game.id) || !integer(p.game.benefit, 1, 4) || p.game.round !== 0)))) invalid();
+  if (hasCheer && (p === null || !exact(v.cheer, ['date', 'gain']) || v.cheer.date !== v.aucklandDate || !integer(v.cheer.gain, 0, 1))) invalid();
   return structuredClone(v);
 }
 

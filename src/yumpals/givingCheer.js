@@ -17,7 +17,7 @@ export function cheerMessage(code, petName = 'Your pal') {
         case 'OK': return `${petName} heard you gave a donut! Happy +1.`;
         case 'OK_FULL': return `${petName} heard you gave a donut! Already as happy as can be.`;
         case 'ALREADY_CHEERED': return `${petName} already cheered for your giving today.`;
-        case 'REST_DAY': return 'Pals rest on days off, so giving cheers start again next school day.';
+        case 'REST_DAY': return 'Giving cheers happen on school days.';
         case 'NOT_A_GIFT': return 'Only donuts given to a teammate cheer up your pal.';
         case 'NOT_TODAY': return 'Give a donut today to cheer up your pal.';
         case 'NO_PET': return 'Adopt a pal and they will cheer when you give donuts.';
@@ -57,4 +57,18 @@ export function applyGivingCheer(state, gift, { paused = false } = {}) {
         operationIds: { ...state.operationIds, [receipt.operationId]: { action: 'cheer', amount: 0, receiptId: receipt.receiptId } },
     };
     return { state: next, code: amount ? 'OK' : 'OK_FULL', receipt, happinessGain: amount };
+}
+
+// Saved pals: the server sends `cheer` on the read that granted it, and a recent
+// read can be shown again from cache, so each owner's cheer plays once per date.
+const shownCheers = new Set();
+export function claimCheerDisplay(ownerUid, date, storage = globalThis.localStorage) {
+    const key = `yumpals_cheer_shown_${ownerUid}_${date}`;
+    if (shownCheers.has(key)) return false;
+    shownCheers.add(key);
+    try {
+        if (storage?.getItem(key) === '1') return false;
+        storage?.setItem(key, '1');
+    } catch { /* the in-memory record still prevents replays this session */ }
+    return true;
 }

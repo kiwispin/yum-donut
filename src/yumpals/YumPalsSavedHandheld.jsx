@@ -1,4 +1,5 @@
 import React, { memo, useEffect, useId, useRef, useState } from 'react';
+import { cheerMessage, claimCheerDisplay } from './givingCheer.js';
 import { ignoreHandheldKey } from './handheldKeyboard.js';
 import PixelDrawing from './PixelDrawing.jsx';
 import { createPaidCareController } from './paidCareClient.js';
@@ -40,6 +41,7 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
   const [animation, setAnimation] = useState(null); const [blink, setBlink] = useState(false); const [osReduced, setOsReduced] = useState(false);
   const [adoption, setAdoption] = useState({ name: 'Niblet', species: 'mossbit', casing: 'berry', color: '#d94878' });
   const [localMessage, setLocalMessage] = useState('');
+  const [cheerNote, setCheerNote] = useState('');
   useEffect(() => {
     let alive = true; let hadPending = false; navigation.current++; careIntent.current = null; gameVisible.current = false;
     setLastPet(null); setState(EMPTY); setAnimation(null); setScreen('room');
@@ -111,6 +113,18 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
   // authoritative balance, and a refusal naturally restores the server view.
   const displayQuote = hasQueue && !state.storageBlocked && queue.every(item => !['adoption', 'game'].includes(item.action)) ? interactionQuote : quote;
   const reduced = osReduced || (sameOwner && (quote?.pet || lastPet)?.reducedMotion === true);
+  const cheer = sameOwner && quote?.pet ? quote.cheer : null;
+  const cheerPetName = quote?.pet?.name;
+  useEffect(() => {
+    if (!cheer || !claimCheerDisplay(ownerUid, cheer.date)) return;
+    setAnimation({ type: 'pat', index: 0 });
+    setCheerNote(cheerMessage(cheer.gain ? 'OK' : 'OK_FULL', cheerPetName));
+  }, [cheer, ownerUid, cheerPetName]);
+  useEffect(() => {
+    if (!cheerNote) return undefined;
+    const timer = window.setTimeout(() => setCheerNote(''), 8000);
+    return () => window.clearTimeout(timer);
+  }, [cheerNote]);
   useEffect(() => {
     if (!animation) return undefined;
     const sequence = getYumPalsAnimationSequence(animation.type, reduced);
@@ -185,7 +199,7 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
   return <section className="paid-demo-shell saved-handheld" aria-label="Saved YumPals handheld">
     <header className="paid-demo-header"><div><h1 className="yumpals-title"><span className="yumpals-title-icon" aria-hidden="true"><Pixels pixels={getYumPalsFrame('mossbit', 'idle', 0, true).pixels} palette={getYumPalsFrame('mossbit', 'idle', 0, true).palette} /></span>YumPals</h1><p>A little pal to care for each day.</p></div></header>
     <p className="paid-demo-warning">Your pal is saved between visits. Donuts are spent only when you confirm the price.</p>
-    <p className="saved-top-status" role="status">{!sameOwner ? 'Please sign in to see your saved pal.' : localMessage || (!state.pending && state.message) || (!quote ? 'Loading your pal…' : !quote.enabled ? 'YumPals is resting. Your teacher has paused care.' : !quote.wallet.available ? 'Your donuts could not be checked. Please ask your teacher.' : '')}</p>
+    <p className="saved-top-status" role="status">{!sameOwner ? 'Please sign in to see your saved pal.' : localMessage || cheerNote || (!state.pending && state.message) || (!quote ? 'Loading your pal…' : !quote.enabled ? 'YumPals is resting. Your teacher has paused care.' : !quote.wallet.available ? 'Your donuts could not be checked. Please ask your teacher.' : '')}</p>
     <div className="paid-demo-device" style={{ '--saved-case': savedCaseColor(pet) }}>
       <div className="paid-demo-brand">YUMPALS</div><div className="paid-demo-screen-frame">
         <div className={`paid-demo-lcd ${sleep.sleeping ? 'is-sleeping' : ''} ${sleep.dim ? 'is-bedtime-set' : ''}`}>
