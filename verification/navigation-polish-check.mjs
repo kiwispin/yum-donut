@@ -4,8 +4,22 @@ const browser = await chromium.launch({ headless: true, executablePath: '/Users/
 const base = `http://127.0.0.1:${process.argv[2] || '5174'}/yum-donut/verification/navigation.html`;
 const start = performance.now();
 const errors = [];
+const ALL_IDS = ['give', 'goal', 'feed', 'arcade', 'bank', 'shop', 'jobs', 'leaderboard', 'yumpals-saved', 'training'];
 try {
-  for (const width of [320, 390, 768, 1440]) {
+  for (const width of [768, 1440]) {
+    const page = await browser.newPage({ viewport: { width, height: 800 } });
+    page.on('pageerror', error => errors.push(error.message));
+    await page.goto(base);
+    const nav = page.getByRole('navigation', { name: 'App navigation' });
+    await nav.locator(':scope > button').first().waitFor();
+    assert.deepEqual(await nav.locator(':scope > button').evaluateAll(buttons => buttons.map(button => button.dataset.navId)), ALL_IDS, `${width}: every destination on one line`);
+    assert.equal(await nav.getByRole('button', { name: 'More', exact: true }).count(), 0, `${width}: no More when everything fits`);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    await page.screenshot({ path: `/tmp/yum-navigation-${width}.png` });
+    console.log(`PASS ${width}px: all destinations on one line, no More, no overflow`);
+    await page.close();
+  }
+  for (const width of [320, 390]) {
     const page = await browser.newPage({ viewport: { width, height: 800 } });
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(base);
@@ -14,7 +28,7 @@ try {
     await more.waitFor();
     const ids = await nav.locator(':scope > button').evaluateAll(buttons => buttons.map(button => button.dataset.navId));
     assert.deepEqual(ids.slice(0, 3), ['give', 'goal', 'feed'], `${width}: Goal and Feed stay visible near front`);
-    assert.ok(!ids.includes('training') && !ids.includes('yumpals-saved'), `${width}: Training and YumPals never appear on the strip`);
+    assert.deepEqual(ids, ALL_IDS.slice(0, ids.length), `${width}: overflow keeps priority order`);
     const before = await page.locator('#fixture-content').boundingBox();
     await more.click();
     const panel = nav.locator('.app-navigation-panel');
@@ -82,31 +96,23 @@ try {
   await wide.goto(base);
   await wide.locator('#navigation-fixture').evaluate(element => { element.style.maxWidth = '1200px'; });
   const more = wide.getByRole('button', { name: 'More', exact: true });
-  await more.click();
-  assert.deepEqual(await wide.locator('.app-navigation > button').evaluateAll(buttons => buttons.map(button => button.dataset.navId)), ['give', 'goal', 'feed', 'arcade', 'bank', 'shop', 'jobs', 'leaderboard']);
-  assert.deepEqual(await wide.locator('.app-navigation-panel > button').evaluateAll(buttons => buttons.map(button => button.dataset.navId)), ['yumpals-saved', 'training'], 'More-only routes remain there even when all destinations could fit');
+  assert.deepEqual(await wide.locator('.app-navigation > button').evaluateAll(buttons => buttons.map(button => button.dataset.navId)), ALL_IDS);
+  assert.equal(await more.count(), 0, 'no More when all destinations fit');
   await wide.screenshot({ path: '/tmp/yum-navigation-wide-placement.png' });
-  await wide.keyboard.press('Escape');
   await wide.locator('#navigation-fixture').evaluate(element => { element.style.maxWidth = '320px'; });
-  await wide.waitForFunction(() => document.querySelectorAll('.app-navigation > button').length === 3);
   await more.waitFor(); await more.press('ArrowDown');
   const focusedId = await wide.evaluate(() => document.activeElement.dataset.navId);
   await wide.locator('#navigation-fixture').evaluate(element => { element.style.maxWidth = '672px'; });
   await wide.waitForFunction(id => document.activeElement?.dataset.navId === id && document.activeElement.parentElement.classList.contains('app-navigation'), focusedId);
-  await more.press('ArrowDown');
-  await wide.locator('.app-navigation-panel [data-nav-id="yumpals-saved"]').focus();
-  await wide.locator('#navigation-fixture').evaluate(element => { element.style.maxWidth = '1200px'; });
-  assert.equal(await wide.locator('.app-navigation-panel [data-nav-id="yumpals-saved"]').evaluate(element => element === document.activeElement), true, 'permanent More route keeps focus inside the panel after resize');
-  assert.ok(await more.isVisible(), 'More stays available for its permanent destinations after resize');
-  await wide.keyboard.press('Escape');
+  assert.equal(await more.count(), 0, 'More disappears once everything fits again');
   await wide.locator('#fixture-controls').evaluate(element => { element.open = true; });
-  await wide.getByLabel('Show YumPals').uncheck();
-  await wide.getByLabel('Show Training').uncheck();
+  await wide.getByLabel('Show admin preview').check();
+  await more.waitFor();
+  await more.click();
+  assert.equal(await wide.locator('.app-navigation-panel [data-nav-id="yumpals-preview"]').count(), 1, 'extra admin destination overflows into More');
+  await wide.keyboard.press('Escape');
+  await wide.getByLabel('Show admin preview').uncheck();
   await more.waitFor({ state: 'detached' });
-  assert.equal(await wide.locator('.app-navigation > button').count(), 8, 'no More when all eligible destinations belong on the strip and fit');
-  assert.equal(await wide.locator('.app-navigation-panel').count(), 0);
-  await wide.getByLabel('Show Training').check();
-  await wide.getByLabel('Show YumPals').check();
   await wide.emulateMedia({ reducedMotion: 'reduce' });
   assert.equal(await wide.locator('.app-navigation > button').first().evaluate(element => getComputedStyle(element).transitionDuration), '0s');
   await wide.setViewportSize({ width: 320, height: 480 });

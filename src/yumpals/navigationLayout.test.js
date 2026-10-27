@@ -2,14 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-test('app navigation uses a labelled disclosure without sideways scrolling', () => {
+test('app navigation shows every destination on one line when it fits, with More only for overflow', () => {
   const source = readFileSync(new URL('../App.jsx', import.meta.url), 'utf8');
   assert.match(source, /<AppNavigation activeView=\{view\}>/);
   assert.match(source, /aria-current=\{view === tab/);
   const component = readFileSync(new URL('./AppNavigation.jsx', import.meta.url), 'utf8');
   assert.match(component, /'give', 'goal', 'feed', 'arcade', 'bank', 'shop'/);
-  assert.match(component, /const MORE_ONLY = new Set\(\['yumpals', 'yumpals-saved', 'training', 'yumpals-preview'\]\)/);
-  assert.match(component, /!hasMoreOnly && total <= available/);
+  assert.doesNotMatch(component, /MORE_ONLY/, 'every destination may sit on the menu line when it fits');
+  assert.match(component, /if \(total <= available\) \{ applyCount\(widths.length\); return; \}/);
   assert.match(component, /ResizeObserver/);
   assert.match(component, /aria-expanded/);
   assert.doesNotMatch(component, /Explore YumDonut/);

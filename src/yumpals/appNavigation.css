@@ -1,5 +1,5 @@
 .app-navigation { position: relative; display: flex; align-items: stretch; gap: 2px; min-width: 0; margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; }
-.app-navigation-link, .app-navigation-menu { position: relative; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; gap: 6px; min-height: 48px; padding: 10px 12px; border: 0; border-bottom: 2px solid transparent; border-radius: 8px 8px 0 0; background: transparent; color: #64748b; font: inherit; font-size: 14px; font-weight: 600; line-height: 20px; white-space: nowrap; transition: color 120ms, background-color 120ms; }
+.app-navigation-link, .app-navigation-menu { position: relative; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; gap: 6px; min-height: 48px; padding: 10px 9px; border: 0; border-bottom: 2px solid transparent; border-radius: 8px 8px 0 0; background: transparent; color: #64748b; font: inherit; font-size: 14px; font-weight: 600; line-height: 20px; white-space: nowrap; transition: color 120ms, background-color 120ms; }
 .app-navigation-link { text-transform: capitalize; }
 .app-navigation-link:hover, .app-navigation-menu:hover { color: #334155; background: #f1f5f9; }
 .app-navigation-link[aria-current='page'], .app-navigation-menu.is-current { color: #db2777; border-bottom-color: #ec4899; }
@@ -19,5 +19,4 @@
 .app-navigation-item[aria-current='page'] .app-navigation-item-icon { color: #db2777; }
 .app-navigation button:focus-visible { outline: 2px solid #db2777; outline-offset: -3px; }
 .app-navigation-measure { position: fixed; top: 0; left: -10000px; display: flex; width: max-content; visibility: hidden; pointer-events: none; contain: layout; }
-@media (max-width: 480px) { .app-navigation-link, .app-navigation-menu { padding-inline: 9px; } }
 @media (prefers-reduced-motion: reduce) { .app-navigation-link, .app-navigation-menu, .app-navigation-menu svg, .app-navigation-item { transition: none; } }

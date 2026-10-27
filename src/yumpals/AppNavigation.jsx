@@ -3,7 +3,6 @@ import { BriefcaseBusiness, Check, ChevronDown, Flag, Gamepad2, Gift, Graduation
 import './appNavigation.css';
 
 const ORDER = ['give', 'goal', 'feed', 'arcade', 'bank', 'shop', 'jobs', 'leaderboard', 'yumpals', 'yumpals-saved', 'training', 'yumpals-preview'];
-const MORE_ONLY = new Set(['yumpals', 'yumpals-saved', 'training', 'yumpals-preview']);
 const ICONS = { give: Gift, goal: Flag, yumpals: Sparkles, 'yumpals-saved': Sparkles, 'yumpals-preview': Sparkles, arcade: Gamepad2, bank: Landmark, shop: ShoppingBag, jobs: BriefcaseBusiness, training: GraduationCap, feed: MessageCircle, leaderboard: Trophy };
 
 export default function AppNavigation({ activeView, children }) {
@@ -19,11 +18,8 @@ export default function AppNavigation({ activeView, children }) {
   const panelId = useId();
   const rank = item => { const index = ORDER.indexOf(item.props['data-nav-id']); return index < 0 ? ORDER.length : index; };
   const candidates = Children.toArray(children).sort((a, b) => rank(a) - rank(b));
-  const stripCandidates = candidates.filter(item => !MORE_ONLY.has(item.props['data-nav-id']));
-  const moreOnly = candidates.filter(item => MORE_ONLY.has(item.props['data-nav-id']));
-  const primary = stripCandidates.slice(0, visibleCount);
-  const secondary = [...stripCandidates.slice(visibleCount), ...moreOnly];
-  const hasMoreOnly = moreOnly.length > 0;
+  const primary = candidates.slice(0, visibleCount);
+  const secondary = candidates.slice(visibleCount);
   const selected = secondary.find(item => item.props['aria-current'] === 'page');
   const signature = candidates.map(item => item.props['data-nav-id']).join('|');
 
@@ -43,7 +39,7 @@ export default function AppNavigation({ activeView, children }) {
         measuredCount.current = count;
         setVisibleCount(count);
       };
-      if (!hasMoreOnly && total <= available) { applyCount(widths.length); return; }
+      if (total <= available) { applyCount(widths.length); return; }
       let used = moreWidth;
       let count = 0;
       for (const width of widths) {
@@ -58,7 +54,7 @@ export default function AppNavigation({ activeView, children }) {
     observer.observe(measureRow.current);
     measure();
     return () => observer.disconnect();
-  }, [children, hasMoreOnly]);
+  }, [children]);
 
   useLayoutEffect(() => {
     if (!focusAfterResize.current) return;
@@ -80,7 +76,7 @@ export default function AppNavigation({ activeView, children }) {
       const focusedId = document.activeElement?.dataset.navId;
       setOpen(false);
       const buttons = [...root.current.querySelectorAll(':scope > button')];
-      (buttons.find(button => button.dataset.navId === focusedId || button.getAttribute('aria-current') === 'page') || buttons[0])?.focus();
+      (buttons.find(button => button.dataset.navId === focusedId) || buttons.find(button => button.getAttribute('aria-current') === 'page') || buttons[0])?.focus();
     }
   }, [secondary.length, open]);
   useEffect(() => {
@@ -138,7 +134,7 @@ export default function AppNavigation({ activeView, children }) {
       {open && <div className="app-navigation-panel" id={panelId} ref={panel} onKeyDown={panelKey}>{secondary.map(item => pick(item, true))}</div>}
     </div>}
     <div className="app-navigation-measure" ref={measureRow} aria-hidden="true" inert>
-      {stripCandidates.map(item => cloneElement(item, { className: 'app-navigation-link', tabIndex: -1 }))}
+      {candidates.map(item => cloneElement(item, { className: 'app-navigation-link', tabIndex: -1 }))}
       <span className="app-navigation-menu">More <ChevronDown size={16} aria-hidden="true" /></span>
     </div>
   </nav>;
