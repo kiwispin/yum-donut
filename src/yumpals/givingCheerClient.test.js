@@ -7,9 +7,13 @@ const require = createRequire(import.meta.url);
 const { setup } = require('../../functions/test/paidCareFixture.js');
 const { createPaidCareCallables } = require('../../functions/src/yumpals/paidCareCallables.js');
 
-async function savedView() {
-  const f = setup({ balance: 30, pet: true });
+async function savedView({ gave = false } = {}) {
+  const f = setup({ balance: 30, pet: true, needs: { hunger: 4, happiness: 2, cleanliness: 4, health: 4 } });
   f.refs.refusal = (uid, id) => `fixture/refusals/${uid}/${id}`;
+  if (gave) {
+    Object.assign(f.refs, { giving: uid => `fixture/profiles/${uid}`, cheer: (uid, date) => `fixture/cheers/${uid}/${date}` });
+    f.db.seed('fixture/profiles/student-a', { given_today: 1, last_given_date: 'Wed Sep 09 2026' });
+  }
   class HttpsError extends Error { constructor(code, message, details) { super(message); this.code = code; this.details = details; } }
   const api = createPaidCareCallables({ ...f, HttpsError, ready: () => true, now: () => Date.parse('2026-09-09T00:00:00Z') });
   const entries = new Map();
@@ -67,4 +71,10 @@ test('each owner sees a cheer once per date, even when storage fails', () => {
 test('weekend gifts explain that cheers are for school days', () => {
   assert.equal(cheerMessage('REST_DAY'), 'Giving cheers happen on school days.');
   assert.equal(cheerMessage('OK', 'Fizzgig'), 'Fizzgig heard you gave a donut! Happy +1.');
+});
+
+test('the real server reply with a cheer passes the app checks end to end', async () => {
+  const [view, without] = [await savedView({ gave: true }), await savedView()];
+  assert.deepEqual(view.cheer, { date: '2026-09-09', gain: 1 });
+  assert.equal(view.pet.needs.happiness, without.pet.needs.happiness + 1, 'one heart above the same pal without a gift');
 });

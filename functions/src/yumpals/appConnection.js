@@ -13,7 +13,10 @@ function createAppConnection({ db, authAdmin, HttpsError, ready, now }) {
     refusal: (uid, id) => yumPalsUserDoc(db, uid).collection('refusals').doc(id),
     migration: uid => yumPalsRoot(db).collection('migrations').doc(uid),
     game: (uid, id) => yumPalsUserDoc(db, uid).collection('games').doc(id),
-    gameTurn: (uid, id) => yumPalsUserDoc(db, uid).collection('gameTurns').doc(id) };
+    gameTurn: (uid, id) => yumPalsUserDoc(db, uid).collection('gameTurns').doc(id),
+    // Giving cheer: the private profile the app and Teams bot write, and a per-day audit record.
+    giving: uid => db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('profile').doc('data'),
+    cheer: (uid, date) => yumPalsUserDoc(db, uid).collection('cheers').doc(date) };
   const walletAdapter = createAppWalletAdapter({ authAdmin,
     publicProfiles: () => db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('users'),
     privateProfile: uid => db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('profile').doc('data') });

@@ -58,4 +58,4 @@ function advanceElapsed(state, config, nowMs, dateForMs) {
   clock.at = nowMs;
   return { needs, elapsedClock: clock };
 }
-module.exports = { initialClock, validClock, advanceElapsed };
+module.exports = { initialClock, validClock, advanceElapsed, isRestDate };

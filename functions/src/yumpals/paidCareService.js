@@ -5,6 +5,7 @@ const { walletNumber, debitAfter } = require('./walletNumber');
 const { withHolidayMode, holidayRefs, applyHolidayMode } = require('./holidayMode');
 const { readDocuments } = require('./readDocuments');
 const { isValidPersistedState } = require('./rules');
+const { applyGivingCheer } = require('./givingCheer');
 
 const ID = /^[A-Za-z0-9_-]{1,80}$/u;
 const REFUSALS = new Set(['DISABLED', 'RECONFIRM_CONFIG', 'NO_EFFECT', 'INSUFFICIENT_FUNDS', 'CARE_CAP', 'NO_PET', 'ALREADY_ADOPTED', 'GAME_ACTIVE']);
@@ -192,9 +193,23 @@ function createPaidCareService({ db, refs, walletAdapter, now = Date.now, elapse
           requireValue(Object.hasOwn(pet, 'paidCare'), 'MIGRATION_REQUIRED');
           validatePet(pet, uid);
         }
-        const next = pet ? advancePet(pet, uid, config, nowMs) : null;
+        let next = pet ? advancePet(pet, uid, config, nowMs) : null;
+        let cheer = null;
+        // Giving cheer is opt-in through refs; the read happens before any write.
+        if (next && refs.giving && refs.cheer) {
+          const giving = await transaction.get(refs.giving(uid));
+          const profile = giving.exists ? giving.data() : null;
+          const granted = applyGivingCheer({ pet: next, config, nowMs, giving: profile });
+          if (granted) {
+            ({ cheer } = granted);
+            next = granted.pet;
+            transaction.set(refs.cheer(uid, cheer.date), { schemaVersion: 1, ownerUid: uid, type: 'giving_cheer', date: cheer.date,
+              gain: cheer.gain, amount: 0, needsBefore: granted.needsBefore, needsAfter: next.paidCare.needs,
+              givingDate: profile.last_given_date, givenToday: profile.given_today, committedAtMs: nowMs });
+          }
+        }
         if (pet && digest(pet.paidCare) !== digest(next.paidCare)) transaction.set(refs.pet(uid), next);
-        return projectHandheldState(uid, config, nowMs, next, wallet);
+        return { ...projectHandheldState(uid, config, nowMs, next, wallet), ...(cheer ? { cheer } : {}) };
       });
     },
 
