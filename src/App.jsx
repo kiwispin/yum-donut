@@ -4169,7 +4169,7 @@ function YumDonutDashboard() {
 
             <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-3 flex justify-between z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                 <NavBtn icon={Gift} label="Give" active={view === 'give'} onClick={() => setView('give')} />
-                <NavBtn icon={Briefcase} label="Jobs" active={view === 'bounties'} onClick={() => setView('bounties')} badge={openBountyCount} />
+                <NavBtn icon={Briefcase} label="Jobs" active={view === 'jobs'} onClick={() => setView('jobs')} badge={openBountyCount} />
                 <NavBtn icon={Gamepad2} label="Arcade" active={view === 'arcade'} onClick={() => setView('arcade')} />
                 <NavBtn icon={ShoppingBag} label="Shop" active={view === 'shop'} onClick={() => setView('shop')} />
                 <NavBtn icon={Landmark} label="Bank" active={view === 'bank'} onClick={() => setView('bank')} />
