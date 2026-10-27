@@ -33,11 +33,12 @@ try {
       window.speedFrames = [];
       new MutationObserver(() => { const e = document.querySelector('.saved-blob'); if (e) window.speedFrames.push({ key: e.dataset.frameKey, food: e.dataset.foodRemaining, ms: performance.now() }); }).observe(document.querySelector('.saved-centre'), { subtree: true, attributes: true, childList: true });
     });
-    const layout = () => page.evaluate(() => Object.fromEntries(['.paid-demo-header', '.paid-demo-warning', '.saved-top-status', '.paid-demo-device', '.paid-demo-hint', '.saved-queue-status', '.paid-demo-meta', '.saved-sync', '.saved-utilities'].map(selector => {
+    const layout = () => page.evaluate(() => Object.fromEntries(['.paid-demo-header', '.saved-top-status', '.paid-demo-device', '.paid-demo-hint', '.paid-demo-meta', '.saved-utilities'].map(selector => {
       const rect = document.querySelector(selector).getBoundingClientRect();
       return [selector, { x: rect.x + window.scrollX, y: rect.y + window.scrollY, width: rect.width, height: rect.height }];
     })));
-    const chrome = () => page.evaluate(() => Object.fromEntries(['.saved-queue-status', '.saved-sync'].map(selector => {
+    // Waiting care now shows in the reserved status line; it must not move the page.
+    const chrome = () => page.evaluate(() => Object.fromEntries(['.saved-top-status'].map(selector => {
       const style = getComputedStyle(document.querySelector(selector));
       return [selector, { background: style.backgroundColor, border: style.borderColor, boxShadow: style.boxShadow, color: style.color }];
     })));
@@ -59,7 +60,7 @@ try {
     const secondStart = performance.now(); await button.click();
     const secondConfirmMs = Math.round(performance.now() - secondStart);
     assert.ok(secondConfirmMs < 250, `Second care confirmation took ${secondConfirmMs}ms`);
-    await page.getByText('2 care actions waiting to finish', { exact: true }).waitFor();
+    await page.waitForFunction(() => /^Saving care…/.test(document.querySelector('.saved-top-status')?.textContent || ''));
     const layoutDuring = await layout();
     const chromeDuring = await chrome();
     const beforePurchaseCalls = calls.filter(call => call.method === 'purchase');
@@ -80,7 +81,8 @@ try {
     const layoutAfter = await layout();
     const chromeAfter = await chrome();
     for (const selector of Object.keys(layoutBefore)) assert.deepEqual(layoutAfter[selector], layoutBefore[selector], `${selector} moved after care completed`);
-    for (const selector of Object.keys(chromeAfter)) { assert.equal(chromeAfter[selector].background, 'rgba(0, 0, 0, 0)', `${selector} empty background remains visible`); assert.equal(chromeAfter[selector].boxShadow, 'none', `${selector} empty shadow remains visible`); }
+    // The shared status line now shows the outcome (e.g. Purchase confirmed.) instead of going blank.
+    assert.doesNotMatch(await page.locator('.saved-top-status').innerText(), /^(Saving care|Reconnecting)/, 'waiting-care message cleared after care completed');
     await button.waitFor({ state: 'visible' }); assert.equal(await button.isEnabled(), true);
     assert.deepEqual(errors, []); assert.equal(f.db.read('fixture/wallets/student-a').balance, 27);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);

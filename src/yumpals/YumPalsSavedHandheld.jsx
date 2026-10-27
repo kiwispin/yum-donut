@@ -147,7 +147,11 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
   };
   const icon = PAID_CARE_ICON_ORDER[selected]; const choices = SAVED_CHOICES[icon] || [];
   const sleep = savedSleep(displayQuote); const confirmation = sameOwner ? state.confirmation : null;
-  const syncMessage = sameOwner && state.pending ? (state.busy ? 'Saving care… Saved balance stays unchanged until confirmed.' : state.message || 'Reconnecting… Your queued care is kept safely.') : '';
+  // Waiting care shares the reserved status line above the device, so nothing moves.
+  const unchecked = queue.find(item => item.phase === 'uncertain');
+  const donutsAfter = projectedQuote?.wallet?.available ? ` ${projectedQuote.wallet.balance} donuts after.` : '';
+  const pendingMessage = sameOwner && state.pending ? (state.busy ? `Saving care…${donutsAfter}`
+    : state.message || (unchecked ? `${CARE_NAMES[unchecked.action]} needs checking. Tap Reconnect.` : 'Reconnecting… your care is kept safe.')) : '';
   useEffect(() => {
     if (!sleep.sleeping || reduced) { setSleepIndex(0); return undefined; }
     const timer = window.setInterval(() => setSleepIndex(n => 1 - n), 1000); return () => window.clearInterval(timer);
@@ -198,8 +202,7 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
   </nav>;
   return <section className="paid-demo-shell saved-handheld" aria-label="Saved YumPals handheld">
     <header className="paid-demo-header"><div><h1 className="yumpals-title"><span className="yumpals-title-icon" aria-hidden="true"><Pixels pixels={getYumPalsFrame('mossbit', 'idle', 0, true).pixels} palette={getYumPalsFrame('mossbit', 'idle', 0, true).palette} /></span>YumPals</h1><p>A little pal to care for each day.</p></div></header>
-    <p className="paid-demo-warning">Your pal is saved between visits. Donuts are spent only when you confirm the price.</p>
-    <p className="saved-top-status" role="status">{!sameOwner ? 'Please sign in to see your saved pal.' : localMessage || cheerNote || (!state.pending && state.message) || (!quote ? 'Loading your pal…' : !quote.enabled ? 'YumPals is resting. Your teacher has paused care.' : !quote.wallet.available ? 'Your donuts could not be checked. Please ask your teacher.' : '')}</p>
+    <p className="saved-top-status" role="status">{!sameOwner ? 'Please sign in to see your saved pal.' : localMessage || pendingMessage || cheerNote || (!state.pending && state.message) || (!quote ? 'Loading your pal…' : !quote.enabled ? 'YumPals is resting. Your teacher has paused care.' : !quote.wallet.available ? 'Your donuts could not be checked. Please ask your teacher.' : '')}</p>
     <div className="paid-demo-device" style={{ '--saved-case': savedCaseColor(pet) }}>
       <div className="paid-demo-brand">YUMPALS</div><div className="paid-demo-screen-frame">
         <div className={`paid-demo-lcd ${sleep.sleeping ? 'is-sleeping' : ''} ${sleep.dim ? 'is-bedtime-set' : ''}`}>
@@ -228,19 +231,16 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
       {PAID_CARE_ICON_ORDER.map(name => <span className="paid-hint-size" aria-hidden="true" key={name}>{PAID_CARE_ICON_LABELS[name]} — {helpFor(name)}</span>)}
       <span className="paid-hint-current">{help || icon ? `${PAID_CARE_ICON_LABELS[help || icon]} — ${helpFor(help || icon)}` : 'Press A SELECT to choose an icon.'}</span>
     </p>
-    <div className={`saved-queue-status ${hasQueue ? 'has-content' : 'is-empty'}`} role="status" aria-label="Saved and pending YumPals care">
-      {hasQueue ? <><strong>{queue.length} care action{queue.length === 1 ? '' : 's'} waiting to finish</strong><span>Saved donuts: {quote?.wallet?.available ? quote.wallet.balance : 'checking'} · after this care: {projectedQuote?.wallet?.available ? projectedQuote.wallet.balance : 'checking'}</span><span>{queue.map(item => `${CARE_NAMES[item.action]} (${item.phase === 'uncertain' ? 'needs checking' : item.phase === 'inflight' ? 'saving' : 'waiting'}, ${item.quotedCost})`).join(' · ')}</span></> : <span aria-hidden="true">&nbsp;</span>}
-    </div>
     {sameOwner && quote && <div className="paid-demo-meta" aria-label="Your donuts and care spending">
       <span>Donuts: {quote.wallet.available ? quote.wallet.balance : 'Not available'}</span>
       <span>Care today: {quote.pet?.daily.spent ?? 0} / {quote.careCap}</span>
     </div>}
     {PAID_CARE_ICON_ORDER.map(name => <span className="paid-help-accessible" id={`${id}-${name}`} key={name}>{helpFor(name)}</span>)}
-    <p className={`saved-sync ${syncMessage ? 'has-content' : 'is-empty'}`} role="status">{syncMessage || '\u00a0'}</p>
-    <div className="saved-utilities">{state.pending && !state.busy && sameOwner && <button type="button" disabled={state.storageBlocked} onClick={() => void instance.current?.retry()}>Reconnect</button>}<button type="button" disabled={state.busy || state.storageBlocked || !sameOwner} onClick={() => void instance.current?.refresh()}>Refresh pal</button></div>
+    <div className="saved-utilities">{state.pending && !state.busy && sameOwner && <button type="button" disabled={state.storageBlocked} onClick={() => void instance.current?.retry()}>Reconnect</button>}<button type="button" className="saved-refresh-link" disabled={state.busy || state.storageBlocked || !sameOwner} onClick={() => void instance.current?.refresh()}>Refresh pal</button></div>
     {currentGame?.pending && <button type="button" disabled={currentGame.busy || currentGame.storageBlocked} onClick={() => void gameInstance.current?.retry()}>Retry guess</button>}
     {screen === 'game' && <button type="button" disabled={!sameOwner || currentGame?.busy} onClick={() => void gameInstance.current?.refresh()}>Refresh game</button>}
     <details className="paid-demo-inspector"><summary>How to play</summary>
+      <p>Your pal is saved between visits. Donuts are spent only when you confirm the price.</p>
       <p>A SELECT moves through icons or choices. B CONFIRM opens your choice. C CANCEL clears a selection or returns; in a game it pauses.</p>
       <p>Choosing an icon costs nothing. Donuts are spent only when you confirm the displayed price. Health and status and Attention are free to check.</p>
       <dl className="paid-help-guide saved-help-guide">{PAID_CARE_ICON_ORDER.map(name => <div key={name}>

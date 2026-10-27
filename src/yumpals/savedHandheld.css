@@ -4,13 +4,9 @@
 .saved-handheld p { font-size: 14px; }
 .saved-handheld .saved-help { min-height: 4.5em; line-height: 1.5; }
 .saved-handheld .paid-demo-device { margin: auto; background: var(--saved-case, #bd7890); }
-.saved-queue-status { display: flex; flex-direction: column; gap: 4px; max-width: 480px; height: 4.6em; min-height: 4.6em; overflow: auto; box-sizing: border-box; margin: 10px auto; padding: 8px 10px; border-left: 3px solid #a52f5a; background: #f7edf0; color: #304636; font-size: 13px; line-height: 1.35; }
-.saved-queue-status.is-empty { background: transparent; border-color: transparent; box-shadow: none; color: transparent; }
 .saved-top-status { height: 2.8em; min-height: 2.8em; overflow: auto; box-sizing: border-box; }
 .yumpals-embedded-saved .saved-handheld > p.saved-top-status[role='status'] { display: block; height: 2.8em; min-height: 2.8em; overflow: auto; box-sizing: border-box; padding: 0; border: 0; background: transparent; text-align: center; font-size: 14px; line-height: 1.6; margin: 12px auto; }
 .yumpals-embedded-saved .saved-handheld > p.saved-top-status[role='status']:empty { display: block; }
-.saved-sync { height: 2.8em; min-height: 2.8em; overflow: auto; box-sizing: border-box; }
-.yumpals-embedded-saved .saved-handheld > p.saved-sync.is-empty[role='status'] { background: transparent; border-color: transparent; box-shadow: none; color: transparent; }
 .saved-centre { height: 224px; display: flex; flex-direction: column; align-items: center; justify-content: space-around; gap: 8px; font-size: 12px; text-align: center; padding: 8px; }
 .saved-pixels { display: grid; width: 128px; height: 128px; image-rendering: pixelated; }
 .saved-pixels > span { display: block; transition-property: none !important; }

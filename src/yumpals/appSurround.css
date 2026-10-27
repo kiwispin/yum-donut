@@ -1,5 +1,4 @@
 /* App chrome only. Never target the handheld, LCD, sprite or hardware buttons. */
-.yumpals-embedded-saved .saved-handheld > p.saved-sync[role='status'] { min-height: 3.2em; padding: 0; border: 0; background: transparent; text-align: center; font-size: 12px; line-height: 1.6; margin: 16px auto; }
 .yumpals-title { display: flex; align-items: center; justify-content: center; gap: 12px; }
 .yumpals-title-icon { width: 48px; height: 48px; flex: 0 0 48px; display: grid; place-items: center; background: #fce7f3; border-radius: 14px; }
 .yumpals-title-icon > :is(.paid-pixel-grid, .saved-pixels) { position: static; inset: auto; width: 32px; height: 32px; display: grid; grid-template-columns: repeat(16, 1fr); grid-template-rows: repeat(16, 1fr); }
@@ -115,4 +114,28 @@
 @media (max-width: 420px) {
     :is(.yumpals-embedded-preview, .yumpals-embedded-saved) .paid-demo-shell { padding: 24px 12px 32px; box-shadow: 3px 3px 0 #26283b; }
     .yumpals-title-icon { width: 40px; height: 40px; flex-basis: 40px; }
+}
+
+/* Saved page tidy-up: the icon hint is a plain line (it keeps its reserved size,
+   so hovering icons still never shifts the page) and Refresh pal is a text link. */
+.yumpals-embedded-saved .saved-handheld > p.saved-help.paid-demo-hint {
+    background: transparent; border: 0; box-shadow: none; padding: 4px 8px;
+    margin: 14px auto 6px; font-size: 14px; font-weight: 600;
+}
+.yumpals-embedded-saved .saved-utilities button.saved-refresh-link,
+.yumpals-embedded-saved .saved-utilities button.saved-refresh-link:hover:not(:disabled) {
+    background: transparent; color: #a62428; border: 0; box-shadow: none;
+    text-decoration: underline; text-underline-offset: 3px; min-height: 44px; padding: 8px 12px;
+}
+/* Phones: a compact header so the whole pal fits on the first screen. */
+@media (max-width: 480px) {
+    .yumpals-embedded-saved .paid-demo-header { padding: 10px 0 8px; margin-bottom: 12px; gap: 6px; }
+    .yumpals-embedded-saved .paid-demo-header::before { content: none; }
+    .yumpals-embedded-saved .paid-demo-header h1 { font-size: 34px; margin-bottom: 2px; gap: 10px; }
+    .yumpals-embedded-saved .paid-demo-header p:last-child { font-size: 13px; margin-top: 0; }
+}
+/* Very narrow phones: reserve two lines, since some messages wrap there. */
+@media (max-width: 360px) {
+    .yumpals-embedded-saved .saved-handheld > p.saved-top-status[role='status'],
+    .yumpals-embedded-saved .saved-handheld > p.saved-top-status[role='status']:not(:empty) { height: auto; min-height: 4.4em; }
 }

@@ -44,7 +44,7 @@ try {
         } else {
           const start = performance.now();
           await page.keyboard.press('b');
-          await page.waitForFunction(() => document.querySelector('.saved-queue-status')?.textContent.includes('1 care action'));
+          await page.waitForFunction(() => /^(Saving care|Reconnecting)/.test(document.querySelector('.saved-top-status')?.textContent || ''));
           const localMs = Math.round(performance.now() - start);
           if (scenario === 'lights') {
             const dim = await page.locator('.paid-demo-lcd').evaluate(e => e.classList.contains('is-bedtime-set'));
@@ -66,7 +66,7 @@ try {
             f.db.seed('fixture/wallets/student-a', { ...wallet, balance: 1 });
           }
           release();
-          await page.waitForFunction(() => document.querySelector('.saved-queue-status')?.classList.contains('is-empty'));
+          await page.waitForFunction(() => !/^(Saving care|Reconnecting)|needs checking/.test(document.querySelector('.saved-top-status')?.textContent || ''));
           assert.equal(calls.filter(c => c.method === 'purchase').length, 1);
           if (scenario === 'refused') {
             assert.equal(await page.locator('.saved-hearts').first().getAttribute('aria-label'), '0 of 4 hearts', 'refusal restores actual needs');
