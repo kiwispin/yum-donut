@@ -70,3 +70,24 @@ Baseline: `a2c1014` (`main`, live). Branch `codex/yumpals-phone-autoscroll`.
   Lint exit 0. `git diff --check` clean.
 - Production build exit 0, 1721 modules. JS 929.72kB / 275.53kB gzip; CSS
   unchanged (`index-DIiztJ8z.css`).
+
+## Release
+
+- Owner approved. Merged to `main` (fast-forward) and `codex/yumpals-only-release`
+  at `362b7da`. Rollback tag `codex/yumpals-phone-autoscroll-baseline-20261028` →
+  `a2c1014`. Atomic push, and the remote IDs were verified.
+- RELEASE VERIFIED — published with `npm run deploy` as `gh-pages` commit `c218c9c`,
+  live after ~60s. Live `index.html` is byte-identical to the build; JS
+  `index-BiOB0Ff6.js` (MD5 `412d56b27a694772170cb0c6cfbf88d8`) and CSS
+  `index-DIiztJ8z.css` (MD5 `be123254c15f02ab9596406fb2c384fe`) match locally.
+- Live, signed in as the owner, opening YumPals from the bottom icon bar:
+  - 390×844: scrolled to 284px. The handheld sits at 169–682px between the pinned
+    header (bottom 80px) and the bottom bar (top 771px), whole and centred. This
+    matches the test page within 1px.
+  - 375×667: scrolled to 373px. The handheld sits at 80–593px, just above the bottom
+    bar at 595px, so the whole handheld is visible. Its top edge lands a fraction of
+    a pixel under the header line (rounded 80px), which made the strict screen and
+    buttons check report false; nothing is hidden.
+  - Desktop (805px wide): opening YumPals did not scroll (0px). No requests failed
+    after load. The app was returned to Give.
+- Rollback: rebuild and publish `codex/yumpals-phone-autoscroll-baseline-20261028`.
