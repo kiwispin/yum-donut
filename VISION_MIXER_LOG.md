@@ -61,8 +61,22 @@ repository, logs or history, so nothing here repeats an attempted change.
 - Production build exit 0, 1719 modules, 2.03s, with the `.env.production` YumPals
   flags. JS 923.66kB (+9.66kB) / 273.11kB gzip; CSS 94.13kB / 17.26kB gzip.
 
-## Open risk before release
+## Release
 
-- The live Firestore rules are not in this repository. Other games write their own
-  `last_*_win` fields the same way, but the first real win should be checked live
-  to confirm the new `last_vision_mixer_win` field is accepted.
+- Owner played the synthetic preview (one 1-donut preview win, recorded only on the
+  `localhost` page, with no account, wallet or live daily-lock effect) and approved.
+- Merged to `main` (fast-forward) and `codex/yumpals-only-release` at `7069e03`.
+  Rollback tag `codex/vision-mixer-baseline-20261027` → `90714f0`. Atomic push, and
+  the remote IDs were verified.
+- RELEASE VERIFIED — published with `npm run deploy` as `gh-pages` commit `f82ec15`,
+  live after ~45s. Live `index.html` is byte-identical to the build; JS
+  `index-CGs9oN6D.js` (MD5 `9ff1829fc5f0ee47c4add6e34d0f40eb`) and CSS
+  `index-DDcNWjYy.css` (MD5 `d6d015c47c13bf9f059a399ac8a1577f`) match locally.
+- Real win, signed in as the owner on the live site with the owner's approval: the
+  Arcade lists Vision Mixer second with NEW. A perfect show (15/15, 25s) gave
+  "You won 2 Donuts! Added to wallet." with no failed requests during play. The feed
+  shows "Won a Vision Mixer Perfect Show playing Vision Mixer!".
+- Resolved the open risk: after removing the browser's local lock and reloading, the
+  game still showed DAILY LIMIT REACHED, so the live rules accepted the new
+  `last_vision_mixer_win` profile field.
+- Rollback: rebuild and publish `codex/vision-mixer-baseline-20261027`.
