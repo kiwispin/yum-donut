@@ -2,6 +2,10 @@
 
 Yum Donut is a Vite/React classroom recognition app backed by Firestore.
 
+Built by [Carl Rayner](https://www.carlrayner.com/). Read the [YumDonut case study](https://www.carlrayner.com/work/yum-donut/) for the problem, design decisions and experience using it with a classroom team of 20+ over two years.
+
+**Live app:** https://kiwispin.github.io/yum-donut/ (sign-in required).
+
 ## Web App
 
 The core Yum Donut app is still a standalone GitHub Pages site.
