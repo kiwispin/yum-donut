@@ -78,7 +78,7 @@ nothing new. Release B (server grants cheers) follows as a targeted deploy of on
   `PHONE_JOBS_BUTTON_LOG.md`, not new. The page was returned to Give.
 - Rollback: rebuild and publish `codex/giving-cheer-app-baseline-20261028`.
 
-## Release B — server (built and tested; not deployed)
+## Release B — server (built and tested; not deployed, see "Deploying Release B from a school computer")
 
 - ACCEPTED — `functions/src/yumpals/givingCheer.js`:
   - `givingDateKey` converts "Wed Oct 28 2026" (browser `toDateString` and the
@@ -119,15 +119,112 @@ nothing new. Release B (server grants cheers) follows as a targeted deploy of on
   the app controller reads the real server code's cheer reply and it passes the app
   checks.
 
-## Deployment prerequisites (Release B)
+## Deploy attempt from the owner's personal PC (28 October 2026)
 
-- This PC has no Firebase CLI. It needs `firebase-tools`, with the owner signing in
-  to Firebase themselves.
-- Java is not installed, so the existing local emulator harness was not run. The
+- The global `firebase-tools` install failed with an npm internal error ("Exit
+  handler never called"). npm's global prefix on this PC is inside another project
+  (`Documents\Classroom Screen\.tools\Node`); the partial `firebase-tools` folder it
+  left there was removed with `npm uninstall -g`, restoring that folder to
+  `@opencode`, `corepack`, `npm`. The CLI then ran with no install via
+  `npx --yes firebase-tools@15.34.1`.
+- The owner signed in with a personal Google account, which can see only one
+  Firebase project (not `yum-donut-school`). The project is on a school account the
+  owner does not want on a personal machine, so Release B was NOT deployed. The
+  personal account was then signed out of the CLI.
+- Java is not installed there, so the local emulator harness was not run; the
   server is covered by the unit tests above.
-- Deploy only `functions:teams:yumpalsGetPaidCareState`. Teams and the other
-  functions stay untouched.
-- Live check: the owner gives one real donut, then the owner's pal is loaded.
+
+## Deploying Release B from a school computer
+
+Use a computer where the school Google account that owns `yum-donut-school` is
+allowed. Needs Git, Node.js 22 or later, and access to the GitHub repository.
+Commands are for macOS/Linux Terminal (on Windows use Git Bash).
+
+1. Get the latest code onto `main`:
+
+   ```bash
+   git clone https://github.com/kiwispin/yum-donut.git   # or: cd yum-donut && git fetch origin
+   cd yum-donut
+   git switch main
+   git pull --ff-only origin main
+   ```
+
+2. Tag the rollback point (the server code that is live now), then merge Release B
+   with an ordinary merge. Never force-push.
+
+   ```bash
+   git tag codex/giving-cheer-server-baseline-20261028
+   git fetch origin
+   git merge --ff-only origin/codex/yumpals-giving-cheer-server
+   ```
+
+   If `--ff-only` refuses because `main` has moved on, run
+   `git merge origin/codex/yumpals-giving-cheer-server` and resolve any conflict.
+
+3. Run the tests. Expect all server tests to pass (156 at the time of writing),
+   including `givingCheer.test.js`.
+
+   ```bash
+   cd functions && npm ci && npm test && npm run lint && cd ..
+   npm ci && node --test src/yumpals/givingCheerClient.test.js
+   ```
+
+4. Push the source and the rollback tag before deploying (AGENTS.md), then confirm
+   GitHub matches:
+
+   ```bash
+   git push --atomic origin main main:codex/yumpals-only-release refs/tags/codex/giving-cheer-server-baseline-20261028
+   git fetch origin && git rev-parse HEAD origin/main origin/codex/yumpals-only-release
+   ```
+
+5. Sign in with the school account and check it can see the project:
+
+   ```bash
+   npx --yes firebase-tools@15.34.1 login
+   npx --yes firebase-tools@15.34.1 projects:list
+   npx --yes firebase-tools@15.34.1 functions:list --project yum-donut-school
+   ```
+
+   `yum-donut-school` must be listed, and `yumpalsGetPaidCareState` must appear in
+   the functions list.
+
+6. Deploy exactly one function:
+
+   ```bash
+   npx --yes firebase-tools@15.34.1 deploy --only functions:teams:yumpalsGetPaidCareState --project yum-donut-school
+   ```
+
+   - Do not use `npm run deploy` inside `functions/`, and do not deploy without
+     `--only`: both target the whole `teams` codebase, including the Teams bot.
+   - The deploy reads `functions/.env.yum-donut-school`
+     (`YUMPALS_PAID_CARE_READY=true`), so saved YumPals stays switched on.
+   - If the CLI offers to delete any other function, answer **No**.
+
+7. Verify live:
+   - `functions:list` again: `yumpalsGetPaidCareState` is still listed and updated.
+   - Open https://kiwispin.github.io/yum-donut/, sign in and open YumPals. The pal
+     loads normally.
+   - On a school day (Mon–Fri, not a holiday, Holiday Mode off), give one real donut
+     to a student. Then open YumPals, or press Refresh pal. The pal plays the happy
+     animation and shows "<name> heard you gave a donut! Happy +1." Reopening does
+     not replay it.
+   - Optional: in the Firestore console, the record
+     `artifacts/yum-donut-school/yumpals/main/users/<uid>/cheers/<YYYY-MM-DD>`
+     exists with `amount: 0`.
+
+8. Record the results in this log under a "Release B release" heading, then commit
+   and push to `main` and `codex/yumpals-only-release`.
+
+### Rollback
+
+The live app already works without cheers, so rolling the server back is safe. Pets
+keep a harmless `cheerDate` field.
+
+```bash
+git switch --detach codex/giving-cheer-server-baseline-20261028
+npx --yes firebase-tools@15.34.1 deploy --only functions:teams:yumpalsGetPaidCareState --project yum-donut-school
+git switch main
+```
 
 ## Not tamper-proof
 
