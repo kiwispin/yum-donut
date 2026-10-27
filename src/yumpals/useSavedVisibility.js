@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { stashGifts } from './giftStash.js';
 
 export function confirmedVisibility(result, uid) {
   return result?.schemaVersion === 1 && result.ownerUid === uid && result.enabled === true;
@@ -15,6 +16,8 @@ export function useSavedVisibility({ eligible, uid, transport, refreshKey }) {
       const current = ++request;
       try {
         const result = await transport('yumpalsGetPaidCareState', {}, { ownerUid: uid, isActive: () => active && request === current });
+        // This background read can be the one that grants today's gift; keep it for the handheld.
+        stashGifts(uid, result);
         if (active && request === current) setConfirmed({ uid, enabled: confirmedVisibility(result, uid) });
       } catch {
         if (active && request === current) setConfirmed(null);
