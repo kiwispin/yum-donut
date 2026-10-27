@@ -59,6 +59,25 @@ nothing new. Release B (server grants cheers) follows as a targeted deploy of on
   happy as can be." with no sideways scroll. Preview (`?yumpals=demo`) unchanged
   apart from the weekend message.
 
+### Release A release
+
+- Owner approved. Merged to `main` (fast-forward) and `codex/yumpals-only-release`
+  at `09bddb0`; the server code is not on `main`. Rollback tag
+  `codex/giving-cheer-app-baseline-20261028` → `82650c6`. Atomic push, and the remote
+  IDs were verified (one verification command failed on a `rev-parse --short` usage
+  error after the push succeeded, then was rerun correctly).
+- RELEASE VERIFIED — published with `npm run deploy` as `gh-pages` commit `f1c9fbb`,
+  live after ~60s. Live `index.html` is byte-identical to the build; JS
+  `index-Blqv6AgW.js` (MD5 `1a2da05649619bc08c1e72ea02b45881`) and CSS
+  `index-CxnTlWCp.css` (MD5 `8ea2d0f5c760ff0f16a7d631d6423a56`) match locally.
+- Live, signed in as the owner: the new bundle loads. The saved pal loads as before
+  (Fizzgig, 26 donuts, care 0/25), with no cheer because the server is unchanged.
+  `yumpalsGetPaidCareState` returned 200, and the status line is empty and
+  unclipped. The one startup `documents:commit` 400 is followed by a re-read and
+  successful commits: the existing startup transaction retry recorded in
+  `PHONE_JOBS_BUTTON_LOG.md`, not new. The page was returned to Give.
+- Rollback: rebuild and publish `codex/giving-cheer-app-baseline-20261028`.
+
 ## Release B — server (built and tested; not deployed)
 
 - ACCEPTED — `functions/src/yumpals/givingCheer.js`:
