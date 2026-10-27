@@ -1,16 +1,30 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { XCircle } from 'lucide-react';
 import {
-    VISION_MIXER_CAMERAS, VISION_MIXER_GAP_MS, VISION_MIXER_LIVES, VISION_MIXER_TARGET_TAKES,
-    nextCall, visionMixerInitialState, visionMixerPrize, visionMixerReducer
+    VISION_MIXER_CAMERAS, VISION_MIXER_GAP_MS, VISION_MIXER_LIVES, VISION_MIXER_STAGE_TAKES, VISION_MIXER_TARGET_TAKES,
+    nextCall, visionMixerInitialState, visionMixerPrize, visionMixerReducer, visionMixerStage
 } from './visionMixer.js';
 
 const FEEDBACK = {
     hit: { text: 'Clean cut!', className: 'text-emerald-300' },
     wrong: { text: 'Wrong camera!', className: 'text-red-400' },
     early: { text: 'Too early. Wait for TAKE.', className: 'text-red-400' },
-    missed: { text: 'Missed the take!', className: 'text-red-400' }
+    missed: { text: 'Missed the take!', className: 'text-red-400' },
+    'cut-on-hold': { text: 'You cut on a hold!', className: 'text-red-400' },
+    held: { text: 'Good hold.', className: 'text-emerald-300' }
 };
+
+function talkbackFor(call, feedback) {
+    switch (call?.phase) {
+        case 'decoy': return { text: `Ready Cam ${call.decoy}…`, className: 'text-amber-300' };
+        case 'ready': return call.decoy
+            ? { text: `No, Ready Cam ${call.camera}!`, className: 'text-amber-300' }
+            : { text: `Ready Cam ${call.camera}…`, className: 'text-amber-300' };
+        case 'take': return { text: call.numbered ? `TAKE ${call.camera}!` : 'TAKE!', className: 'text-red-400 text-3xl motion-safe:animate-pulse' };
+        case 'hold': return { text: 'HOLD!', className: 'text-sky-300 text-3xl' };
+        default: return feedback ? FEEDBACK[feedback] : { text: '', className: '' };
+    }
+}
 
 export default function VisionMixerModal({ user, lastPlayed, onWin, onClose }) {
     const today = new Date().toDateString();
@@ -34,13 +48,13 @@ export default function VisionMixerModal({ user, lastPlayed, onWin, onClose }) {
     };
     const press = useCallback(camera => dispatch({ type: 'press', camera }), []);
 
-    // Drive Ready → Take → (miss) → gap → next call, one timer per phase.
+    // Drive (decoy →) Ready → Take/Hold → gap → next call, one timer per phase.
     useEffect(() => {
         if (status !== 'playing' || !call) return undefined;
-        let timerId;
-        if (phase === 'ready') timerId = setTimeout(() => dispatch({ type: 'take', round }), call.readyMs);
-        else if (phase === 'take') timerId = setTimeout(() => dispatch({ type: 'timeout', round }), call.takeMs);
-        else if (phase === 'gap') timerId = setTimeout(() => dispatch({ type: 'next', round, call: nextCall(live, hits) }), VISION_MIXER_GAP_MS);
+        const delays = { decoy: [call.decoyMs, 'advance'], ready: [call.readyMs, 'advance'], take: [call.takeMs, 'timeout'], hold: [call.holdMs, 'timeout'] };
+        const timerId = phase === 'gap'
+            ? setTimeout(() => dispatch({ type: 'next', round, call: nextCall(live, hits) }), VISION_MIXER_GAP_MS)
+            : setTimeout(() => dispatch({ type: delays[phase][1], round }), delays[phase][0]);
         return () => clearTimeout(timerId);
     }, [status, phase, round, call, live, hits]);
 
@@ -70,17 +84,13 @@ export default function VisionMixerModal({ user, lastPlayed, onWin, onClose }) {
     }, [status, press]);
 
     const onAir = VISION_MIXER_CAMERAS.find(camera => camera.id === live);
-    const talkback = phase === 'ready'
-        ? { text: `Ready Cam ${call.camera}…`, className: 'text-amber-300' }
-        : phase === 'take'
-            ? { text: `TAKE ${call.camera}!`, className: 'text-red-400 text-3xl motion-safe:animate-pulse' }
-            : feedback ? FEEDBACK[feedback] : { text: '', className: '' };
+    const talkback = talkbackFor(call, feedback);
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
             <style>{'@keyframes vision-mixer-drain { from { width: 100%; } to { width: 0%; } }'}</style>
             <div className="relative w-full max-w-md bg-slate-900 rounded-2xl border-4 border-red-500 shadow-2xl p-6 flex flex-col items-center" onClick={e => e.stopPropagation()}>
-                <div className="text-center mb-5">
+                <div className="text-center mb-5 px-8">
                     <h2 className="text-3xl font-black text-white tracking-tighter mb-1">VISION MIXER</h2>
                     <p className="text-red-300 text-xs font-bold uppercase tracking-widest">Cut to camera on cue</p>
                 </div>
@@ -103,8 +113,8 @@ export default function VisionMixerModal({ user, lastPlayed, onWin, onClose }) {
                         ) : (
                             <div className="space-y-3">
                                 <div className="rounded-xl bg-slate-800 border border-slate-700 px-4 py-3 text-sm font-bold text-slate-300 text-left space-y-1">
-                                    <p>The director calls <span className="text-amber-300">READY</span>, then <span className="text-red-400">TAKE</span>.</p>
-                                    <p>On TAKE, tap that camera before the shot is missed. Too early counts as a mistake.</p>
+                                    <p>The director calls <span className="text-amber-300">READY</span>, then <span className="text-red-400">TAKE</span>. Cut on TAKE, not before.</p>
+                                    <p>It gets faster. From take {VISION_MIXER_STAGE_TAKES[0]}, TAKE has no number and the director may change their mind. From take {VISION_MIXER_STAGE_TAKES[1]}, some calls end in <span className="text-sky-300">HOLD</span>: don't cut.</p>
                                     <p>{VISION_MIXER_TARGET_TAKES} clean takes for 1 donut. No mistakes for 2.</p>
                                 </div>
                                 <button
@@ -123,6 +133,7 @@ export default function VisionMixerModal({ user, lastPlayed, onWin, onClose }) {
                     <>
                         <div className="w-full flex justify-between text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
                             <span>Takes: {hits}/{VISION_MIXER_TARGET_TAKES}</span>
+                            <span>Stage {visionMixerStage(hits)}</span>
                             <span aria-label={`${lives} of ${VISION_MIXER_LIVES} lives left`}>
                                 {Array.from({ length: VISION_MIXER_LIVES }, (_, n) => (n < lives ? '❤️' : '🖤')).join(' ')}
                             </span>
@@ -140,8 +151,8 @@ export default function VisionMixerModal({ user, lastPlayed, onWin, onClose }) {
                         <div className="w-full h-14 rounded-xl bg-slate-800 border border-slate-700 flex flex-col items-center justify-center mb-3 px-3 relative overflow-hidden">
                             <span className="absolute top-1 left-2 text-[9px] font-bold text-slate-500 uppercase">Talkback</span>
                             <p role="status" aria-live="polite" className={`font-black text-xl ${talkback.className}`}>{talkback.text}</p>
-                            {phase === 'take' && (
-                                <div key={round} className="absolute bottom-0 left-0 h-1 bg-red-500" style={{ animation: `vision-mixer-drain ${call.takeMs}ms linear forwards` }} />
+                            {(phase === 'take' || phase === 'hold') && (
+                                <div key={round} className={`absolute bottom-0 left-0 h-1 ${phase === 'hold' ? 'bg-sky-400' : 'bg-red-500'}`} style={{ animation: `vision-mixer-drain ${phase === 'hold' ? call.holdMs : call.takeMs}ms linear forwards` }} />
                             )}
                         </div>
 
