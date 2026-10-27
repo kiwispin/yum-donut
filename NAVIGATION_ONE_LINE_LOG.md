@@ -33,3 +33,11 @@ Baseline: `fe89105`, preserved by `codex/navigation-one-line-baseline-20261027`.
 - The first run exposed the resize focus bug above; fixed in the component, the test
   assertion was not weakened.
 - Production build exit 0 with the `.env.production` YumPals flags.
+- RELEASE VERIFIED — source `babd01d` published with `npm run deploy` as `gh-pages`
+  commit `c2491f7`. Live after ~45s: live `index.html` is byte-identical to the
+  tested build and references JS `index-Do2uOaAl.js` (MD5
+  `1d15d0a7ae966df080cb997fe064046c`) and CSS `index-D3draj83.css` (MD5
+  `cfce9999846912632f40bb3f9b53bb76`); both downloaded files match locally. The live
+  sign-in screen loaded the roster with zero console errors. No sign-in, backend
+  deployment, settings or account changes. Rollback: rebuild and publish
+  `codex/navigation-one-line-baseline-20261027`.
