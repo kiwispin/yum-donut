@@ -59,16 +59,32 @@ export function applyGivingCheer(state, gift, { paused = false } = {}) {
     return { state: next, code: amount ? 'OK' : 'OK_FULL', receipt, happinessGain: amount };
 }
 
-// Saved pals: the server sends `cheer` on the read that granted it, and a recent
-// read can be shown again from cache, so each owner's cheer plays once per date.
-const shownCheers = new Set();
-export function claimCheerDisplay(ownerUid, date, storage = globalThis.localStorage) {
-    const key = `yumpals_cheer_shown_${ownerUid}_${date}`;
-    if (shownCheers.has(key)) return false;
-    shownCheers.add(key);
+// Saved pals: the server sends `cheer` / `visit` on the read that granted it, and a
+// recent read can be shown again from cache, so each plays once per owner and date.
+const shown = new Set();
+export function claimOnce(kind, ownerUid, date, storage = globalThis.localStorage) {
+    const key = `yumpals_${kind}_shown_${ownerUid}_${date}`;
+    if (shown.has(key)) return false;
+    shown.add(key);
     try {
         if (storage?.getItem(key) === '1') return false;
         storage?.setItem(key, '1');
     } catch { /* the in-memory record still prevents replays this session */ }
     return true;
+}
+export const claimCheerDisplay = (ownerUid, date, storage) => claimOnce('cheer', ownerUid, date, storage);
+
+const NEED_LABELS = { hunger: 'Food', happiness: 'Happy', cleanliness: 'Clean', health: 'Health' };
+const NEED_ANIMATIONS = { hunger: 'feed', happiness: 'pat', cleanliness: 'clean', health: 'medicine' };
+const giftedNeed = visit => Object.keys(NEED_LABELS).find(key => visit.gains[key] > 0);
+
+export function visitMessage(visit, petName = 'Your pal') {
+    if (visit.welcomeBack) return giftedNeed(visit) ? 'Welcome back! Every heart +1.' : `Welcome back! ${petName} missed you.`;
+    const key = giftedNeed(visit);
+    return key ? `${petName} loves your visit! ${NEED_LABELS[key]} +1.` : `${petName} loves your visit!`;
+}
+
+export function visitAnimation(visit) {
+    if (visit.welcomeBack) return 'wake';
+    return NEED_ANIMATIONS[giftedNeed(visit)] || 'pat';
 }

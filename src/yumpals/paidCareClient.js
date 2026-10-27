@@ -41,11 +41,13 @@ async function binding(v) {
   const bytes = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(canonical(v))));
   return [...new Uint8Array(bytes)].map(byte => byte.toString(16).padStart(2, '0')).join('');
 }
+const NEED_KEYS = ['hunger', 'happiness', 'cleanliness', 'health'];
 const VIEW_KEYS = ['schemaVersion', 'ownerUid', 'enabled', 'configVersion', 'configHash', 'prices', 'restores', 'careCap', 'serverNowMs', 'aucklandDate', 'aucklandHour', 'pet', 'wallet'];
 export function validateHandheldView(v, ownerUid) {
-  // `cheer` is present only on the read that granted today's giving cheer.
+  // `cheer` and `visit` are present only on the read that granted them today.
   const hasCheer = plain(v) && Object.hasOwn(v, 'cheer');
-  if (!exact(v, hasCheer ? [...VIEW_KEYS, 'cheer'] : VIEW_KEYS)
+  const hasVisit = plain(v) && Object.hasOwn(v, 'visit');
+  if (!exact(v, [...VIEW_KEYS, ...(hasCheer ? ['cheer'] : []), ...(hasVisit ? ['visit'] : [])])
     || v.schemaVersion !== 1 || v.ownerUid !== ownerUid || typeof v.enabled !== 'boolean' || !id(v.configVersion) || !hash(v.configHash)
     || !exact(v.prices, ACTIONS) || !ACTIONS.every(k => integer(v.prices[k], 1, 10000))
     || !exact(v.restores, RESTORES) || !RESTORES.every(k => integer(v.restores[k], 1, 4)) || !integer(v.careCap, 1, 10000)
@@ -63,6 +65,9 @@ export function validateHandheldView(v, ownerUid) {
     || p.daily.date > v.aucklandDate || (p.sleepDate !== null && (!date(p.sleepDate) || p.sleepDate > p.daily.date)) || typeof p.attention !== 'boolean'
     || (p.game !== null && (!exact(p.game, ['id', 'benefit', 'round']) || !id(p.game.id) || !integer(p.game.benefit, 1, 4) || p.game.round !== 0)))) invalid();
   if (hasCheer && (p === null || !exact(v.cheer, ['date', 'gain']) || v.cheer.date !== v.aucklandDate || !integer(v.cheer.gain, 0, 1))) invalid();
+  if (hasVisit && (p === null || !exact(v.visit, ['date', 'welcomeBack', 'gains']) || v.visit.date !== v.aucklandDate || typeof v.visit.welcomeBack !== 'boolean'
+    || !exact(v.visit.gains, NEED_KEYS) || !NEED_KEYS.every(k => integer(v.visit.gains[k], 0, 1))
+    || (!v.visit.welcomeBack && NEED_KEYS.reduce((sum, k) => sum + v.visit.gains[k], 0) > 1))) invalid();
   return structuredClone(v);
 }
 

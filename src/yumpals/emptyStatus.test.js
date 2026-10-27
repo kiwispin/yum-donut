@@ -17,7 +17,7 @@ function rule(css, selector) {
 // page, now holds through one reserved status line above the device.
 test('waiting care shares the reserved status line, so no message moves the page', () => {
   assert.doesNotMatch(component, /saved-queue-status|saved-sync/u, 'separate queue and sync boxes are gone');
-  assert.match(component, /localMessage \|\| pendingMessage \|\| cheerNote \|\|/u, 'waiting care shows in the status line');
+  assert.match(component, /localMessage \|\| pendingMessage \|\| note \|\|/u, 'waiting care shows in the status line');
   assert.match(component, /Saving care…\$\{donutsAfter\}/u);
   assert.match(component, /needs checking\. Tap Reconnect\./u);
 

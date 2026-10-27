@@ -1,5 +1,5 @@
 import React, { memo, useEffect, useId, useRef, useState } from 'react';
-import { cheerMessage, claimCheerDisplay } from './givingCheer.js';
+import { cheerMessage, claimOnce, visitAnimation, visitMessage } from './givingCheer.js';
 import { handheldScrollTarget, measureScreenInsets, PHONE_QUERY } from './handheldScroll.js';
 import { ignoreHandheldKey } from './handheldKeyboard.js';
 import PixelDrawing from './PixelDrawing.jsx';
@@ -42,7 +42,7 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
   const [animation, setAnimation] = useState(null); const [blink, setBlink] = useState(false); const [osReduced, setOsReduced] = useState(false);
   const [adoption, setAdoption] = useState({ name: 'Niblet', species: 'mossbit', casing: 'berry', color: '#d94878' });
   const [localMessage, setLocalMessage] = useState('');
-  const [cheerNote, setCheerNote] = useState('');
+  const [notes, setNotes] = useState([]); const note = notes[0] || '';
   const shellRef = useRef(null); const autoScrolled = useRef(false); const userScrolled = useRef(false);
   useEffect(() => {
     let alive = true; let hadPending = false; navigation.current++; careIntent.current = null; gameVisible.current = false;
@@ -115,13 +115,6 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
   // authoritative balance, and a refusal naturally restores the server view.
   const displayQuote = hasQueue && !state.storageBlocked && queue.every(item => !['adoption', 'game'].includes(item.action)) ? interactionQuote : quote;
   const reduced = osReduced || (sameOwner && (quote?.pet || lastPet)?.reducedMotion === true);
-  const cheer = sameOwner && quote?.pet ? quote.cheer : null;
-  const cheerPetName = quote?.pet?.name;
-  useEffect(() => {
-    if (!cheer || !claimCheerDisplay(ownerUid, cheer.date)) return;
-    setAnimation({ type: 'pat', index: 0 });
-    setCheerNote(cheerMessage(cheer.gain ? 'OK' : 'OK_FULL', cheerPetName));
-  }, [cheer, ownerUid, cheerPetName]);
   // Phones: once the pal has loaded, bring the whole handheld into view between
   // the app's pinned header and bottom icon bar, unless the student has scrolled.
   useEffect(() => {
@@ -143,11 +136,25 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
     });
     return () => window.cancelAnimationFrame(frame);
   }, [loaded]);
+  // Gifts from the server: today's visit gift and giving cheer, each once per date.
+  const visit = sameOwner && quote?.pet ? quote.visit : null;
+  const cheer = sameOwner && quote?.pet ? quote.cheer : null;
+  const giftPetName = quote?.pet?.name;
   useEffect(() => {
-    if (!cheerNote) return undefined;
-    const timer = window.setTimeout(() => setCheerNote(''), 8000);
+    if (!visit || !claimOnce('visit', ownerUid, visit.date)) return;
+    setAnimation({ type: visitAnimation(visit), index: 0 });
+    setNotes(list => [...list, visitMessage(visit, giftPetName)]);
+  }, [visit, ownerUid, giftPetName]);
+  useEffect(() => {
+    if (!cheer || !claimOnce('cheer', ownerUid, cheer.date)) return;
+    if (!visit) setAnimation({ type: 'pat', index: 0 });
+    setNotes(list => [...list, cheerMessage(cheer.gain ? 'OK' : 'OK_FULL', giftPetName)]);
+  }, [cheer, visit, ownerUid, giftPetName]);
+  useEffect(() => {
+    if (!note) return undefined;
+    const timer = window.setTimeout(() => setNotes(list => list.slice(1)), 6000);
     return () => window.clearTimeout(timer);
-  }, [cheerNote]);
+  }, [note, notes]);
   useEffect(() => {
     if (!animation) return undefined;
     const sequence = getYumPalsAnimationSequence(animation.type, reduced);
@@ -225,7 +232,7 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
   </nav>;
   return <section ref={shellRef} className="paid-demo-shell saved-handheld" aria-label="Saved YumPals handheld">
     <header className="paid-demo-header"><div><h1 className="yumpals-title"><span className="yumpals-title-icon" aria-hidden="true"><Pixels pixels={getYumPalsFrame('mossbit', 'idle', 0, true).pixels} palette={getYumPalsFrame('mossbit', 'idle', 0, true).palette} /></span>YumPals</h1><p>A little pal to care for each day.</p></div></header>
-    <p className="saved-top-status" role="status">{!sameOwner ? 'Please sign in to see your saved pal.' : localMessage || pendingMessage || cheerNote || (!state.pending && state.message) || (!quote ? 'Loading your pal…' : !quote.enabled ? 'YumPals is resting. Your teacher has paused care.' : !quote.wallet.available ? 'Your donuts could not be checked. Please ask your teacher.' : '')}</p>
+    <p className="saved-top-status" role="status">{!sameOwner ? 'Please sign in to see your saved pal.' : localMessage || pendingMessage || note || (!state.pending && state.message) || (!quote ? 'Loading your pal…' : !quote.enabled ? 'YumPals is resting. Your teacher has paused care.' : !quote.wallet.available ? 'Your donuts could not be checked. Please ask your teacher.' : '')}</p>
     <div className="paid-demo-device" style={{ '--saved-case': savedCaseColor(pet) }}>
       <div className="paid-demo-brand">YUMPALS</div><div className="paid-demo-screen-frame">
         <div className={`paid-demo-lcd ${sleep.sleeping ? 'is-sleeping' : ''} ${sleep.dim ? 'is-bedtime-set' : ''}`}>
