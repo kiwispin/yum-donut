@@ -14,11 +14,31 @@ The core Yum Donut app is still a standalone GitHub Pages site.
 npm install
 npm run dev
 npm run lint
-npm run build
-npm run deploy
 ```
 
-The webpage does not require Microsoft Teams or Firebase Functions to run.
+The site uses Firebase for sign-in and data. Saved YumPals and student account
+setup also use the callable services in `functions/`. Microsoft Teams is optional.
+
+## Publishing changes
+
+Always commit and push the approved source changes, release logs and relevant
+rollback tags to GitHub before deployment. Keep `main` current with the approved
+production source, and push the working release branch with an upstream. Preserve
+any changes already on GitHub when merging. Verify the remote commit IDs.
+
+The current production frontend is built and published with:
+
+```bash
+VITE_YUMPALS_PAID_CARE=enabled \
+VITE_YUMPALS_SAVED_GAME=enabled \
+VITE_YUMPALS_PAID_CONTROLS=enabled npm run build
+npx gh-pages -d dist
+```
+
+Publish that prepared `dist` directly: `npm run deploy` invokes a fresh build and
+can omit these feature flags. Deploy only the changed Firebase callable targets
+when backend source changes. Verify the live site and targeted function after
+deployment. Compiled files on `gh-pages` do not replace pushing the editable source.
 
 ## Optional Teams Integration
 
@@ -34,6 +54,11 @@ See [functions/README.md](functions/README.md) for bot setup, mapping, and deplo
 
 The Teams app manifest template lives in [teams-app-manifest](teams-app-manifest).
 
-## YumPals (review-gated)
+## YumPals
 
-YumPals is an additive virtual-pet module with a local no-Firebase demo. Cloud rollout is disabled by default and remains pending callable, Auth-claim, scoped-rules, emulator, and staging review. See [YUMPALS_ROLLOUT.md](YUMPALS_ROLLOUT.md) for the demo URL and exact prerequisites.
+YumPals is the live virtual-pet module. Teachers can enable it for students in
+Admin Settings → YumPals, or use the session preview with pretend donuts. Saved
+pets and care purchases use the deployed callable services. Current source is in
+`src/yumpals/` and `functions/src/yumpals/`; the release and speed logs record the
+implementation, checks and deployments. `YUMPALS_ROLLOUT.md` retains the original
+rollout plan.
