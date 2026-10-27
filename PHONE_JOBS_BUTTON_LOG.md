@@ -23,5 +23,8 @@ Baseline: `a87f4d0`, preserved by `codex/phone-jobs-button-baseline-20261027`.
   build; JS `index-tUJ36xRq.js` (MD5 `90813e65ac60cb33d188986b6f73b19c`) and CSS
   `index-D3draj83.css` (MD5 `cfce9999846912632f40bb3f9b53bb76`) match locally.
   Signed in by the owner at 375px: bottom-bar Jobs opens the Jobs page, the Jobs
-  icon and top-menu More are highlighted, zero console errors. Nothing was posted
-  or changed. Rollback: rebuild and publish `codex/phone-jobs-button-baseline-20261027`.
+  icon and top-menu More are highlighted. Nothing was posted or changed.
+- Console note (not caused by this release): on a signed-in page load the app's
+  startup Firestore transactions log two `documents:commit` 400 responses. Each
+  follows a concurrent write to the same data; the SDK retries and the later
+  commits return 200. Also seen on the previous build. Left unchanged. Rollback: rebuild and publish `codex/phone-jobs-button-baseline-20261027`.
