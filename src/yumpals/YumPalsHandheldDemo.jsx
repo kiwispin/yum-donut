@@ -482,7 +482,7 @@ export default function YumPalsHandheldDemo() {
     const advanceDay = () => {
         setDemoState((current) => advanceLocalDay(current));
         setScreen('room');
-        showNotice('The demo moved to the next day. Your pal rests on days off.');
+        showNotice('The demo moved to the next day. Your pal’s needs kept changing overnight.');
     };
 
     const selectedBenefit = selectedAction ? getActionBenefit(state, selectedAction) : null;

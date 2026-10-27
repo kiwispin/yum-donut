@@ -5,7 +5,8 @@
 export const GIVING_CHEER_HAPPINESS = 1;
 const MAX_HAPPINESS = 4;
 
-// Weekends rest like the rest of YumPals; dateKey is an Auckland YYYY-MM-DD date.
+// Giving cheers are for school days (care itself keeps running on weekends);
+// dateKey is an Auckland YYYY-MM-DD date.
 export function isCheerRestDay(dateKey, frozenDates = []) {
     const [year, month, day] = String(dateKey).split('-').map(Number);
     const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
