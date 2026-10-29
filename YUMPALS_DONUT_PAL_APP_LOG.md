@@ -128,7 +128,18 @@ Baseline: `29e2ba7` (`main`, live: Release 1 server plus its log). Branch
 
 ## Release
 
-- Not deployed yet. Shown to the owner first.
+- Owner approved the deploy (shown first).
+- Rollback tag `codex/donut-pal-app-baseline-20261029` → `29e2ba7`.
+- `main` fast-forwarded to `6eeaa2f`. On `main`: frontend 195/195, server 179/179,
+  both lints exit 0.
+- Atomic push of `main`, `codex/yumpals-only-release` and the tag. Remote IDs
+  verified: both branches at `6eeaa2f`, and the tag at `29e2ba7` (`ls-remote`).
+- PUBLISHED — `npm run deploy` gave `gh-pages` commit `90a959f`, live after ~40s.
+  Live `index.html` (MD5 `5e4410a2d64ff4adde08dbb245df4510`), JS
+  `index-DUJnJVjF.js` (MD5 `0ed4f6d049cd1fdd6020a7066b675ced`) and CSS
+  `index-_syYZOv-.css` (MD5 `f843178879bc578ccba70674cdd48528`) are byte-identical
+  to the build.
+- The owner's live check (first move of a real pal) follows below.
 - Plan:
   1. Tag `main` (`29e2ba7`) as the rollback point.
   2. Merge this branch into `main`.
