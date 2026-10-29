@@ -230,3 +230,44 @@
 @media (prefers-reduced-motion: reduce) {
   .donut-led.is-on { animation: none; }
 }
+
+/* Real handheld: loading, errors and adopting a new egg. */
+.donut-status-only { min-height: 120px; justify-content: center; }
+.donut-retry, .donut-adopt button {
+  border: 2px solid #a0727a;
+  border-radius: 999px;
+  background: var(--cream);
+  color: #7a4b55;
+  font-weight: 700;
+  padding: 8px 18px;
+  cursor: pointer;
+}
+.donut-adopt button:disabled { opacity: 0.5; cursor: not-allowed; }
+.donut-adopt {
+  display: grid;
+  gap: 10px;
+  width: min(100%, 380px);
+  padding: 16px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid #f1d5dc;
+}
+.donut-adopt input[type="text"], .donut-adopt label > input:not([type]) {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font: inherit;
+}
+.donut-adopt fieldset { display: flex; flex-wrap: wrap; gap: 10px; border: 0; padding: 0; margin: 0; }
+.donut-adopt legend { font-weight: 700; margin-bottom: 4px; }
+.donut-adopt p { margin: 0; font-size: 0.9rem; }
+.donut-swatch input {
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--swatch);
+  cursor: pointer;
+}
+.donut-swatch input:checked { outline: 3px solid #3b2f45; outline-offset: 2px; }

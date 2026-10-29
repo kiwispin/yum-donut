@@ -17,6 +17,9 @@ import YumPalsHandheldDemo from './yumpals/YumPalsHandheldDemo';
 import YumPalsTeacherSettings from './yumpals/YumPalsTeacherSettings.jsx';
 import { createPaidSettingsTransport } from './yumpals/paidSettingsTransport.js';
 import YumPalsSavedHandheld from './yumpals/YumPalsSavedHandheld.jsx';
+import YumPalsDonutSaved from './yumpals/YumPalsDonutSaved.jsx';
+import { createPocketTransport } from './yumpals/pocketClient.js';
+import { donutPalShown } from './yumpals/donutRollout.js';
 import { createPaidCareTransport } from './yumpals/paidCareTransport.js';
 import { createSavedGameTransport } from './yumpals/savedGameTransport.js';
 import { paidRoutePolicy } from './yumpals/savedHandheldPresentation.js';
@@ -546,6 +549,9 @@ const ENABLE_YUMPALS_CLOUD = import.meta.env.VITE_YUMPALS_CLOUD === 'enabled' &&
 const paidCareTransport = createPaidCareTransport({ projectId: firebaseConfig.projectId,
     enabled: ENABLE_YUMPALS_PAID_CARE, getCurrentUser: () => auth.currentUser });
 const ENABLE_YUMPALS_PAID_CONTROLS = import.meta.env.VITE_YUMPALS_PAID_CONTROLS === 'enabled';
+// Donut pal: 'teacher' shows it only to the teacher account (server claim yumpalsAdmin); 'enabled' to everyone.
+const YUMPALS_POCKET_MODE = import.meta.env.VITE_YUMPALS_POCKET;
+const pocketTransport = createPocketTransport({ projectId: firebaseConfig.projectId, getCurrentUser: () => auth.currentUser });
 const paidSettingsTransport = createPaidSettingsTransport({ projectId: firebaseConfig.projectId,
     enabled: ENABLE_YUMPALS_PAID_CONTROLS, getCurrentUser: () => auth.currentUser });
 const YUMPALS_CALLABLES = new Set([
@@ -1852,6 +1858,19 @@ function YumDonutDashboard() {
     }, []);
     const palDot = useMemo(() => savedYumpalsAvailable && view !== 'yumpals-saved' && palGiftWaiting(user?.uid, currentDateKey),
         [savedYumpalsAvailable, view, user?.uid, currentDateKey, palVisitTick]);
+    // The teacher claim the server checks for Donut pal requests, read from this sign-in.
+    const [pocketTeacher, setPocketTeacher] = useState({ uid: null, teacher: false });
+    useEffect(() => {
+        let active = true;
+        const current = auth.currentUser;
+        if (!YUMPALS_POCKET_MODE || !current || current.isAnonymous || current.uid !== user?.uid) return undefined;
+        current.getIdTokenResult().then(result => {
+            if (active && auth.currentUser === current) setPocketTeacher({ uid: current.uid, teacher: result.claims.yumpalsAdmin === true });
+        }).catch(() => {});
+        return () => { active = false; };
+    }, [user?.uid]);
+    const showDonutPal = donutPalShown({ mode: YUMPALS_POCKET_MODE, sandbox: isSandbox, uid: user?.uid,
+        teacher: pocketTeacher.uid === user?.uid && pocketTeacher.teacher });
 
     const yumpalsRequestRef = useRef(0);
 
@@ -4189,7 +4208,10 @@ function YumDonutDashboard() {
                     />
                 )}
 
-                {view === 'yumpals-saved' && savedYumpalsAvailable && <section className="yumpals-embedded-saved" aria-label="Saved YumPals">
+                {view === 'yumpals-saved' && savedYumpalsAvailable && showDonutPal && <section className="yumpals-embedded-donut" aria-label="YumPals">
+                    <YumPalsDonutSaved key={user.uid} ownerUid={user.uid} transport={pocketTransport} />
+                </section>}
+                {view === 'yumpals-saved' && savedYumpalsAvailable && !showDonutPal && <section className="yumpals-embedded-saved" aria-label="Saved YumPals">
                     <YumPalsSavedHandheld key={user.uid} ownerUid={user.uid} projectId={firebaseConfig.projectId}
                         enabled={ENABLE_YUMPALS_PAID_CARE} gameEnabled={ENABLE_YUMPALS_SAVED_GAME} gameTransport={savedGameTransport} getIdentity={paidCareIdentity} transport={paidCareTransport} />
                 </section>}
