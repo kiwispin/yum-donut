@@ -9,7 +9,7 @@ import { createPaidCareController } from './paidCareClient.js';
 import { createSavedGameController } from './savedGameClient.js';
 import { PAID_CARE_ICON_ORDER, PAID_CARE_ICON_LABELS, PAID_CARE_ICON_PIXELS } from './paidCareIcons.js';
 import { getYumPalsFrame, getYumPalsAnimationSequence, YUMPALS_FOOD_PIXELS, YUMPALS_HEART_PIXELS } from './yumpalsSprites.js';
-import { SAVED_HELP, SAVED_CHOICES, CARE_NAMES, savedSleep, savedEffect, savedNoEffect, savedContextMatches, savedCaseColor } from './savedHandheldPresentation.js';
+import { SAVED_HELP, SAVED_HINTS, SAVED_CHOICES, CARE_NAMES, savedSleep, savedEffect, savedNoEffect, savedContextMatches, savedCaseColor } from './savedHandheldPresentation.js';
 import './paidCareDemo.css';
 import './savedHandheld.css';
 
@@ -38,6 +38,7 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
   const navigation = useRef(0); const careIntent = useRef(null); const gameVisible = useRef(false);
   const gameReady = enabled && gameEnabled === true && typeof gameTransport === 'function';
   const helpFor = name => name === 'game' && gameReady ? 'Guess left or right for three rounds. Resume a paid game without paying again.' : SAVED_HELP[name];
+  const hintFor = name => `${PAID_CARE_ICON_LABELS[name]} — ${name === 'game' && gameReady ? 'guess left or right' : SAVED_HINTS[name]}`;
   const id = useId(); const instance = useRef(null); const [lastPet, setLastPet] = useState(null); const [sleepIndex, setSleepIndex] = useState(0);
   const [state, setState] = useState(EMPTY); const [selected, setSelected] = useState(null); const [help, setHelp] = useState(null);
   const [screen, setScreen] = useState('room'); const [choice, setChoice] = useState(0);
@@ -274,8 +275,8 @@ export default function YumPalsSavedHandheld({ ownerUid, projectId, enabled = fa
       <div className="paid-hardware" aria-label="Handheld buttons"><button className="paid-hardware-button" type="button" aria-label="A SELECT" onClick={cycle}><strong>A</strong><span>SELECT</span></button><button className="paid-hardware-button" type="button" aria-label="B CONFIRM" onClick={confirm} disabled={['confirm', 'adopt'].includes(screen) && locked && ['adoption', 'game'].includes(confirmation?.action || '')}><strong>B</strong><span>CONFIRM</span></button><button className="paid-hardware-button" type="button" aria-label="C CANCEL" onClick={cancel}><strong>C</strong><span>CANCEL</span></button></div>
     </div>
     <p className="saved-help paid-demo-hint">
-      {PAID_CARE_ICON_ORDER.map(name => <span className="paid-hint-size" aria-hidden="true" key={name}>{PAID_CARE_ICON_LABELS[name]} — {helpFor(name)}</span>)}
-      <span className="paid-hint-current">{help || icon ? `${PAID_CARE_ICON_LABELS[help || icon]} — ${helpFor(help || icon)}` : 'Press A SELECT to choose an icon.'}</span>
+      {PAID_CARE_ICON_ORDER.map(name => <span className="paid-hint-size" aria-hidden="true" key={name}>{hintFor(name)}</span>)}
+      <span className="paid-hint-current">{help || icon ? hintFor(help || icon) : 'Press A SELECT to choose an icon.'}</span>
     </p>
     {sameOwner && quote && <div className="paid-demo-meta" aria-label="Your donuts and care spending">
       <span>Donuts: {quote.wallet.available ? quote.wallet.balance : 'Not available'}</span>

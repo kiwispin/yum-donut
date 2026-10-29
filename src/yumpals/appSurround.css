@@ -139,3 +139,10 @@
     .yumpals-embedded-saved .saved-handheld > p.saved-top-status[role='status'],
     .yumpals-embedded-saved .saved-handheld > p.saved-top-status[role='status']:not(:empty) { height: auto; min-height: 4.4em; }
 }
+/* Saved page: an even, compact rhythm below the handheld. The hint keeps its
+   reserved height (no jump when icons change it); only the outer gaps shrink. */
+.yumpals-embedded-saved .saved-handheld > p.saved-help.paid-demo-hint { margin: 10px auto 0; padding: 0 8px; }
+.yumpals-embedded-saved .saved-handheld > .paid-demo-meta { margin-top: 8px; }
+.yumpals-embedded-saved .saved-handheld > .saved-utilities { margin: 4px auto 0; }
+.yumpals-embedded-saved .saved-handheld > details.paid-demo-inspector { margin: 4px auto 0; }
+.yumpals-embedded-saved .paid-demo-shell.saved-handheld { padding-bottom: 24px; }

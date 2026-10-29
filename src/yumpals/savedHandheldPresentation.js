@@ -4,6 +4,11 @@ export const SAVED_HELP = { ...PAID_CARE_ICON_HELP,
   game: 'Game is not ready yet. Choose Pat for happy hearts.',
   status: 'Check Food, Happy, Clean and Health hearts. No charge.',
 };
+// One-line cues for the hint under the handheld; the full SAVED_HELP text stays in
+// How to play, tooltips and screen-reader descriptions.
+export const SAVED_HINTS = { food: 'a meal or snack', lights: 'lights out for bedtime', game: 'not ready; try a pat',
+  medicine: 'help your pal feel better', clean: 'clean up the mess', status: 'free to check',
+  discipline: 'a calm reminder', attention: 'does your pal need you?' };
 export const SAVED_CHOICES = { food: ['meal', 'snack'], lights: ['bedtime'], game: ['game', 'pat'], medicine: ['medicine'], clean: ['clean'], discipline: ['reminder'] };
 export const CARE_NAMES = { adoption: 'Adopt', meal: 'Meal', snack: 'Snack', game: 'Game', pat: 'Pat', clean: 'Clean', medicine: 'Medicine', bedtime: 'Bedtime', reminder: 'Reminder' };
 export function savedCaseColor(pet) {
