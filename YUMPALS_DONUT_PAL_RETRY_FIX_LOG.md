@@ -50,8 +50,27 @@ Found in the Release 2 live check (`YUMPALS_DONUT_PAL_APP_LOG.md`).
 
 ## Release
 
-- Not deployed yet. Shown to the owner first.
-- Deploy updates only the same two existing endpoints:
+- Owner approved (shown first).
+- Rollback tag `codex/donut-pal-retry-fix-baseline-20261029` → `fc0442e`.
+- `main` fast-forwarded to `1b5ad94`. On `main`: frontend 195/195, server 180/180,
+  both lints exit 0.
+- Atomic push of `main`, `codex/yumpals-only-release` and the tag. Remote IDs
+  verified: both branches at `1b5ad94`, and the tag at `fc0442e`.
+- RELEASE VERIFIED — the deploy below gave "Successful update operation" for both
+  functions (186.03 KB source). `functions:list` still lists all 10 functions.
+- Live, signed in as the owner (Mr Rayner, Admin), 10:20pm Auckland, page script
+  `index-DUJnJVjF.js`:
+  - The Donut pal loaded: "Fizzgig is a baby, asleep. Food 1 of 4, happy 1 of 4,
+    weight 5." So the owner's earlier session had already moved and hatched the
+    pal.
+  - The Donut pal read returned 200 in 3,225ms alongside the current app's two
+    background reads (200, 1,251 and 1,194ms). The longer time fits a contention
+    retry that now succeeds.
+  - A free action (Lights off at night): `yumpalsPurchaseCare` 200 in 3,799ms, with
+    "Lights off. Sleep tight." and the dark lights-out screen.
+- To watch: 3.2–3.8s for these first calls after the deploy, likely start-up and
+  the retry. To be re-measured in normal use.
+- Deploy, updating only the same two existing endpoints:
   `npx --yes firebase-tools@15.34.1 deploy --only functions:teams:yumpalsGetPaidCareState,functions:teams:yumpalsPurchaseCare --project yum-donut-school --non-interactive`
 - No site change is needed: the app already handles the retry correctly once the
   server stops failing.

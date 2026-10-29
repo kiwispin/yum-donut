@@ -145,6 +145,14 @@ Baseline: `29e2ba7` (`main`, live: Release 1 server plus its log). Branch
   - Fixed on the server; see `YUMPALS_DONUT_PAL_RETRY_FIX_LOG.md`.
   - The site itself needed no change.
   - The live check is repeated after that fix is deployed.
+- RELEASE VERIFIED after the fix (`1b5ad94`, see the fix log):
+  - The owner's pal shows on the donut handheld (Fizzgig, a baby, asleep at
+    night), moved and hatched.
+  - Reads and a free action (Lights) both work live.
+  - Students still get the current handheld: the teacher-only build switch, and
+    `YUMPALS_POCKET_READY=false` on the server.
+- Still to check in daytime (from 7am): feeding, the game and, optionally, one
+  1-donut treat.
 - Plan:
   1. Tag `main` (`29e2ba7`) as the rollback point.
   2. Merge this branch into `main`.
