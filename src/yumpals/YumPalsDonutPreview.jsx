@@ -1,16 +1,17 @@
-import React, { useEffect, useReducer } from 'react';
+import React, { useEffect, useReducer, useRef } from 'react';
 import PixelDrawing from './PixelDrawing.jsx';
 import {
     GAME_ROUNDS, REFUSALS, act, advance, aucklandParts, createDonutPal, describePal, needsAttention, takeEvents,
 } from './donutPal.js';
 import {
-    ICONS, ICON_LABELS, ICON_ORDER, STATUS_PAGES, animationFrames, drawFoodMenu, drawGame, drawRoom, drawStatus, walkRange,
+    ICONS, ICON_LABELS, ICON_ORDER, STATUS_PAGES, animationFrames, drawClock, drawFoodMenu, drawGame, drawGameScore, drawRoom,
+    drawStatus, walkRange,
 } from './donutPalArt.js';
 import './donutPal.css';
 
 // Preview only: the Donut pal runs in this browser, with its own pretend donuts.
 // Nothing here talks to the server or spends real donuts.
-const STORAGE_KEY = 'yumpals-donut-preview-v1';
+const STORAGE_KEY = 'yumpals-donut-preview-v2';
 const TICK_MS = 450;
 const START_DONUTS = 10;
 const GLAZES = { berry: '#f48fb1', mint: '#8fe0c4', sky: '#8ecbf5', sun: '#ffd36e' };
@@ -18,7 +19,7 @@ const SPECIES = ['mossbit', 'pufflet', 'emberoo'];
 const LCD_PALETTE = { '#': '#232b1c', '.': 'rgba(35, 43, 28, 0.07)' };
 const SUCCESS = {
     eat: 'Yum!', snack: 'A cupcake treat! 1 donut spent.', happy: 'You won! Your pal is happier.',
-    shrug: 'Close! Win 3 of 5 to cheer your pal up.', clean: 'All clean!', medicine: 'All better!',
+    shrug: 'Close! Win 3 of 5 to cheer your pal up.', clean: 'All clean!', medicine: 'All better!', dose: 'One more dose needed.',
     lightsOff: 'Lights off. Sleep tight.', lightsOn: 'Lights on.',
 };
 // Sprinkles sit on the glaze ring around the screen: [left %, top %, turn deg, colour].
@@ -30,9 +31,9 @@ const SPRINKLES = [
 function loadSaved(realNow) {
     try {
         const saved = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || 'null');
-        if (saved?.pal?.version === 1) return saved;
+        if (saved?.pal?.version === 2) return saved;
     } catch { /* fall through to a new egg */ }
-    return { pal: createDonutPal({ name: 'Pip', species: 'mossbit', nowMs: realNow }), offset: 0, donuts: START_DONUTS, casing: 'berry' };
+    return { pal: createDonutPal({ name: 'Pip', species: 'mossbit', nowMs: realNow }), offset: 0, donuts: START_DONUTS, casing: 'berry', sound: false };
 }
 
 function initialState(realNow) {
@@ -48,11 +49,22 @@ function nextMorning(ms) {
 
 const EVENT_TEXT = {
     hatched: () => 'Your egg hatched!', sick: pal => `${pal.name} feels sick. Try Medicine.`,
-    grew: (pal, event) => `${pal.name} grew into ${event.stage === 'adult' ? 'an adult' : 'a child'}!`, napped: pal => `${pal.name} had a good nap.`,
+    grew: (pal, event) => event.stage !== 'adult' ? `${pal.name} grew into a ${event.stage}!`
+        : event.form === 'scruffy' ? `${pal.name} grew into a scruffy adult. Too many care mistakes!` : `${pal.name} grew into a well-raised adult!`,
+    napped: pal => `${pal.name} had a good nap.`,
 };
 
-function play(state, frames, message) {
-    return { ...state, mode: 'anim', anim: { frames, i: 0 }, message };
+// `then: 'game'` starts the next game when the animation ends, as the manual's
+// game keeps going until you press C.
+function play(state, frames, message, then = 'room') {
+    return { ...state, mode: 'anim', anim: { frames, i: 0, then }, game: null, message };
+}
+
+const newGame = () => ({ results: [], reveal: null, revealTicks: 0 });
+
+function finishAnimation(state, now) {
+    if (state.anim.then === 'game' && act(state.pal, 'game', { nowMs: now, wins: 0 }).ok) return { ...state, mode: 'game', anim: null, game: newGame() };
+    return { ...state, mode: 'room', anim: null };
 }
 
 // Catch the pal up to now, and show anything that happened while you were away.
@@ -83,7 +95,7 @@ function runIcon(state, index, now) {
     if (icon === 'play') {
         const check = act(state.pal, 'game', { nowMs: now, wins: 0 });
         if (!check.ok) return apply(state, 'game', now);
-        return { ...state, mode: 'game', game: { results: [], reveal: null, revealTicks: 0 }, message: 'Which way will your pal turn? A left, B right.' };
+        return { ...state, mode: 'game', game: newGame(), message: 'Which way will your pal turn? A left, B right. C stops.' };
     }
     if (icon === 'status') return { ...state, mode: 'status', page: 0, message: '' };
     return apply(state, icon, now);
@@ -102,11 +114,17 @@ function reducer(state, action) {
             let next = sync({ ...state, tick: state.tick + 1 }, now);
             if (next.mode === 'anim') {
                 const i = next.anim.i + 1;
-                next = i >= next.anim.frames.length ? { ...next, mode: 'room', anim: null } : { ...next, anim: { ...next.anim, i } };
+                next = i >= next.anim.frames.length ? finishAnimation(next, now) : { ...next, anim: { ...next.anim, i } };
             } else if (next.mode === 'game' && next.game.reveal && --next.game.revealTicks <= 0) {
                 const { guess: side, turn } = next.game.reveal;
                 const results = [...next.game.results, side === turn];
-                if (results.length >= GAME_ROUNDS) return apply({ ...next, mode: 'room', game: null }, 'game', now, { wins: results.filter(Boolean).length });
+                if (results.length >= GAME_ROUNDS) {
+                    const wins = results.filter(Boolean).length;
+                    const result = act(next.pal, 'game', { nowMs: now, wins });
+                    const score = drawGameScore(wins, GAME_ROUNDS);
+                    return play({ ...next, pal: result.ok ? result.pal : next.pal }, [score, score, score, ...animationFrames(result.pal, result.animation)],
+                        result.ok ? `${SUCCESS[result.animation]} ${result.pal.sleepy ? 'Your pal is sleepy now.' : 'Next game! C stops.'}` : REFUSALS[result.reason], 'game');
+                }
                 next = { ...next, game: { results, reveal: null, revealTicks: 0 } };
             } else if (next.mode === 'room' && !action.reducedMotion && !next.pal.sick && !next.pal.sleepy) {
                 const r = Math.random();
@@ -125,7 +143,8 @@ function reducer(state, action) {
         }
         case 'B': {
             const next = sync(state, now);
-            if (next.mode === 'room') return next.selected < 0 ? next : runIcon(next, next.selected, now);
+            if (next.mode === 'room') return next.selected < 0 ? { ...next, mode: 'clock', message: '' } : runIcon(next, next.selected, now);
+            if (next.mode === 'clock') return { ...next, mode: 'room' };
             if (next.mode === 'food') return apply({ ...next, mode: 'room' }, next.cursor === 0 ? 'meal' : 'snack', now);
             if (next.mode === 'status') return next.page + 1 >= STATUS_PAGES ? { ...next, mode: 'room' } : { ...next, page: next.page + 1 };
             if (next.mode === 'game') return guess(next, 'right');
@@ -134,7 +153,7 @@ function reducer(state, action) {
         case 'C': {
             const next = sync(state, now);
             if (next.mode === 'room') return { ...next, selected: -1, message: '' };
-            if (next.mode === 'anim') return { ...next, mode: 'room', anim: null };
+            if (next.mode === 'anim') return { ...next, mode: 'room', anim: null, game: null };
             return { ...next, mode: 'room', game: null, message: '' };
         }
         case 'icon': {
@@ -148,9 +167,11 @@ function reducer(state, action) {
             return sync({ ...state, offset: state.offset + (target - now) }, target);
         }
         case 'newEgg':
-            return { ...state, pal: createDonutPal({ name: 'Pip', species: action.species, nowMs: now }), mode: 'room', anim: null, game: null, selected: -1, message: 'A new egg! It hatches in a minute.' };
+            return { ...state, pal: createDonutPal({ name: 'Pip', species: action.species, nowMs: now }), mode: 'room', anim: null, game: null, selected: -1, message: 'A new egg! It hatches in about 5 minutes.' };
         case 'donuts': return { ...state, donuts: state.donuts + action.add };
         case 'casing': return { ...state, casing: action.value };
+        // Hold C and press A, as in the manual.
+        case 'sound': return { ...state, sound: !state.sound, message: state.sound ? 'Sound off.' : 'Sound on.' };
         default: return state;
     }
 }
@@ -160,13 +181,14 @@ function screenRows(state, now) {
     if (state.mode === 'food') return drawFoodMenu(state.cursor);
     if (state.mode === 'status') return drawStatus(state.pal, state.page, { donuts: state.donuts, ms: now });
     if (state.mode === 'game') return drawGame(state.pal, state.game, state.tick);
+    if (state.mode === 'clock') { const { hour, minute } = aucklandParts(now); return drawClock(hour, minute); }
     return drawRoom(state.pal, { x: state.x, tick: state.tick, ms: now, reducedMotion: state.reducedMotion });
 }
 
 const BUTTON_HELP = {
     room: ['A: next icon', 'B: use icon', 'C: cancel'], food: ['A: switch food', 'B: eat it', 'C: back'],
     status: ['A: next page', 'B: next page', 'C: back'], game: ['A: guess left', 'B: guess right', 'C: stop playing'],
-    anim: ['A', 'B', 'C: skip'],
+    anim: ['A', 'B', 'C: skip'], clock: ['A', 'B: back', 'C: back'],
 };
 
 function ignoreKey(event) {
@@ -177,6 +199,22 @@ function ignoreKey(event) {
 }
 
 const KEYS = { a: 'A', arrowright: 'A', arrowdown: 'A', b: 'B', enter: 'B', ' ': 'B', c: 'C', escape: 'C', backspace: 'C' };
+
+// Short square-wave beeps, like a pocket pet's buzzer. Off unless switched on.
+let audio = null;
+function beep(pattern) {
+    try {
+        audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+        let at = audio.currentTime;
+        for (const [freq, ms] of pattern) {
+            const osc = audio.createOscillator(); const gain = audio.createGain();
+            osc.type = 'square'; osc.frequency.value = freq; gain.gain.value = 0.04;
+            osc.connect(gain).connect(audio.destination); osc.start(at); osc.stop(at + ms / 1000);
+            at += ms / 1000 + 0.04;
+        }
+    } catch { /* no sound available */ }
+}
+const BEEPS = { press: [[2200, 35]], call: [[2600, 90], [2600, 90], [2600, 90]], tune: [[1800, 80], [2200, 80], [2600, 140]] };
 
 function Icon({ id, index, selected, onPick }) {
     return (
@@ -189,6 +227,10 @@ function Icon({ id, index, selected, onPick }) {
 
 export default function YumPalsDonutPreview() {
     const [state, dispatch] = useReducer(reducer, Date.now(), initialState);
+    // C is "held" while a pointer is down on it or the C key is down.
+    const cPointers = useRef(new Set());
+    const cKey = useRef(false);
+    const cHeld = () => cPointers.current.size > 0 || cKey.current;
     const reducedMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
     useEffect(() => {
@@ -201,22 +243,48 @@ export default function YumPalsDonutPreview() {
             const press = KEYS[event.key.toLowerCase()];
             if (!press || ignoreKey(event)) return;
             event.preventDefault();
-            dispatch({ type: press, realNow: Date.now() });
+            const sound = press === 'A' && cHeld();
+            if (press === 'C') cKey.current = true;
+            dispatch({ type: sound ? 'sound' : press, realNow: Date.now() });
         };
+        const onKeyUp = event => { if (KEYS[event.key.toLowerCase()] === 'C') cKey.current = false; };
+        const release = event => cPointers.current.delete(event.pointerId);
+        const reset = () => { cPointers.current.clear(); cKey.current = false; };
         window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
+        window.addEventListener('keyup', onKeyUp);
+        window.addEventListener('pointerup', release);
+        window.addEventListener('pointercancel', release);
+        window.addEventListener('blur', reset);
+        return () => {
+            window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKeyUp);
+            window.removeEventListener('pointerup', release); window.removeEventListener('pointercancel', release);
+            window.removeEventListener('blur', reset);
+        };
     }, []);
 
-    const { pal, offset, donuts, casing } = state;
+    const { pal, offset, donuts, casing, sound } = state;
     useEffect(() => {
-        try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ pal, offset, donuts, casing })); } catch { /* preview still works */ }
-    }, [pal, offset, donuts, casing]);
+        try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ pal, offset, donuts, casing, sound })); } catch { /* preview still works */ }
+    }, [pal, offset, donuts, casing, sound]);
 
     const now = Date.now() + offset;
     const rows = screenRows({ ...state, reducedMotion }, now);
     const attention = needsAttention(pal, now);
+    // Beep when your pal starts calling, and a little tune when it hatches or grows.
+    const calling = useRef(attention);
+    useEffect(() => {
+        if (sound && attention && !calling.current) beep(BEEPS.call);
+        calling.current = attention;
+    }, [attention, sound]);
+    const message = state.message;
+    useEffect(() => {
+        if (sound && /hatched|grew/.test(message)) beep(BEEPS.tune);
+    }, [message, sound]);
     const help = BUTTON_HELP[state.mode];
-    const press = type => dispatch({ type, realNow: Date.now() });
+    const press = type => {
+        if (sound) beep(BEEPS.press);
+        dispatch({ type: type === 'A' && cHeld() ? 'sound' : type, realNow: Date.now() });
+    };
     const pick = index => dispatch({ type: 'icon', index, realNow: Date.now() });
     const clock = new Intl.DateTimeFormat('en-NZ', { timeZone: 'Pacific/Auckland', weekday: 'short', hour: 'numeric', minute: '2-digit' }).format(now);
 
@@ -248,7 +316,8 @@ export default function YumPalsDonutPreview() {
                 </div>
                 <div className="donut-buttons">
                     {['A', 'B', 'C'].map((name, i) => (
-                        <button key={name} type="button" className="donut-button" aria-label={help[i]} title={help[i]} onClick={() => press(name)}>{name}</button>
+                        <button key={name} type="button" className="donut-button" aria-label={help[i]} title={help[i]} onClick={() => press(name)}
+                            {...(name === 'C' ? { onPointerDown: event => cPointers.current.add(event.pointerId) } : {})}>{name}</button>
                     ))}
                 </div>
             </div>
@@ -256,18 +325,19 @@ export default function YumPalsDonutPreview() {
             <details className="donut-help">
                 <summary>How to play</summary>
                 <ul>
-                    <li><b>A</b> picks an icon, <b>B</b> uses it, <b>C</b> goes back. You can also tap an icon, then tap it again.</li>
-                    <li><b>Food:</b> meals are free. A cupcake treat costs 1 donut (up to 3 a day).</li>
-                    <li><b>Play:</b> guess which way your pal turns. Win 3 of 5 to cheer it up.</li>
-                    <li><b>Clean</b> up messes, give <b>Medicine</b> when it is sick, and use <b>Lights</b> for a nap when it is sleepy.</li>
-                    <li><b>Status</b> shows age, food, happy and your donuts.</li>
-                    <li>The light on the donut blinks when your pal needs you.</li>
-                    <li>Care for it on school days and it grows: egg, baby, child, adult. A sick pal waits to grow, but never gets worse than sick.</li>
+                    <li><b>A</b> picks an icon, <b>B</b> uses it, <b>C</b> goes back. You can also tap an icon, then tap it again. <b>B</b> on its own shows the clock.</li>
+                    <li><b>Food:</b> meals are free. A cupcake treat costs 1 donut (up to 3 a day) and adds weight.</li>
+                    <li><b>Play:</b> guess which way your pal turns. Win 3 of 5 to cheer it up. Games burn off weight and keep going until you press <b>C</b>.</li>
+                    <li><b>Clean</b> up messes, give <b>Medicine</b> when it is sick (sometimes it needs 2 or 3 doses), and use <b>Lights</b> for a nap when it is sleepy.</li>
+                    <li><b>Status</b> shows age and weight, food, happy, and your donuts.</li>
+                    <li>The light on the donut blinks when your pal needs you. While it sleeps, only Lights and Status work.</li>
+                    <li>Care for it on school days and it grows: egg, baby, child, teen, adult. Few care mistakes (leaving it hungry, sad or sick) and it grows into a well-raised adult; many and it turns out scruffy. It never gets worse than sick.</li>
+                    <li>Hold <b>C</b> and press <b>A</b> to turn beeps on or off.</li>
                 </ul>
             </details>
             <div className="donut-tools">
                 <p className="donut-tools-title">Preview only (pretend donuts, nothing saved to the server)</p>
-                <p className="donut-tools-clock">Pal time: {clock} · {pal.stage} · {donuts} pretend donuts</p>
+                <p className="donut-tools-clock">Pal time: {clock} · {pal.stage}{pal.form ? ` (${pal.form})` : ''} · {donuts} pretend donuts · care mistakes {pal.mistakes} · sound {sound ? 'on' : 'off'}</p>
                 <div className="donut-tools-row">
                     <button type="button" onClick={() => dispatch({ type: 'skip', ms: 3600000, realNow: Date.now() })}>+1 hour</button>
                     <button type="button" onClick={() => dispatch({ type: 'skip', ms: 6 * 3600000, realNow: Date.now() })}>+6 hours</button>

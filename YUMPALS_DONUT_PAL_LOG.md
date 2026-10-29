@@ -130,6 +130,101 @@ nothing is imported by the live app, and there are no server or database changes
 - Screenshots inspected at 320 and 390px (baby, adult Mossbit, food menu, status,
   lights out).
 
+## Round 2: checked against Bandai's Gen 1 manual
+
+Owner: "why not read the manual?" Round 1 was built from my general knowledge of
+the genre, without reading a manual. That was a mistake: the earlier YumPals plan
+already linked the official web manual
+(`tamagotchi-official.com/manual/toy/original/Original_webmanual.pdf`).
+
+- The PDF is scanned images, and the PDF tool needs software that isn't installed
+  here. The embedded page JPEGs were extracted to the scratchpad and read directly:
+  - Gen 1: pages 1–2 (Japanese) and page 8 (English).
+  - Pages 3–6 and 9–12 cover Gen 2 and Gen 3. Gen 2 has a different higher/lower
+    game, so they weren't used, matching the earlier plan.
+- No text was copied; only the rules were taken.
+
+What the Gen 1 manual sets out, and what the preview now does:
+
+| Manual (Gen 1) | Round 1 | Now |
+|---|---|---|
+| Egg hatches about 5 minutes after the clock is set | 1 minute | ACCEPTED: 5 minutes |
+| Hearts start empty, so the new pet calls you | started 2/2 | ACCEPTED: 0/0, the light comes on at hatching |
+| Feed: Meal or Snack; overfed pets refuse | meal +1 food; snack +1 food +1 happy | ACCEPTED: meal +1 food +1 weight; snack (cupcake) +1 happy +2 weight, refused when happy is full |
+| Status: age/weight, discipline, hunger, happy | age, food, happy, donuts | ACCEPTED: page 1 is age and weight (the discipline page is pending your decision) |
+| Game: 5 rounds, A left / B right, 3+ matches raises happy, score screen, keeps going until C | one game, no score | ACCEPTED: "misses VS wins" score screen, then the next game starts until C; each game burns 1 weight |
+| Medicine: sometimes 2–3 doses | 1 dose | ACCEPTED: 1–3 doses, set from the time it got sick so the server can agree |
+| Droppings must be cleaned or it gets sick | sick after 18 awake hours | unchanged: school timing (below) |
+| Lights: turn off when it sleeps; it switches them back on when it wakes | yes | unchanged |
+| While asleep, only Lights and Status work | Medicine also allowed | ACCEPTED: Lights and Status only |
+| Clock: B with nothing selected | none | ACCEPTED: 12-hour clock (Auckland) with AM/PM |
+| Sound: hold C and press A | none | ACCEPTED: square-wave beeps (press, a call when the light comes on, a tune on hatching or growing). Off by default for classrooms |
+| Good care from the start sets a good growth path; neglected discipline means a bad-mannered adult | growth by care days only | ACCEPTED: care mistakes decide the adult (below) |
+| Discipline icon, false calls, discipline meter | not included | NOT ADDED: owner's 6-icon decision; asked again |
+| Death or departure, then a new egg | not included | NOT ADDED: owner decision (sick, never dies) |
+| Attention icon on screen | amber light on the case | kept: the owner's choice of an attention light |
+
+Also added:
+
+- Care mistakes (counted from child to adult): food or happy left empty for 6
+  awake hours, or the pal getting sick.
+- A teen stage. Stages: egg → baby → child (2 care days) → teen (4) → adult (7).
+- The adult form: at most 4 mistakes gives a well-raised adult, more gives a
+  scruffy one. There are three new original scruffy sprites:
+  - Mossbit: droopy ears and a messy tuft.
+  - Pufflet: a jagged storm cloud with drips.
+  - Emberoo: a bent ear and a frazzled tail.
+
+  All scruffy pals have half-lidded eyes.
+- The base weight rises with each stage: 5, 10, 20, 30. A pal 15 or more over base
+  is "heavy" and refuses treats until games burn the weight off.
+- Kept as school adaptations, not from the manual:
+  - Slower timers paced for one visit per school day.
+  - Sleep pauses needs, and lights left on at night are never a mistake.
+  - The nap: after 3 games the pal is sleepy, and Lights gives a 20-minute nap and
+    +1 happy, so Lights has a use during the school day.
+  - The 3-treats-a-day cap and the donut price.
+
+Round 2 changes / disposition:
+
+- ACCEPTED — everything marked ACCEPTED above, in `donutPal.js`, `donutPalArt.js`
+  and `YumPalsDonutPreview.jsx`, plus How to play. The preview storage key is now
+  `-v2`, so round-1 saves start a new egg.
+- REFUSED (my bug, fixed) — holding C plus A first used a C flag cleared by a timer
+  after the pointer was released. In the full playthrough it got stuck "held", so a
+  later A key toggled the sound instead of selecting an icon. It now tracks the
+  actual pointers down on C, clears them on any pointer release, cancel or window
+  blur, and keeps the C key separate. The playthrough's sound checks pass.
+- REFUSED (test expectations, not code) — the scruffy unit test needed 7 care days,
+  not 6. The playthrough's keyboard check ran with Lights still selected. The
+  playthrough's growth check expected a well-raised adult, but it only fed the pal
+  each day (no play), so happy sat empty daily and it earned 7 mistakes and a
+  scruffy adult. That is the rule working, so the check now confirms the form
+  matches the mistake count.
+- FINDING — keeping happy above empty takes play, not just meals. Happy drops about
+  2 hearts per school day, and a game is won about half the time. A daily visit
+  with ~3 games plus the nap keeps it up. Food alone does not.
+
+Round 2 measured results:
+
+- `donutPal.test.js` 12/12. `donutPalArt.test.js` 5/5 (all 10 bodies × 12 faces
+  are 16×16; every screen, animation, score and clock frame is 32×16; scruffy
+  differs from well-raised).
+- Frontend 184/184, lint exit 0, `git diff --check` clean. Build exit 0, with the JS
+  bundle unchanged (933.89kB / 276.87kB gzip).
+- `donut-pal-check.mjs` 28/28:
+  - Hatches hungry and sad with the light on; meals stop at full.
+  - The game shows a result and starts the next game by itself; C stops it.
+  - Mess and the light, then clean.
+  - The treat cost; medicine refused when well.
+  - Sickness, then 2 doses to cure.
+  - Baby → child → teen → an adult matching its mistakes (scruffy, 7 mistakes).
+  - Asleep at night: no feeding, Status still works, lights off.
+  - Keyboard A; B with nothing selected shows the clock.
+  - Sound starts off, and hold C + A toggles it on and off.
+  - Layout at 320, 390 and 1280px; zero page errors.
+- The scruffy Mossbit screenshot was inspected at 390px.
+
 ## Not done yet (next steps, each needs owner approval)
 
 1. Owner playtest of this preview and any changes to the rules or look.

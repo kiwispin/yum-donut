@@ -44,6 +44,11 @@ const BODIES = {
         extra: [[7, 3], [7, 2], [8, 1], [9, 1], [8, 2], [2, 9], [13, 9], [1, 10], [14, 10], [5, 14], [6, 14], [9, 14], [10, 14]],
         eyes: [5, 10, 8], mouth: [7, 10],
     },
+    teen: {
+        rows: [[3, 5, 10], [4, 4, 11], [5, 3, 12], [6, 3, 12], [7, 2, 13], [8, 2, 13], [9, 2, 13], [10, 2, 13], [11, 2, 13], [12, 3, 12], [13, 4, 11]],
+        extra: [[5, 2], [4, 1], [10, 2], [11, 1], [1, 9], [14, 9], [4, 14], [5, 14], [10, 14], [11, 14]],
+        eyes: [5, 10, 7], mouth: [7, 10],
+    },
     mossbit: {
         rows: [[2, 5, 10], [3, 4, 11], [4, 3, 12], [5, 2, 13], [6, 2, 13], [7, 1, 14], [8, 1, 14], [9, 1, 14], [10, 1, 14], [11, 1, 14], [12, 2, 13], [13, 3, 12]],
         extra: [...[[1, 0], [2, 0], [1, 1], [2, 1], [3, 1], [2, 2], [3, 2]], ...mirror([[1, 0], [2, 0], [1, 1], [2, 1], [3, 1], [2, 2], [3, 2]]),
@@ -63,6 +68,26 @@ const BODIES = {
         eyes: [5, 10, 8], tall: true, mouth: [7, 11],
     },
 };
+
+// Scruffy adults: the same species after a lot of care mistakes, with droopy or
+// frazzled bits and a grumpy, half-lidded look.
+const DROOPY_EAR = [[1, 2], [0, 3], [1, 3], [0, 4], [0, 5]];
+Object.assign(BODIES, {
+    mossbitScruffy: {
+        ...BODIES.mossbit, grumpy: true,
+        extra: [...DROOPY_EAR, ...mirror(DROOPY_EAR), [6, 1], [7, 0], [9, 1], [10, 0], [4, 14], [5, 14], [10, 14], [11, 14]],
+    },
+    puffletScruffy: {
+        ...BODIES.pufflet, grumpy: true,
+        extra: [[5, 2], [7, 1], [9, 2], [11, 1], [4, 14], [7, 14], [10, 14], [13, 14]],
+    },
+    emberooScruffy: {
+        ...BODIES.emberoo, grumpy: true,
+        extra: [[5, 0], [4, 1], [4, 2], [4, 3], [4, 4], [6, 1], [6, 2], [6, 3], [6, 4],
+            [9, 4], [9, 3], [10, 2], [11, 2], [12, 3], [11, 4],
+            [14, 9], [15, 8], [15, 10], [14, 11], [15, 12], [3, 14], [4, 14], [5, 14], [10, 14], [11, 14], [12, 14]],
+    },
+});
 
 const EGG = (() => {
     const g = outline([[2, 6, 9], [3, 5, 10], [4, 4, 11], [5, 3, 12], [6, 3, 12], [7, 2, 13], [8, 2, 13], [9, 2, 13], [10, 2, 13], [11, 3, 12], [12, 3, 12], [13, 4, 11], [14, 5, 10]]);
@@ -108,7 +133,8 @@ export const FACES = {
 const spriteCache = new Map();
 export function bodyFor(pal) {
     if (pal.stage === 'egg') return 'egg';
-    return pal.stage === 'adult' ? pal.species : pal.stage;
+    if (pal.stage !== 'adult') return pal.stage;
+    return pal.form === 'scruffy' ? `${pal.species}Scruffy` : pal.species;
 }
 
 export function palSprite(body, face = 'idle') {
@@ -116,7 +142,8 @@ export function palSprite(body, face = 'idle') {
     const key = `${body}:${face}`;
     if (!spriteCache.has(key)) {
         const spec = BODIES[body] || BODIES.baby;
-        const [eyeKind, mouthKind] = FACES[face] || FACES.idle;
+        let [eyeKind, mouthKind] = FACES[face] || FACES.idle;
+        if (spec.grumpy && eyeKind === 'open') eyeKind = 'low';
         const g = plot(outline(spec.rows), spec.extra);
         plot(g, eyes(eyeKind, spec.eyes, spec.tall));
         plot(g, mouth(mouthKind, spec.mouth));
@@ -125,7 +152,7 @@ export function palSprite(body, face = 'idle') {
     return spriteCache.get(key);
 }
 
-export const BODY_NAMES = ['egg', 'baby', 'child', 'mossbit', 'pufflet', 'emberoo'];
+export const BODY_NAMES = ['egg', 'baby', 'child', 'teen', 'mossbit', 'pufflet', 'emberoo', 'mossbitScruffy', 'puffletScruffy', 'emberooScruffy'];
 
 export const PROPS = {
     mess: ['.#.#.', '#.#..', '..#..', '.###.', '#####'],
@@ -148,6 +175,7 @@ export const PROPS = {
     win: ['###', '###', '###'],
     lose: ['###', '#.#', '###'],
     pending: ['...', '.#.', '...'],
+    weight: ['.###.', '.#.#.', '#####', '#####', '#####'],
 };
 
 const FONT = {
@@ -155,7 +183,8 @@ const FONT = {
     3: ['###', '..#', '###', '..#', '###'], 4: ['#.#', '#.#', '###', '..#', '..#'], 5: ['###', '#..', '###', '..#', '###'],
     6: ['###', '#..', '###', '#.#', '###'], 7: ['###', '..#', '.#.', '.#.', '.#.'], 8: ['###', '#.#', '###', '#.#', '###'],
     9: ['###', '#.#', '###', '..#', '###'], A: ['.#.', '#.#', '###', '#.#', '#.#'], G: ['###', '#..', '#.#', '#.#', '###'],
-    E: ['###', '#..', '##.', '#..', '###'],
+    E: ['###', '#..', '##.', '#..', '###'], V: ['#.#', '#.#', '#.#', '#.#', '.#.'], S: ['###', '#..', '###', '..#', '###'],
+    P: ['##.', '#.#', '##.', '#..', '#..'], M: ['#...#', '##.##', '#.#.#', '#...#', '#...#'], ':': ['.', '#', '.', '#', '.'],
 };
 
 // The six care icons around the screen (8x8), in A-button order.
@@ -187,7 +216,11 @@ class Screen {
     }
     fill() { this.g = this.g.map(row => row.map(() => '#')); return this; }
     clearFrom(x) { for (const row of this.g) for (let i = Math.max(0, x); i < SCREEN_W; i++) row[i] = '.'; return this; }
-    text(value, x, y) { [...String(value)].forEach((ch, i) => FONT[ch] && this.draw(FONT[ch], x + i * 4, y)); return this; }
+    text(value, x, y) {
+        let cx = x;
+        for (const ch of String(value)) { const glyph = FONT[ch]; if (glyph) { this.draw(glyph, cx, y); cx += glyph[0].length + 1; } else cx += 2; }
+        return this;
+    }
     invert() { this.g = this.g.map(row => row.map(cell => cell === '#' ? '.' : '#')); return this; }
     rows() { return this.g.map(row => row.join('')); }
 }
@@ -262,6 +295,7 @@ export function animationFrames(pal, type, { reducedMotion = false } = {}) {
             }
             return [...frames, at('happy', 8).rows()];
         }
+        case 'dose': return [at('sick', 4).draw(PROPS.medicine, 23, 9), at('sick', 4).draw(PROPS.cloud, 18, 0), at('sick', 4)].map(f => f.rows());
         case 'medicine': return [at('sick', 4).draw(PROPS.medicine, 23, 9), at('idle', 4).draw(PROPS.medicine, 23, 9), at('happy', 8)].map(f => f.rows());
         case 'lightsOff': return [s().draw(palSprite(body, 'sleep'), 6, 0).draw(PROPS.z, 22, 1).rows(), lightsOutScreen(0)];
         case 'lightsOn': return [at('blink', 6).rows(), at('idle', 6).rows()];
@@ -287,12 +321,12 @@ export function drawFoodMenu(cursor) {
     return screen.rows();
 }
 
-// Status pages: age, food, happy, donuts.
+// Status pages, as in the manual: age and weight, food, happy; then your donuts.
 export const STATUS_PAGES = 4;
 export function drawStatus(pal, page, { donuts = 0, ms = pal.at } = {}) {
     const screen = new Screen();
     const hearts = (count, y) => { for (let i = 0; i < NEEDS_MAX; i++) screen.draw(i < count ? PROPS.heart : PROPS.heartEmpty, 3 + i * 7, y); };
-    if (page === 0) screen.text('AGE', 1, 2).text(Math.min(99, ageDays(pal, ms)), 1, 9).draw(palSprite(bodyFor(pal), 'idle'), 16, 0);
+    if (page === 0) screen.text('AGE', 1, 2).text(Math.min(99, ageDays(pal, ms)), 20, 2).draw(PROPS.weight, 5, 9).text(Math.min(99, pal.weight || 0), 20, 9);
     else if (page === 1) { screen.draw(PROPS.meal, 1, 1); hearts(pal.hunger, 10); }
     else if (page === 2) { screen.draw(PROPS.smile, 1, 0); hearts(pal.happy, 10); }
     else screen.draw(PROPS.donut, 1, 1).text(Math.min(999, donuts), 1, 9);
@@ -313,4 +347,16 @@ export function drawGame(pal, game, tick = 0) {
         if (tick % 2 === 0) screen.draw(PROPS.arrowLeft, 4, 6).draw(PROPS.arrowRight, 26, 6);
     }
     return screen.rows();
+}
+
+// After 5 rounds: misses VS wins, with a heart over your wins.
+export function drawGameScore(wins, rounds = 5) {
+    return new Screen().draw(PROPS.lose, 8, 2).draw(PROPS.heart, 19, 1).text(`${rounds - wins}VS${wins}`, 8, 8).rows();
+}
+
+// B with no icon picked shows the clock (Auckland time).
+export function drawClock(hour, minute) {
+    const h12 = hour % 12 || 12; const time = `${h12}:${String(minute).padStart(2, '0')}`;
+    const width = [...time].reduce((sum, ch) => sum + (FONT[ch]?.[0].length ?? 1) + 1, -1);
+    return new Screen().text(time, Math.floor((SCREEN_W - width) / 2), 2).text(hour < 12 ? 'AM' : 'PM', 12, 9).rows();
 }
