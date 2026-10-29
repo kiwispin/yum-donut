@@ -1,12 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { stashGifts } from './giftStash.js';
 
 export function confirmedVisibility(result, uid) {
   return result?.schemaVersion === 1 && result.ownerUid === uid && result.enabled === true;
 }
 
-export function useSavedVisibility({ eligible, uid, transport, refreshKey }) {
+// While `paused` (the Donut pal is open and doing its own reads) the timer, focus
+// and visibility refreshes are skipped, so the two never race on the pal record.
+// The last answer is kept, so pausing never hides the YumPals menu item.
+export function useSavedVisibility({ eligible, uid, transport, refreshKey, paused = false }) {
   const [confirmed, setConfirmed] = useState(null);
+  const pausedRef = useRef(paused);
+  useEffect(() => { pausedRef.current = paused; }, [paused]);
   useEffect(() => {
     let active = true;
     let request = 0;
@@ -23,7 +28,7 @@ export function useSavedVisibility({ eligible, uid, transport, refreshKey }) {
         if (active && request === current) setConfirmed(null);
       }
     };
-    const visible = () => { if (document.visibilityState === 'visible') void refresh(); };
+    const visible = () => { if (document.visibilityState === 'visible' && !pausedRef.current) void refresh(); };
     const settingsChanged = () => { setConfirmed(null); void refresh(); };
     void refresh();
     const timer = setInterval(visible, 60000);

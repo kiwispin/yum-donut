@@ -44,6 +44,24 @@ test('the game: each guess asks the host, the turn is revealed, and round 5 show
     assert.equal(run(s, ['C']).mode, 'room');
 });
 
+test('a quick tap during the reveal is not lost: it ends the reveal and sends the next guess', () => {
+    let s = run(INITIAL_UI, ['A'], ['A'], ['B'], ['A']);
+    s = run(s, ['result', { seq: s.intent.seq, result: { ok: true, target: 'left', complete: false, animation: 'right' } }]);
+    assert.ok(s.game.reveal, 'round 1 is showing');
+    s = run(s, ['B']);
+    assert.equal(s.game.reveal, null); assert.deepEqual(s.game.results, [true]);
+    assert.equal(s.intent.kind, 'guess'); assert.equal(s.intent.round, 1); assert.equal(s.intent.side, 'right'); assert.equal(s.intent.winsSoFar, 1);
+    // After round 5 the score screen comes first: a tap during that reveal waits.
+    for (let round = 1; round < 5; round++) {
+        s = run(s, ['result', { seq: s.intent.seq, result: { ok: true, target: 'right', complete: round === 4, animation: round === 4 ? 'happy' : 'right', pal: baby() } }]);
+        if (round < 4) s = run(s, ['A']);
+    }
+    assert.ok(s.game.ending);
+    assert.equal(run(s, ['A']).intent, null, 'no sixth guess');
+    s = run(s, ['tick'], ['tick'], ['tick']);
+    assert.equal(s.mode, 'anim');
+});
+
 test('C leaves a game even while a guess is on its way; its late answer is ignored', () => {
     let s = run(INITIAL_UI, ['A'], ['A'], ['B'], ['A']);
     const seq = s.intent.seq;

@@ -34,7 +34,7 @@ import {
     Trophy, Gift, Activity, MessageSquare,
     LogOut, UserPlus, Heart, Zap, Search, CheckCircle, Target, Sparkles,
 
-    Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock, Users, Skull, Trash2, Clock, Calendar, Edit2, RotateCcw, Landmark, PiggyBank, ArrowRight, UserCheck, Keyboard, Shield, Settings, Gamepad2, Cable, Monitor, ClipboardList, PawPrint
+    Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock, Users, Skull, Trash2, Clock, Calendar, Edit2, RotateCcw, Landmark, PiggyBank, ArrowRight, UserCheck, Keyboard, Shield, Settings, Gamepad2, Cable, Monitor, ClipboardList, PawPrint, Donut
 } from 'lucide-react';
 
 
@@ -1848,16 +1848,6 @@ function YumDonutDashboard() {
     const paidCareIdentity = useMemo(() => () => ({ uid: auth.currentUser?.uid, isAnonymous: auth.currentUser?.isAnonymous, sandbox: isSandbox }), [isSandbox]);
     const savedYumpalsEligible = paidRoutePolicy({ paid: ENABLE_YUMPALS_PAID_CARE, legacy: ENABLE_YUMPALS_CLOUD,
         uid: user?.uid, authUid: auth.currentUser?.uid, anonymous: auth.currentUser?.isAnonymous, sandbox: isSandbox }).savedAvailable;
-    const savedYumpalsAvailable = useSavedVisibility({ eligible: savedYumpalsEligible, uid: user?.uid,
-        transport: paidCareTransport, refreshKey: isAdminSettingsOpen });
-    // Gift-waiting dot on Pals / YumPals until today's visit; re-read when a visit is recorded.
-    useEffect(() => {
-        const bump = () => setPalVisitTick(tick => tick + 1);
-        window.addEventListener(PAL_VISITED_EVENT, bump);
-        return () => window.removeEventListener(PAL_VISITED_EVENT, bump);
-    }, []);
-    const palDot = useMemo(() => savedYumpalsAvailable && view !== 'yumpals-saved' && palGiftWaiting(user?.uid, currentDateKey),
-        [savedYumpalsAvailable, view, user?.uid, currentDateKey, palVisitTick]);
     // The teacher claim the server checks for Donut pal requests, read from this sign-in.
     const [pocketTeacher, setPocketTeacher] = useState({ uid: null, teacher: false });
     useEffect(() => {
@@ -1871,6 +1861,16 @@ function YumDonutDashboard() {
     }, [user?.uid]);
     const showDonutPal = donutPalShown({ mode: YUMPALS_POCKET_MODE, sandbox: isSandbox, uid: user?.uid,
         teacher: pocketTeacher.uid === user?.uid && pocketTeacher.teacher });
+    const savedYumpalsAvailable = useSavedVisibility({ eligible: savedYumpalsEligible, uid: user?.uid,
+        transport: paidCareTransport, refreshKey: isAdminSettingsOpen, paused: view === 'yumpals-saved' && showDonutPal });
+    // Gift-waiting dot on Pals / YumPals until today's visit; re-read when a visit is recorded.
+    useEffect(() => {
+        const bump = () => setPalVisitTick(tick => tick + 1);
+        window.addEventListener(PAL_VISITED_EVENT, bump);
+        return () => window.removeEventListener(PAL_VISITED_EVENT, bump);
+    }, []);
+    const palDot = useMemo(() => savedYumpalsAvailable && view !== 'yumpals-saved' && palGiftWaiting(user?.uid, currentDateKey),
+        [savedYumpalsAvailable, view, user?.uid, currentDateKey, palVisitTick]);
 
     const yumpalsRequestRef = useRef(0);
 
@@ -5159,7 +5159,7 @@ function PatchNotesModal({ onClose }) {
                         <h2 className="text-2xl font-bold flex items-center gap-2">
                             <Sparkles className="text-yellow-300" /> What's New
                         </h2>
-                        <p className="opacity-90 text-sm mt-1">Visit your pal every day for a free heart.</p>
+                        <p className="opacity-90 text-sm mt-1">Your YumPal has moved into a Donut!</p>
                     </div>
                     <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
                         <XCircle size={24} />
@@ -5168,6 +5168,19 @@ function PatchNotesModal({ onClose }) {
 
                 <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
                     <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                        <Donut className="text-pink-500" size={20} /> Your pal moved into a Donut!
+                    </h3>
+                    <p className="text-slate-600 text-sm">
+                        Your YumPal now lives in a pocket-sized donut, just like the classic keyring pets. It hatches from an egg with the same name and kind as before, so open YumPals and watch it hatch.
+                    </p>
+                    <p className="text-slate-600 text-sm">
+                        Care is free: feed it, play left-or-right, clean up, give medicine, and turn the lights off when it’s sleepy. A cupcake treat costs 1 donut. The light on the donut blinks when your pal needs you.
+                    </p>
+                    <p className="text-slate-600 text-sm">
+                        Look after it on school days and it grows: baby, child, teen, adult. Few care mistakes and it grows into a well-raised adult. It never gets worse than sick.
+                    </p>
+
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2 pt-2 border-t border-slate-100">
                         <Gift className="text-pink-500" size={20} /> A free gift every day you visit
                     </h3>
                     <p className="text-slate-600 text-sm">
@@ -5196,9 +5209,6 @@ function PatchNotesModal({ onClose }) {
                     </h3>
                     <p className="text-slate-600 text-sm">
                         Your own pixel pet to feed, play with and care for. Your pal’s needs change between visits, so check in each day to see how they’re doing.
-                    </p>
-                    <p className="text-slate-600 text-sm">
-                        Spend donuts on food, games and care. You’ll always see the price before you confirm—no donuts are spent while you’re away.
                     </p>
                     <p className="text-slate-600 text-sm">
                         Look for YumPals in the top navigation when it’s enabled for your school. Open “How to play” for the buttons, icons and care tips.

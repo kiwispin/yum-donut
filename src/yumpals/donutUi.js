@@ -77,10 +77,20 @@ function runIcon(state, ctx, index) {
     return care(state, ctx, icon);
 }
 
+// Records the revealed turn as a win or a loss.
+function commitReveal(game) {
+    const { guess: side, turn } = game.reveal;
+    return { ...game, results: [...game.results, side === turn], reveal: null, revealTicks: 0 };
+}
+
+// A guess tapped while the last turn is still showing ends that reveal and goes
+// straight on, so quick taps are never lost. After round 5 the score comes first.
 function guess(state, side, id) {
-    if (!state.game || state.game.reveal || state.intent) return state;
-    const { results } = state.game;
-    return startIntent(state, { kind: 'guess', gameId: state.game.id, round: results.length, side, winsSoFar: results.filter(Boolean).length }, id);
+    if (!state.game || state.intent) return state;
+    if (state.game.reveal && state.game.ending) return state;
+    const game = state.game.reveal ? commitReveal(state.game) : state.game;
+    const { results } = game;
+    return startIntent({ ...state, game }, { kind: 'guess', gameId: game.id, round: results.length, side, winsSoFar: results.filter(Boolean).length }, id);
 }
 
 function finishAnimation(state, ctx) {
@@ -107,15 +117,14 @@ export function donutUiReducer(state, action) {
                 return i >= next.anim.frames.length ? finishAnimation(next, ctx) : { ...next, anim: { ...next.anim, i } };
             }
             if (next.mode === 'game' && next.game.reveal && --next.game.revealTicks <= 0) {
-                const { guess: side, turn } = next.game.reveal;
-                const results = [...next.game.results, side === turn];
+                const game = commitReveal(next.game);
                 const { ending } = next.game;
                 if (ending) {
                     const pal = ending.pal || ctx.pal;
-                    const score = drawGameScore(results.filter(Boolean).length, GAME_ROUNDS);
+                    const score = drawGameScore(game.results.filter(Boolean).length, GAME_ROUNDS);
                     return play(next, [score, score, score, ...animationFrames(pal, ending.ok ? ending.animation : 'no')], gameMessage(ending, pal), 'game');
                 }
-                return { ...next, game: { ...next.game, results, reveal: null, revealTicks: 0 } };
+                return { ...next, game };
             }
             if (next.mode === 'room' && !ctx.reducedMotion && !ctx.pal.sick && !ctx.pal.sleepy) {
                 const r = ctx.random;
