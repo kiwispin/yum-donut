@@ -64,3 +64,25 @@ Baseline: `63cd646` (`main`, live). Branch `codex/yumpals-bottom-spacing`.
   compact and even.
 - Frontend suite 167/167, lint exit 0, `git diff --check` clean, build exit 0. CSS
   95.56kB / 17.41kB gzip; JS 933.89kB / 276.87kB gzip.
+
+## Release
+
+- Owner approved. `main` fast-forwarded to `c8ab9fc` (also on
+  `codex/yumpals-only-release`). Rollback tag
+  `codex/yumpals-bottom-spacing-baseline-20261029` → `63cd646`. Atomic push, and the
+  remote IDs were verified.
+- RELEASE VERIFIED — published with `npm run deploy` as `gh-pages` commit `8e01d05`,
+  live after ~60s. Live `index.html` is byte-identical to the build; JS
+  `index-DTBnI_tO.js` (MD5 `a07309f2d657562f71b5385948a39fb7`) and CSS
+  `index-XvdZ1VS3.css` (MD5 `9ffc851b2ceb3aa1d4cfd036299e596b`) match locally.
+- Live, signed in as the owner:
+  - 390×844: visible gaps 13 / 11 / 18 / 19 / 26px; 215px below the handheld (was
+    324px), matching the test page exactly.
+  - Real mouse hovers on Clean, Health and status, Gentle discipline and Attention
+    showed their one-line cues and moved nothing.
+  - 1280×900: the same gaps and 215px; no failed requests. Screenshots at both
+    sizes inspected.
+  - An earlier scripted-focus hover check was inconclusive, because the pane was
+    not the focused window so the hint did not change. It was replaced by the real
+    hovers above.
+- Rollback: rebuild and publish `codex/yumpals-bottom-spacing-baseline-20261029`.
