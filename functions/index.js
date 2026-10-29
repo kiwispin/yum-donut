@@ -82,8 +82,10 @@ exports.yumpalsGetPaidSettings = onCall({ region: 'us-central1' }, paidSettingsH
 exports.yumpalsUpdatePaidSettings = onCall({ region: 'us-central1' }, paidSettingsHandlers.updateSettings);
 
 const YUMPALS_PAID_CARE_READY = defineBoolean('YUMPALS_PAID_CARE_READY', { default: false });
+// Donut pal for everyone; while false only the teacher (yumpalsAdmin) can use it.
+const YUMPALS_POCKET_READY = defineBoolean('YUMPALS_POCKET_READY', { default: false });
 const savedYumPals = createAppConnection({ db: admin.firestore(), authAdmin: admin.auth(), HttpsError,
-  ready: () => YUMPALS_PAID_CARE_READY.value() });
+  ready: () => YUMPALS_PAID_CARE_READY.value(), pocketReady: () => YUMPALS_POCKET_READY.value() });
 exports.yumpalsGetPaidCareState = withPreflightCache(onCall({ region: 'us-central1' }, savedYumPals.paid.getState));
 exports.yumpalsPurchaseCare = withPreflightCache(onCall({ region: 'us-central1' }, savedYumPals.paid.purchase));
 exports.yumpalsGetSavedGame = withPreflightCache(onCall({ region: 'us-central1' }, savedYumPals.game.getGame));

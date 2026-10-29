@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "deploy": "gh-pages -d dist",
+    "sync:donut-pal": "node scripts/sync-donut-pal.mjs"
   },
   "dependencies": {
     "firebase": "^12.6.0",

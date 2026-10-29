@@ -1,6 +1,7 @@
-// Donut pal care rules (preview only; no server). Pure functions over a plain state
-// object, so the server can later run the same rules. Time is in real milliseconds
-// and the pal lives on Auckland time.
+// Donut pal care rules. Pure functions over a plain state object, shared by the
+// app and the server: functions/src/yumpals/donutPal.js is generated from this
+// file (npm run sync:donut-pal) and a test fails if the two ever differ. Time is in
+// real milliseconds and the pal lives on Auckland time.
 //
 // Checked against Bandai's Gen 1 manual (care icons, empty hearts at hatching,
 // meal and snack, the left/right game of 5, 1-3 medicine doses, Lights and Status
@@ -52,17 +53,25 @@ export function aucklandParts(ms) {
     return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour), minute: Number(parts.minute) };
 }
 
-// Auckland's offset is a whole number of hours, so night is the same for every
-// minute of a UTC hour; caching per hour keeps a long catch-up fast.
-const nightByHour = new Map();
-export function isNight(ms) {
+// Auckland's offset is a whole number of hours, so the date and night are the same
+// for every minute of a UTC hour; caching per hour keeps a long catch-up fast.
+const byHour = new Map();
+function hourInfo(ms) {
     const hourKey = Math.floor(ms / 3600000);
-    if (!nightByHour.has(hourKey)) {
-        if (nightByHour.size > 5000) nightByHour.clear();
-        const { hour } = aucklandParts(ms);
-        nightByHour.set(hourKey, hour >= NIGHT_FROM || hour < NIGHT_UNTIL);
+    if (!byHour.has(hourKey)) {
+        if (byHour.size > 5000) byHour.clear();
+        const { date, hour } = aucklandParts(ms);
+        byHour.set(hourKey, { date, night: hour >= NIGHT_FROM || hour < NIGHT_UNTIL });
     }
-    return nightByHour.get(hourKey);
+    return byHour.get(hourKey);
+}
+
+export function isNight(ms) {
+    return hourInfo(ms).night;
+}
+
+export function aucklandDate(ms) {
+    return hourInfo(ms).date;
 }
 
 export function createDonutPal({ name = 'Pal', species = 'mossbit', nowMs }) {
@@ -120,10 +129,12 @@ function stepMinute(pal, ms) {
         }
         return;
     }
-    const wasNight = isNight(ms - MINUTE); const night = isNight(ms);
-    if (wasNight && !night) wakeUp(pal, ms);
-    if (pal.napUntil && ms >= pal.napUntil && ms - MINUTE < pal.napUntil) {
-        pal.sleepy = false; pal.gamesInRow = 0; pal.lightsOff = false;
+    const night = isNight(ms);
+    // The first awake minute of each day is the morning (normally 7am, later if a
+    // rest day froze the morning), so growing up is never skipped.
+    if (!night && pal.wakeDate !== aucklandDate(ms)) wakeUp(pal, ms);
+    if (pal.napUntil && ms >= pal.napUntil) {
+        pal.napUntil = 0; pal.sleepy = false; pal.gamesInRow = 0; pal.lightsOff = false;
         pal.happy = Math.min(NEEDS_MAX, pal.happy + 1);
         pal.events.push({ type: 'napped', at: ms });
     }
@@ -142,6 +153,7 @@ function stepMinute(pal, ms) {
 // Morning: lights back on, a fresh game streak, and growing up if enough good
 // care days have passed. A sick pal waits (neglect slows growth).
 function wakeUp(pal, ms) {
+    pal.wakeDate = aucklandDate(ms);
     pal.lightsOff = false; pal.gamesInRow = 0; pal.sleepy = false;
     const next = NEXT_STAGE[pal.stage];
     if (!next || pal.sick || careDays(pal) < GROW_AT[pal.stage]) return;
@@ -152,13 +164,15 @@ function wakeUp(pal, ms) {
     pal.events.push({ type: 'grew', stage: next, form: pal.form, at: ms });
 }
 
-// Catch up minute by minute (at most 14 days), exactly like a pocket pet left in a bag.
-export function advance(pal, nowMs) {
+// Catch up minute by minute (at most 14 days), exactly like a pocket pet left in a
+// bag. `isFrozen(ms)` marks rest time (holidays, Holiday Mode, YumPals switched
+// off): those minutes pass with no change at all.
+export function advance(pal, nowMs, { isFrozen = () => false } = {}) {
     if (nowMs <= pal.at) return pal;
     const next = clone(pal);
     const minutes = Math.min(MAX_CATCH_UP_MINUTES, Math.floor((nowMs - pal.at) / MINUTE));
     let ms = pal.at;
-    for (let i = 0; i < minutes; i++) { ms += MINUTE; stepMinute(next, ms); }
+    for (let i = 0; i < minutes; i++) { ms += MINUTE; if (!isFrozen(ms)) stepMinute(next, ms); }
     next.at = minutes === MAX_CATCH_UP_MINUTES ? nowMs : ms;
     return next;
 }
@@ -179,8 +193,8 @@ function refuse(pal, reason) {
 
 // Every action returns { pal, ok, animation, reason?, cost? }. Care is free; the
 // snack treat is the only thing that costs donuts.
-export function act(pal, action, { nowMs, donuts = 0, wins = 0 } = {}) {
-    const current = advance(pal, nowMs);
+export function act(pal, action, { nowMs, donuts = 0, wins = 0, isFrozen } = {}) {
+    const current = advance(pal, nowMs, { isFrozen });
     if (current.stage === 'egg') return refuse(current, 'egg');
     // The manual allows only Lights (and Status, which changes nothing) while asleep.
     if (isAsleep(current, nowMs) && action !== 'lights') return refuse(current, 'asleep');

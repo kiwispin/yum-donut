@@ -1,13 +1,16 @@
 // Internal factory only. No default/live resolvers or deployed exports.
 const { createPaidCareService } = require('./paidCareService');
+const { createPocketService, isPocketRequest } = require('./pocketService');
 const { requireValue } = require('./paidCareEngine');
 
 const REASONS = ['ROLLOUT_NOT_READY', 'MIGRATION_REQUIRED', 'CORRUPT_STATE', 'CORRUPT_RECEIPT', 'CORRUPT_REFUSAL',
   'OPERATION_CONFLICT', 'CONFIG_MISSING', 'INVALID_CONFIG', 'INVALID_CALENDAR', 'INVALID_PAUSES', 'INVALID_DATE',
   'INVALID_CLOCK', 'CLOCK_REVERSED', 'CALENDAR_HISTORY_CHANGED', 'PAUSE_HISTORY_CHANGED',
   'TRUSTED_MAPPING_REQUIRED', 'INVALID_WALLET_MAPPING', 'WALLET_MIRROR_MISSING', 'WALLET_OWNER_CONFLICT',
-  'INVALID_WALLET_BALANCE', 'WALLET_BALANCE_CONFLICT', 'CORRUPT_WALLET', 'INVALID_WALLET_DEBIT'];
-const INVALID = ['INVALID_REQUEST', 'INVALID_OPERATION', 'INVALID_ACTION', 'INVALID_CONFIG_VERSION', 'INVALID_CONFIG_HASH', 'INVALID_ADOPTION'];
+  'INVALID_WALLET_BALANCE', 'WALLET_BALANCE_CONFLICT', 'CORRUPT_WALLET', 'INVALID_WALLET_DEBIT',
+  // Donut pal (pocket) requests.
+  'POCKET_NOT_READY', 'CORRUPT_POCKET', 'CORRUPT_ACT', 'NO_PET', 'GAME_ROUND_CONFLICT', 'INVALID_GAME_TARGET'];
+const INVALID = ['INVALID_REQUEST', 'INVALID_OPERATION', 'INVALID_ACTION', 'INVALID_CONFIG_VERSION', 'INVALID_CONFIG_HASH', 'INVALID_ADOPTION', 'INVALID_POCKET_REQUEST'];
 const pick = (value, keys) => Object.fromEntries(keys.map(key => [key, value[key]]));
 function projectOutcome(result) {
   const source = result.receipt || result.refusal;
@@ -21,16 +24,21 @@ function projectOutcome(result) {
   return { outcome: { ...common, request, ...pick(source, ['action', 'amount', 'configVersion', 'configHash', 'walletBefore', 'walletAfter']), benefit }, duplicate: result.duplicate,
     ...(result.state ? { state: result.state } : {}) };
 }
-function createPaidCareCallables({ db, refs, walletAdapter, HttpsError, ready, now, elapsedCare = false }) {
+// { pocket: 1 } requests go to the Donut pal service (when its refs are wired);
+// every other request takes the unchanged paid-care path.
+function createPaidCareCallables({ db, refs, walletAdapter, HttpsError, ready, now, elapsedCare = false, pocketReady = () => false, chooseTarget }) {
   requireValue(typeof refs?.refusal === 'function', 'REFUSAL_RESOLVER_REQUIRED');
   const service = createPaidCareService({ db, refs, walletAdapter, now, elapsedCare });
-  const wrap = (method, project = value => value) => async request => {
+  const pocket = refs.pocketAct && refs.pocketMove ? createPocketService({ db, refs, walletAdapter, now, pocketReady, ...(chooseTarget ? { chooseTarget } : {}) }) : null;
+  const route = (method, pocketMethod, project = value => value) => request =>
+    (pocket && isPocketRequest(request) ? pocket[pocketMethod](request) : service[method](request).then(project));
+  const wrap = handle => async request => {
     try {
       const uid = request?.auth?.uid; const provider = request?.auth?.token?.firebase?.sign_in_provider;
       requireValue(typeof uid === 'string' && uid.length > 0 && uid.length <= 128 && !uid.includes('/')
         && typeof provider === 'string' && provider.length > 0 && provider !== 'anonymous', 'UNAUTHENTICATED');
       requireValue(typeof ready === 'function' && ready() === true, 'ROLLOUT_NOT_READY');
-      return project(await service[method](request));
+      return await handle(request);
     } catch (error) {
       const known = typeof error?.code === 'string';
       const reason = known && (REASONS.includes(error.code) || INVALID.includes(error.code) || error.code === 'UNAUTHENTICATED') ? error.code : 'UNAVAILABLE';
@@ -42,6 +50,6 @@ function createPaidCareCallables({ db, refs, walletAdapter, HttpsError, ready, n
       throw new HttpsError(code, message, { reason });
     }
   };
-  return { getState: wrap('getHandheldState'), purchase: wrap('purchase', projectOutcome) };
+  return { getState: wrap(route('getHandheldState', 'getState')), purchase: wrap(route('purchase', 'act', projectOutcome)) };
 }
 module.exports = { createPaidCareCallables };
