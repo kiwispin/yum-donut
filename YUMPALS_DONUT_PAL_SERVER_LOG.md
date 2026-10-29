@@ -134,8 +134,32 @@ on the preview branch `codex/yumpals-donut-pal` (`5874bfb`, see
 
 ## Release
 
-- Not deployed yet. Shown to the owner first.
-- Planned deploy, updating only the two existing endpoints:
+- Owner approved the deploy (shown first).
+- Rollback tag `codex/donut-pal-server-baseline-20261029` → `df439c8`.
+- `main` fast-forwarded to `1d1aaf4`. On `main`: frontend 185/185, server 179/179,
+  both lints exit 0.
+- Atomic push of `main`, `codex/yumpals-only-release` and the tag. Remote IDs
+  verified: both branches at `1d1aaf4`, and the tag at `df439c8` (also checked
+  with `ls-remote`).
+- Firebase tools signed in as the owner's personal account (Editor), with
+  `yum-donut-school` listed.
+- RELEASE VERIFIED — the deploy below gave "Successful update operation" for both
+  functions (Node.js 22, us-central1, 185.29 KB source). `functions:list`
+  afterwards still lists all 10 functions:
+  - `resetStudentPassword` and `teamsBot`.
+  - 8 YumPals functions: `yumpalsChooseSavedGame`, `yumpalsGetPaidCareState`,
+    `yumpalsGetPaidSettings`, `yumpalsGetSavedGame`, `yumpalsManageStudentAccount`,
+    `yumpalsPurchaseCare`, `yumpalsSetHolidayMode`, `yumpalsUpdatePaidSettings`.
+- Live check in the browser pane, signed in as the owner (Mr Rayner, Admin):
+  - The current YumPals loaded the owner's pal normally: Fizzgig, 16 donuts, "Care
+    today: 2 / 25", asleep at night, no alerts.
+  - `yumpalsGetPaidCareState` returned 200 twice (the background check and opening
+    YumPals).
+  - The pal was not moved: the current app sends no pocket requests.
+- Not checked live: an old-style care purchase, which would spend the owner's real
+  donuts. The purchase endpoint was updated from the same upload, and its old path
+  is covered by the tests. Its first live use comes in Release 2.
+- Deploy, updating only the two existing endpoints:
   `npx --yes firebase-tools@15.34.1 deploy --only functions:teams:yumpalsGetPaidCareState,functions:teams:yumpalsPurchaseCare --project yum-donut-school --non-interactive`
 - Live check after deploying:
   - The current app still loads and buys care exactly as before (owner's account,
