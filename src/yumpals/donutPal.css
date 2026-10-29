@@ -1,0 +1,232 @@
+/* Donut pal preview: a glazed-donut pocket pet with a dot-matrix screen. */
+.donut-pal {
+  --d: min(calc(100vw - 32px), 360px);
+  --dough: #e0a466;
+  --dough-dark: #b97a3f;
+  --bezel: #3b2f45;
+  --glass: #b7c49e;
+  --ink: #232b1c;
+  --cream: #fff4e6;
+  --glaze: #f48fb1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0 24px;
+  color: #1f2937;
+  font-family: inherit;
+}
+
+.donut-pal-name {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.donut-device {
+  position: relative;
+  width: var(--d);
+  height: calc(var(--d) * 1.08);
+  flex: none;
+}
+
+.donut-loop {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: calc(var(--d) * 0.11);
+  height: calc(var(--d) * 0.11);
+  transform: translateX(-50%);
+  border: calc(var(--d) * 0.016) solid #9aa1ab;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px #6b7280, 0 0 0 1px #6b7280;
+}
+
+.donut-body {
+  position: absolute;
+  top: calc(var(--d) * 0.08);
+  left: 0;
+  width: var(--d);
+  height: var(--d);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f1bd84, var(--dough) 55%, var(--dough-dark));
+  box-shadow: 0 10px 18px rgb(91 52 24 / 0.28), inset 0 -8px 14px rgb(91 52 24 / 0.25);
+}
+
+.donut-glaze {
+  position: absolute;
+  inset: 8%;
+  border-radius: 49% 51% 47% 53% / 52% 47% 53% 48%;
+  background: var(--glaze);
+  box-shadow: inset 0 -6px 10px rgb(0 0 0 / 0.12), inset 0 6px 10px rgb(255 255 255 / 0.35);
+}
+
+.donut-sprinkle {
+  position: absolute;
+  width: 4.2%;
+  height: 1.4%;
+  border-radius: 999px;
+  background: #fff;
+}
+.donut-sprinkle.c1 { background: #7ad3f7; }
+.donut-sprinkle.c2 { background: #ffe066; }
+.donut-sprinkle.c3 { background: #9b5de5; }
+
+.donut-shine {
+  position: absolute;
+  top: 9%;
+  left: 14%;
+  width: 34%;
+  height: 22%;
+  border-radius: 50%;
+  border-top: calc(var(--d) * 0.018) solid rgb(255 255 255 / 0.55);
+  transform: rotate(-28deg);
+}
+
+.donut-led {
+  position: absolute;
+  top: calc(var(--d) * 0.402);
+  left: calc(var(--d) * 0.842);
+  width: calc(var(--d) * 0.035);
+  height: calc(var(--d) * 0.035);
+  border-radius: 50%;
+  background: #8a5a2e;
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.4);
+}
+.donut-led.is-on {
+  background: #ffb703;
+  box-shadow: 0 0 8px 2px rgb(255 183 3 / 0.8);
+  animation: donut-blink 1.2s steps(2, jump-none) infinite;
+}
+@keyframes donut-blink { 50% { background: #a86b00; box-shadow: none; } }
+
+.donut-screen {
+  position: absolute;
+  top: calc(var(--d) * 0.235);
+  left: 21%;
+  width: 58%;
+  padding: calc(var(--d) * 0.022);
+  border-radius: calc(var(--d) * 0.05);
+  background: var(--bezel);
+  /* The screen sits in the donut's hole: a band of dough around the bezel. */
+  box-shadow: 0 0 0 calc(var(--d) * 0.022) var(--dough), 0 0 0 calc(var(--d) * 0.03) var(--dough-dark), inset 0 2px 4px rgb(0 0 0 / 0.5);
+  box-sizing: border-box;
+}
+
+.donut-glass {
+  display: grid;
+  gap: calc(var(--d) * 0.008);
+  padding: calc(var(--d) * 0.012);
+  border-radius: calc(var(--d) * 0.025);
+  background: var(--glass);
+  box-shadow: inset 0 2px 5px rgb(0 0 0 / 0.25);
+}
+
+.donut-icons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.donut-icon {
+  display: grid;
+  place-items: center;
+  min-height: 32px;
+  padding: 2px 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.25;
+  -webkit-tap-highlight-color: transparent;
+}
+.donut-icon.is-selected { opacity: 1; }
+.donut-icon:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+.donut-icon-pixels {
+  display: grid;
+  width: calc(var(--d) * 0.06);
+  aspect-ratio: 1;
+}
+
+.donut-lcd {
+  position: relative;
+  display: grid;
+  aspect-ratio: 2 / 1;
+}
+/* Thin gaps between dots give the dot-matrix look. */
+.donut-lcd::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, var(--glass) 0.7px, transparent 0.7px),
+    linear-gradient(to bottom, var(--glass) 0.7px, transparent 0.7px);
+  background-size: calc(100% / 32) calc(100% / 16);
+}
+
+.donut-buttons {
+  position: absolute;
+  top: calc(var(--d) * 0.81);
+  left: 50%;
+  display: flex;
+  gap: calc(var(--d) * 0.05);
+  transform: translateX(-50%);
+}
+
+.donut-button {
+  width: max(40px, calc(var(--d) * 0.12));
+  height: max(40px, calc(var(--d) * 0.12));
+  border: 2px solid #a0727a;
+  border-radius: 50%;
+  background: var(--cream);
+  color: #7a4b55;
+  font-weight: 800;
+  font-size: 0.85rem;
+  cursor: pointer;
+  box-shadow: 0 4px 0 #a0727a;
+  -webkit-tap-highlight-color: transparent;
+}
+.donut-button:nth-child(2) { transform: translateY(6px); }
+.donut-button:active { box-shadow: 0 1px 0 #a0727a; translate: 0 3px; }
+.donut-button:focus-visible { outline: 3px solid var(--bezel); outline-offset: 2px; }
+
+.donut-caption {
+  min-height: 1.4em;
+  margin: 6px 0 0;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.donut-help {
+  width: min(100%, 420px);
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  padding: 8px 14px;
+}
+.donut-help summary { cursor: pointer; font-weight: 700; }
+.donut-help ul { margin: 8px 0 4px; padding-left: 1.1em; font-size: 0.9rem; line-height: 1.45; }
+
+.donut-tools {
+  width: min(100%, 420px);
+  border: 2px dashed #cbd5e1;
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+}
+.donut-tools p { margin: 0 0 6px; }
+.donut-tools-title { font-weight: 700; color: #64748b; }
+.donut-tools-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; align-items: center; }
+.donut-tools button, .donut-tools select {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 4px 8px;
+  font: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .donut-led.is-on { animation: none; }
+}
