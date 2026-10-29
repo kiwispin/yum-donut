@@ -151,8 +151,31 @@ Baseline: `29e2ba7` (`main`, live: Release 1 server plus its log). Branch
   - Reads and a free action (Lights) both work live.
   - Students still get the current handheld: the teacher-only build switch, and
     `YUMPALS_POCKET_READY=false` on the server.
-- Still to check in daytime (from 7am): feeding, the game and, optionally, one
-  1-donut treat.
+- DAYTIME CHECK VERIFIED — Friday 30 October, 7:12am Auckland.
+  - The browser pane had restarted overnight and was signed out; the owner signed
+    in again.
+  - The YumPals menu item showed the gift-waiting dot, which cleared on opening.
+  - Fizzgig was awake: "a baby. Food 3 of 4, happy 2 of 4, weight 6". Sleep had
+    paused the meters overnight.
+  - Free meal: `yumpalsPurchaseCare` 200 in 1,150ms, "Yum!", food 4 of 4,
+    weight 7, no donuts spent.
+  - 5-round game: all 5 guesses returned 200 (906, 884, 835, 2,743 and 939ms). The
+    result was "Close! Win 3 of 5 to cheer your pal up.": under 3 wins, so happy
+    stayed at 2 and the game burned 1 weight (7 → 6). The next game started by
+    itself, and C stopped it.
+  - No treat was bought (the owner did not ask to spend a real donut).
+- Speed: actions took 0.8–1.2s, so last night's 3.2–3.8s was start-up after the
+  deploy. The 2.7s guess coincided with a background read of the same pal record,
+  a contention retry that now succeeds.
+- FINDING (for Release 3):
+  - Presses during the 3-tick reveal of a guess are ignored by design, so a quick
+    tap after a slow reply did nothing. My fifth tap landed then, and the round
+    needed a second tap. Possible improvement: accept the next guess as soon as
+    the reveal starts.
+  - The current app's once-a-minute background read still runs alongside the Donut
+    pal, so the two can race on the pal record and slow each other. Possible
+    improvement: when the Donut pal is shown, its own read serves the background
+    check.
 - Plan:
   1. Tag `main` (`29e2ba7`) as the rollback point.
   2. Merge this branch into `main`.
