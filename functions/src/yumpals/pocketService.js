@@ -104,6 +104,20 @@ function createPocketService({ db, refs, walletAdapter, now = Date.now, pocketRe
   requireValue(db && typeof db.runTransaction === 'function' && ['config', 'pet', 'pocketAct', 'pocketMove'].every(key => typeof refs?.[key] === 'function')
     && typeof walletAdapter?.read === 'function' && typeof walletAdapter.debit === 'function' && typeof chooseTarget === 'function', 'INVALID_DEPENDENCIES');
 
+  // Firestore reuses its Transaction object when it retries a contended
+  // transaction, but the wallet adapter allows one read per transaction. Give
+  // every attempt its own object, as paidCareService does.
+  const runTransaction = callback => db.runTransaction(raw => {
+    const attempt = {};
+    for (const method of ['get', 'getAll', 'set', 'update', 'create', 'delete']) {
+      if (typeof raw[method] === 'function') attempt[method] = (...args) => {
+        const result = raw[method](...args);
+        return result === raw ? attempt : result;
+      };
+    }
+    return callback(attempt);
+  });
+
   // Teacher-only until YUMPALS_POCKET_READY is switched on for everyone.
   function authorize(request) {
     const uid = request.auth.uid;
@@ -186,7 +200,7 @@ function createPocketService({ db, refs, walletAdapter, now = Date.now, pocketRe
       const uid = authorize(request);
       readRequest(request.data);
       const nowMs = now(); aucklandNow(nowMs);
-      return db.runTransaction(async transaction => {
+      return runTransaction(async transaction => {
         const { config, pet, extra } = await load(transaction, uid, refs.giving ? [refs.giving(uid)] : []);
         const wallet = await readWallet(transaction, uid);
         if (!pet) return view(uid, config, nowMs, null, null, wallet);
@@ -222,7 +236,7 @@ function createPocketService({ db, refs, walletAdapter, now = Date.now, pocketRe
       const data = actRequest(request.data);
       const binding = digest(data);
       const nowMs = now(); aucklandNow(nowMs);
-      return db.runTransaction(async transaction => {
+      return runTransaction(async transaction => {
         const { config, pet, extra: [priorSnap] } = await load(transaction, uid, [refs.pocketAct(uid, data.operationId)]);
         const wallet = await readWallet(transaction, uid);
         const current = pet ? pocketOf(pet, uid, nowMs) : null;

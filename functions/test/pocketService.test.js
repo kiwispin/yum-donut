@@ -199,3 +199,34 @@ test('two weeks away catches up quickly', async () => {
   assert.ok(performance.now() - started < 1000);
   assert.equal(view.pal.state.sick, true);
 });
+
+// Real Firestore retries a contended transaction with the same Transaction object,
+// and the live wallet adapter refuses a second read on one transaction. Opening
+// YumPals sends the current app's background read and the Donut pal read together,
+// both writing the pal record, so one of them retries.
+test('a retried transaction (same Firestore object, as live) still reads the wallet once per attempt', async () => {
+  const f = pocketSetup();
+  const realRun = f.db.runTransaction.bind(f.db);
+  let contended = false;
+  f.db.runTransaction = callback => {
+    let shared = null;
+    return realRun(transaction => {
+      shared = shared || transaction; // the same object on every attempt
+      Object.assign(shared, transaction);
+      return Promise.resolve(callback(shared)).then(result => {
+        if (!contended) { contended = true; f.db.seed('fixture/other', { bump: 1 }); f.db.seed(PET, f.db.read(PET)); }
+        return result;
+      });
+    });
+  };
+  const seen = new WeakSet();
+  const read = f.walletAdapter.read;
+  f.walletAdapter.read = async (transaction, uid) => {
+    if (seen.has(transaction)) throw Object.assign(new Error('WALLET_ALREADY_READ'), { code: 'WALLET_ALREADY_READ' });
+    seen.add(transaction);
+    return read(transaction, uid);
+  };
+  const view = await f.read();
+  assert.equal(contended, true, 'the first attempt was retried');
+  assert.equal(view.pal.state.stage, 'egg');
+});

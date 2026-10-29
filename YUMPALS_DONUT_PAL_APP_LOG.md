@@ -139,7 +139,12 @@ Baseline: `29e2ba7` (`main`, live: Release 1 server plus its log). Branch
   `index-DUJnJVjF.js` (MD5 `0ed4f6d049cd1fdd6020a7066b675ced`) and CSS
   `index-_syYZOv-.css` (MD5 `f843178879bc578ccba70674cdd48528`) are byte-identical
   to the build.
-- The owner's live check (first move of a real pal) follows below.
+- LIVE CHECK FOUND A SERVER FAULT:
+  - On a fresh load of the new script, the first Donut pal read returned 503
+    because a contended Firestore retry reused its transaction object.
+  - Fixed on the server; see `YUMPALS_DONUT_PAL_RETRY_FIX_LOG.md`.
+  - The site itself needed no change.
+  - The live check is repeated after that fix is deployed.
 - Plan:
   1. Tag `main` (`29e2ba7`) as the rollback point.
   2. Merge this branch into `main`.
