@@ -160,7 +160,7 @@ What the Gen 1 manual sets out, and what the preview now does:
 | Clock: B with nothing selected | none | ACCEPTED: 12-hour clock (Auckland) with AM/PM |
 | Sound: hold C and press A | none | ACCEPTED: square-wave beeps (press, a call when the light comes on, a tune on hatching or growing). Off by default for classrooms |
 | Good care from the start sets a good growth path; neglected discipline means a bad-mannered adult | growth by care days only | ACCEPTED: care mistakes decide the adult (below) |
-| Discipline icon, false calls, discipline meter | not included | NOT ADDED: owner's 6-icon decision; asked again |
+| Discipline icon, false calls, discipline meter | not included | NOT ADDED: deferred, owner agreed (see below) |
 | Death or departure, then a new egg | not included | NOT ADDED: owner decision (sick, never dies) |
 | Attention icon on screen | amber light on the case | kept: the owner's choice of an attention light |
 
@@ -224,6 +224,16 @@ Round 2 measured results:
   - Sound starts off, and hold C + A toggles it on and off.
   - Layout at 320, 390 and 1280px; zero page errors.
 - The scruffy Mossbit screenshot was inspected at 390px.
+
+Discipline decision (owner agreed, 29 October 2026): REFUSED for this iteration.
+
+- False calls made between once-a-day visits would leave the attention light on
+  with nothing wrong, so the light would stop meaning anything.
+- A 7th icon and a "sometimes it pretends" rule work against "simple".
+- Care mistakes already set the growth path.
+- The basics need trying with students first.
+- Possible later: a gentle "fussing" only while the student is present, if usage
+  data supports it.
 
 ## Not done yet (next steps, each needs owner approval)
 
