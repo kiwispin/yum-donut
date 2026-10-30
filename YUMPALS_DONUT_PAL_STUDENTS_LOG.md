@@ -141,6 +141,22 @@ Branch `codex/yumpals-donut-pal-students`. Nothing deployed in this step.
       `donut-pal-check.mjs` 28/28. Screenshot inspected: "▶ Clean" in a strip
       narrower than the donut.
 
+- ACCEPTED (owner, 31 October: the slim strip "Looks good") — owner then asked for
+  the pal's name to look as purposeful as the other text.
+  - The name is now a retro name plate: pixel font at 14px, white on the manual's
+    pink (#e64980), a 3px ink border with a hard 3px shadow, and tilted -2° like a
+    sticker above the keyring loop.
+  - Kept inside the screen (`max-width`), so a long name could wrap rather than
+    overflow. Measured, it never needed to. The adoption form heading shares the
+    style. `donutPal.css` only.
+  - Measured:
+    - "Niblet", "Abcdefghijklmnop" and "Mr Rayners Pal 1" (16 letters is the
+      longest name allowed) each fit on one line inside the viewport, with no
+      sideways scroll, at 320, 390 and 1280px.
+    - Screenshots at 390px (Niblet) and 320px (16 letters) inspected.
+    - Frontend 198/198, lint exit 0. `donut-saved-check.mjs` 14/14,
+      `donut-pal-check.mjs` 28/28, `caption-sizes-check.mjs` 12/12.
+
 ## Measured results
 
 - Frontend 196/196 (195 + 1), lint exit 0. Server 180/180 (no server change).
