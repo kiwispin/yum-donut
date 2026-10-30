@@ -39,6 +39,17 @@ Branch `codex/yumpals-donut-pal-students`. Nothing deployed in this step.
 - ACCEPTED — `verification/visibility-pause.html`/`.jsx` and
   `-check.mjs`.
 
+- ACCEPTED (owner request, 31 October) — icon names. Picking an icon with A, or by
+  tapping it, names it in the caption line under the donut: Food, Play, Clean,
+  Medicine, Lights, Status. The pixel icons alone are not always obvious (a drop
+  for Clean, a heart for Status). C clears it, and actions replace it with their
+  own message ("Yum!"). `donutUi.js` `pickIcon`, plus a test in `donutUi.test.js`.
+  Measured:
+  - Frontend 197/197, lint exit 0.
+  - `donut-saved-check.mjs` 14/14, `donut-pal-check.mjs` 28/28.
+  - On the test page, A three times gave "Clean" under the donut, with the Clean
+    icon highlighted (screenshot inspected).
+
 ## Measured results
 
 - Frontend 196/196 (195 + 1), lint exit 0. Server 180/180 (no server change).

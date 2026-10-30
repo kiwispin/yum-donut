@@ -5,7 +5,7 @@
 // server. Refusals the rules can predict are shown at once, with no request.
 import { GAME_ROUNDS, REFUSALS, act, aucklandParts } from './donutPal.js';
 import {
-    ICON_ORDER, STATUS_PAGES, animationFrames, drawClock, drawFoodMenu, drawGame, drawGameScore, drawRoom, drawStatus, walkRange,
+    ICON_LABELS, ICON_ORDER, STATUS_PAGES, animationFrames, drawClock, drawFoodMenu, drawGame, drawGameScore, drawRoom, drawStatus, walkRange,
 } from './donutPalArt.js';
 
 export const TICK_MS = 450;
@@ -41,6 +41,12 @@ function play(state, frames, message, then = 'room') {
 
 function refuse(state, pal, reason) {
     return play(state, animationFrames(pal, 'no'), UI_REFUSALS[reason] || UI_REFUSALS.unknown);
+}
+
+// Picking an icon names it in the caption ("Food", "Clean"...), since the
+// pixel icons alone are not always obvious.
+function pickIcon(state, index) {
+    return { ...state, selected: index, message: ICON_LABELS[ICON_ORDER[index]] };
 }
 
 function newGame(id) {
@@ -134,7 +140,7 @@ export function donutUiReducer(state, action) {
         }
         case 'A':
             if (busy) return state;
-            if (state.mode === 'room') return { ...state, selected: (state.selected + 1) % ICON_ORDER.length, message: '' };
+            if (state.mode === 'room') return pickIcon(state, (state.selected + 1) % ICON_ORDER.length);
             if (state.mode === 'food') return { ...state, cursor: 1 - state.cursor };
             if (state.mode === 'status') return state.page + 1 >= STATUS_PAGES ? { ...state, mode: 'room' } : { ...state, page: state.page + 1 };
             if (state.mode === 'game') return guess(state, 'left', ctx.id);
@@ -153,7 +159,7 @@ export function donutUiReducer(state, action) {
             return { ...state, mode: 'room', anim: null, game: null, intent: null, message: '' };
         case 'icon':
             if (busy || state.mode !== 'room') return state;
-            return state.selected === action.index ? runIcon(state, ctx, action.index) : { ...state, selected: action.index, message: '' };
+            return state.selected === action.index ? runIcon(state, ctx, action.index) : pickIcon(state, action.index);
         // The host's answer to `intent`. result: { ok, animation, reason, pal?, target?, complete? }
         case 'result': {
             if (!state.intent || state.intent.seq !== action.seq) return state;

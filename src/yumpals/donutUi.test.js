@@ -19,6 +19,15 @@ test('a care action becomes one intent with its own operation id; the result pla
     assert.equal(run(fed, ['result', { seq: fed.intent.seq + 1, result: { ok: true, animation: 'eat' } }]).intent, fed.intent, 'stale answers are ignored');
 });
 
+test('picking an icon names it underneath, by A or by tapping; C clears it', () => {
+    const names = [];
+    let s = INITIAL_UI;
+    for (let i = 0; i < 7; i++) { s = run(s, ['A']); names.push(s.message); }
+    assert.deepEqual(names, ['Food', 'Play', 'Clean', 'Medicine', 'Lights', 'Status', 'Food']);
+    assert.equal(run(INITIAL_UI, ['icon', { index: 2 }]).message, 'Clean');
+    assert.equal(run(s, ['C']).message, '');
+});
+
 test('refusals the rules can predict are shown at once, with no request', () => {
     const full = run(INITIAL_UI, ['A'], ['B'], ['B', {}, ctx(baby({ hunger: 4 }))]);
     assert.equal(full.intent, null); assert.equal(full.message, 'Your pal is full.');
