@@ -17,26 +17,6 @@
   font-family: inherit;
 }
 
-.donut-pal-name {
-  /* A name plate, like a sticker on a keyring toy: pixel letters on the manual's
-     pink, an ink border with a hard shadow, and a slight tilt. Fits 16 letters
-     (the longest name allowed) on a 320px phone. */
-  margin: 0 0 6px;
-  padding: 8px 14px 7px;
-  max-width: calc(100% - 12px);
-  box-sizing: border-box;
-  font-family: var(--pixel);
-  font-size: 14px;
-  font-weight: 400;
-  line-height: 1.3;
-  overflow-wrap: anywhere;
-  color: #fff;
-  background: #e64980;
-  border: 3px solid var(--ink);
-  box-shadow: 3px 3px 0 var(--ink);
-  transform: rotate(-2deg);
-}
-
 .donut-device {
   position: relative;
   width: var(--d);
@@ -204,72 +184,198 @@
 .donut-button:active { box-shadow: 0 1px 0 #a0727a; translate: 0 3px; }
 .donut-button:focus-visible { outline: 3px solid var(--bezel); outline-offset: 2px; }
 
-/* Retro game styling: a dialog box for the caption and a manual page for How to
-   play. Only headings and the short caption use the pixel font. */
-.donut-pal { --ink: #1b1424; --pixel: 'Press Start 2P', ui-monospace, monospace; }
+/* Toy packaging: the donut on its retail card (our own design). Rounded display
+   type on the packaging; body text stays in the app's font. */
+.donut-pal {
+  --d: min(calc(100vw - 78px), 330px);
+  --pack-ink: #3b2f45;
+  --round: 'Baloo 2', ui-rounded, system-ui, sans-serif;
+  --card: #bfe3ff;
+}
 
-.donut-caption {
-  /* A slim one-line strip, the same size for every message: captions are kept
-     to 22 characters (donutUi.js MAX_CAPTION), checked by
-     verification/caption-sizes-check.mjs. */
+.pack-card {
+  position: relative;
   box-sizing: border-box;
-  width: min(100%, 290px);
-  height: calc(1.6em + 18px);
-  margin: 6px 0 0;
-  padding: 4px 10px;
+  width: min(100%, calc(var(--d) + 46px));
+  padding: 34px 10px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: var(--card);
+  border: 3px solid var(--pack-ink);
+  border-radius: 30px 30px 22px 22px;
+  color: var(--pack-ink);
+  font-family: var(--round);
+}
+/* The slot a toy hangs from on a shop peg. */
+.pack-hang {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  width: 58px;
+  height: 14px;
+  margin-left: -32px;
+  border: 3px solid var(--pack-ink);
+  border-radius: 10px;
+  background: #fdf6ec;
+}
+.pack-brand {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+  color: #e64980;
+  -webkit-text-stroke: 2px var(--pack-ink);
+  paint-order: stroke fill;
+}
+.pack-sub { margin: 0 0 6px; font-size: 15px; font-weight: 500; line-height: 1.1; }
+
+/* The clear plastic bubble the donut sits in. */
+.pack-bubble {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 5px 10px;
+  display: flex;
+  justify-content: center;
+  background: rgb(255 255 255 / 0.55);
+  border: 3px solid var(--pack-ink);
+  border-radius: 46px;
+}
+.pack-shine, .pack-shine::after {
+  position: absolute;
+  border-radius: 8px;
+  background: #fff;
+  content: '';
+}
+.pack-shine { top: 34%; left: 12px; width: 10px; height: 44px; }
+.pack-shine::after { top: 52px; left: 1px; width: 8px; height: 12px; }
+
+/* The name sticker. Fits 16 letters (the longest name) on a 320px phone. */
+.donut-pal-name {
+  position: absolute;
+  top: -16px;
+  left: -10px;
+  z-index: 2;
+  max-width: 72%;
+  margin: 0;
+  padding: 3px 14px 2px;
+  overflow-wrap: anywhere;
+  background: #ffd43b;
+  border: 3px solid var(--pack-ink);
+  border-radius: 999px;
+  color: var(--pack-ink);
+  font: 700 17px/1.25 var(--round);
+  transform: rotate(-6deg);
+}
+
+/* The starburst, which follows the pal's stage. Top right, opposite the name
+   sticker and clear of the buttons and the attention light. */
+.pack-burst {
+  position: absolute;
+  top: -28px;
+  right: -22px;
+  z-index: 2;
+  width: max(86px, calc(var(--d) * 0.29));
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  transform: rotate(10deg);
+}
+.pack-burst svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.pack-burst polygon { fill: #4dabf7; stroke: var(--pack-ink); stroke-width: 5px; stroke-linejoin: round; }
+.pack-burst span { position: relative; color: #fff; font: 700 11px/1 var(--round); white-space: nowrap; -webkit-text-stroke: 2px var(--pack-ink); paint-order: stroke fill; }
+
+/* The one-line label under the bubble: a fixed size for every message, since
+   captions are at most 22 characters (donutUi.js MAX_CAPTION), checked by
+   verification/caption-sizes-check.mjs. */
+.donut-caption {
+  box-sizing: border-box;
+  width: min(100%, 260px);
+  height: 36px;
+  margin: 4px 0 0;
+  padding: 0 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   white-space: nowrap;
-  background: var(--ink);
-  color: #fff;
-  border: 3px double #fff;
-  outline: 2px solid var(--ink);
-  font-family: var(--pixel);
-  font-size: 11px;
-  line-height: 1.6;
+  background: #fff4e6;
+  border: 3px solid var(--pack-ink);
+  border-radius: 999px;
+  color: var(--pack-ink);
+  font: 600 15px/1 var(--round);
 }
 .donut-caption.is-empty { visibility: hidden; }
-.donut-caption.is-pick::before { content: '▶ '; color: #ffd43b; }
+.donut-caption.is-pick::before { content: '▶ '; color: #e64980; font-size: 12px; }
 .donut-status-text { margin: 6px 0 0; text-align: center; font-size: 0.95rem; font-weight: 600; }
 
-.donut-help.manual {
-  box-sizing: border-box;
-  width: min(100%, 420px);
-  margin-top: 8px;
-  background: #fff;
-  border: 3px solid var(--ink);
-  border-radius: 4px;
-  color: var(--ink);
-}
-.manual-bar {
+/* The feature badges along the bottom of the card. */
+.pack-feats { display: flex; gap: 6px; width: 100%; margin: 4px 0 0; padding: 0; list-style: none; }
+.pack-feats li {
+  flex: 1;
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
+  gap: 2px;
+  padding: 6px 2px 4px;
+  background: #fff;
+  border: 3px solid var(--pack-ink);
+  border-radius: 16px;
+  font: 700 13px/1.1 var(--round);
+  text-align: center;
+}
+.pack-feats svg { color: #e64980; }
+
+/* How to play: the back of the box. */
+.donut-help.box-back {
+  box-sizing: border-box;
+  width: min(100%, calc(var(--d) + 46px));
+  margin-top: 10px;
+  background: #fff;
+  border: 3px solid var(--pack-ink);
+  border-radius: 18px;
+  color: var(--pack-ink);
+}
+.box-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
   list-style: none;
   cursor: pointer;
-  padding: 12px 14px;
+  font: 700 19px/1.2 var(--round);
+}
+.box-tab::-webkit-details-marker { display: none; }
+.box-tab::before { content: '▸'; color: #e64980; transition: transform 0.15s; }
+.box-back[open] .box-tab { border-bottom: 3px dashed var(--pack-ink); }
+.box-back[open] .box-tab::before { transform: rotate(90deg); }
+.box-tab-note {
+  margin-left: auto;
+  padding: 1px 9px;
+  background: var(--card);
+  border: 2px solid var(--pack-ink);
+  border-radius: 999px;
+  font: 500 12px/1.4 var(--round);
+}
+.box-steps { display: grid; gap: 12px; margin: 0; padding: 12px 14px 4px; list-style: none; }
+.box-step { display: flex; gap: 10px; align-items: flex-start; }
+.box-num {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
   background: #e64980;
+  border: 3px solid var(--pack-ink);
+  border-radius: 50%;
   color: #fff;
-  font-family: var(--pixel);
-  font-size: 12px;
+  font: 700 15px/1 var(--round);
 }
-.manual-bar::-webkit-details-marker { display: none; }
-.manual-bar::before { content: '▶'; font-size: 10px; margin-right: 10px; }
-.manual[open] .manual-bar { border-bottom: 3px solid var(--ink); }
-.manual[open] .manual-bar::before { content: '▼'; }
-.manual-bar span:first-child { margin-right: auto; }
-.manual-sec { padding: 12px 14px; border-bottom: 2px dashed var(--ink); }
-.manual-sec h3 { margin: 0 0 8px; font-family: var(--pixel); font-size: 10px; line-height: 1.6; font-weight: 400; }
-.manual-sec p { margin: 0; font-size: 0.92rem; line-height: 1.6; }
-.manual-num {
-  display: inline-block;
-  margin-right: 8px;
-  padding: 3px 6px;
-  background: #ffd43b;
-  border: 2px solid var(--ink);
-}
+.box-icon { flex: none; display: grid; width: 24px; height: 24px; margin-top: 3px; }
+.box-step h3 { margin: 0 0 2px; font: 700 17px/1.2 var(--round); }
+.box-step p { margin: 0; font-size: 0.92rem; line-height: 1.55; }
 .manual-btn {
   display: inline-flex;
   align-items: center;
@@ -278,21 +384,22 @@
   height: 22px;
   border-radius: 50%;
   background: var(--cream);
-  border: 2px solid var(--ink);
+  border: 2px solid var(--pack-ink);
   font-size: 11px;
   font-weight: 800;
   vertical-align: middle;
 }
-.manual-tip {
-  margin: 14px;
+.box-tip {
+  margin: 12px 14px 14px;
   padding: 10px 12px;
-  background: #74c0fc;
-  border: 3px solid var(--ink);
-  transform: rotate(-1.2deg);
+  background: #ffd43b;
+  border: 3px solid var(--pack-ink);
+  border-radius: 14px;
+  transform: rotate(-1deg);
   font-size: 0.9rem;
-  line-height: 1.55;
+  line-height: 1.5;
 }
-.manual-tip > b:first-child { display: block; margin-bottom: 4px; font-family: var(--pixel); font-size: 10px; font-weight: 400; }
+.box-tip > b:first-child { display: block; font: 700 17px/1.2 var(--round); }
 
 .donut-tools {
   width: min(100%, 420px);
@@ -344,6 +451,7 @@
   padding: 6px 10px;
   font: inherit;
 }
+.donut-adopt-title { margin: 0; font: 700 22px/1.2 var(--round); color: var(--pack-ink); }
 .donut-adopt fieldset { display: flex; flex-wrap: wrap; gap: 10px; border: 0; padding: 0; margin: 0; }
 .donut-adopt legend { font-weight: 700; margin-bottom: 4px; }
 .donut-adopt p { margin: 0; font-size: 0.9rem; }

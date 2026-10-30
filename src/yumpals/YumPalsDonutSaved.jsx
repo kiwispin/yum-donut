@@ -33,7 +33,7 @@ function Adopt({ price, balance, busy, onAdopt }) {
     const enough = balance >= price;
     return (
         <form className="donut-adopt" onSubmit={event => { event.preventDefault(); if (valid && enough && !busy) onAdopt({ name: valid, species, casing, color }); }}>
-            <h2 className="donut-pal-name">Adopt a Donut pal</h2>
+            <h2 className="donut-adopt-title">Adopt a Donut pal</h2>
             <label>Name <input value={name} maxLength={16} onChange={event => setName(event.target.value)} /></label>
             <fieldset><legend>Kind</legend>
                 {SPECIES.map(([id, label]) => <label key={id}><input type="radio" name="species" checked={species === id} onChange={() => setSpecies(id)} /> {label}</label>)}
@@ -171,7 +171,7 @@ export default function YumPalsDonutSaved({ ownerUid, transport, storage = globa
     }
     const caption = !view.enabled ? 'YumPals is resting right now.' : device.ui.message;
     return (
-        <DonutDevice name={view.pal.name} glaze={view.pal.casing} rows={device.rows} describe={describePal(pal, clock)} attention={view.enabled && needsAttention(pal, clock)}
+        <DonutDevice name={view.pal.name} glaze={view.pal.casing} stage={pal.stage} rows={device.rows} describe={describePal(pal, clock)} attention={view.enabled && needsAttention(pal, clock)}
             selectedIcon={device.ui.mode === 'room' ? device.ui.selected : -1} help={device.help} caption={caption} sound={sound}
             onPress={device.press} onPick={device.pick} onToggleSound={toggleSound}>
             <HowToPlay />

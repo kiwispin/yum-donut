@@ -2,7 +2,8 @@
 // same page width as the app, so verification/caption-sizes-check.mjs can measure them.
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import '@fontsource/press-start-2p/latin-400.css';
+import '@fontsource/baloo-2/latin-500.css';
+import '@fontsource/baloo-2/latin-700.css';
 import '../src/yumpals/donutPal.css';
 import { allCaptions } from '../src/yumpals/donutUi.js';
 import { ICON_LABELS } from '../src/yumpals/donutPalArt.js';

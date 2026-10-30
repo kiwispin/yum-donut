@@ -10,6 +10,8 @@ import {
 
 export const TICK_MS = 450;
 export const GLAZES = { berry: '#f48fb1', mint: '#8fe0c4', sky: '#8ecbf5', sun: '#ffd36e' };
+// The retail card behind each glaze: a contrasting colour, like a toy line's colourways.
+export const CARDS = { berry: '#bfe3ff', mint: '#ffd6e5', sky: '#ffe8a3', sun: '#e2d4ff' };
 // Caption text is short, like an old handheld game: one line, at most 22
 // characters, so the caption strip stays one slim size (checked by
 // verification/caption-sizes-check.mjs). How to play has the full explanations, and

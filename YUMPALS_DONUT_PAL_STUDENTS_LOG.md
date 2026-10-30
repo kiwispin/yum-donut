@@ -157,6 +157,59 @@ Branch `codex/yumpals-donut-pal-students`. Nothing deployed in this step.
     - Frontend 198/198, lint exit 0. `donut-saved-check.mjs` 14/14,
       `donut-pal-check.mjs` 28/28, `caption-sizes-check.mjs` 12/12.
 
+- REPLACED (owner, 31 October: "maybe more actually styled after Tamagotchi
+  packaging… put on your professional marketing and designing hat") — the
+  80s-manual look, the pixel-font caption and the name plate. My view: one idea
+  (a toy) instead of two (toy and video game), and launch-day "new toy" energy that
+  fits YumDonut's candy colours. The owner saw a sketch first and said "Try it".
+- ACCEPTED — toy packaging, our own design. No Tamagotchi or Bandai trade dress:
+  no egg-shaped logo, characters, names or copied box layouts; only the genre's
+  language.
+  - A retail "blister card" around the handheld: a hang-tab slot, "YumPals" in
+    rounded type with an ink outline, and "Your pocket Donut pal".
+  - The donut sits in a clear plastic bubble with shine marks.
+  - The name is a yellow sticker on the bubble's top left; 16 letters fit.
+  - A blue starburst on the top right follows the stage: Hatching!, New pal!,
+    Growing!, Teen pal!, All grown!.
+  - Three feature badges: Feed it!, Play!, Watch it grow!
+  - The card colour contrasts with each glaze, like a toy line's colourways:
+    berry → light blue, mint → pink, sky → lemon, sun → lilac (`CARDS` in
+    `donutUi.js`).
+  - The caption is now a cream pill label on the card. It is still one fixed
+    36px line, with captions of at most 22 characters.
+  - How to play is now "the back of the box":
+    - A "How to play / Back of the box" tab.
+    - Five numbered pink steps, with the device's own pixel icons.
+    - Drawn A, B and C buttons, and a yellow "Top tip!" sticker.
+  - Font: Baloo 2 (`@fontsource/baloo-2` 5.3.0, OFL-1.1, pinned, Latin, weights
+    500 and 700, bundled, about 19.5 KB each). The Press Start 2P package is
+    removed, since nothing uses it now.
+  - The adoption form gets its own plain heading (`donut-adopt-title`).
+  - The hatch and grow tune now matches the short captions ("Grew…"), regardless
+    of case.
+  - Files: `DonutDevice.jsx`, `donutPal.css`, `donutUi.js` (`CARDS`),
+    `YumPalsDonutSaved.jsx`, `YumPalsDonutPreview.jsx` (stage passed through), and
+    `verification/caption-sizes.jsx` (font).
+  - Note: the teaser image already made for Teams is unchanged. Its source page
+    would now render the new card.
+- REFUSED (my first placement, fixed) — two problems with the starburst:
+  - At the donut's bottom right it covered the C button on a 320px phone.
+  - The stage word broke mid-word ("Hatchin / g!").
+
+  It now sits at the top right, with no word breaks, and is sized to its text.
+  Each stage word fits on one line in the star at 320, 390 and 1280px, and the
+  star never touches a button, the screen or the light. The shine marks moved to
+  the bubble's left edge, away from the name sticker.
+- Measured:
+  - At 320, 390 and 1280px: the donut is 242, 312 and 330px wide, and the card 288,
+    358 and 376px. No sideways scroll. A 16-letter name stays on screen. Buttons
+    are at least 40px.
+  - `caption-sizes-check.mjs` 12/12 (new font).
+  - Frontend 198/198, lint exit 0. `donut-saved-check.mjs` 14/14,
+    `donut-pal-check.mjs` 28/28. Build exit 0: JS 978.90kB / 292.48kB gzip, CSS
+    106.17kB / 19.82kB gzip, plus the two font files.
+  - Full-page screenshots at 320 and 390px, with How to play open, inspected.
+
 ## Measured results
 
 - Frontend 196/196 (195 + 1), lint exit 0. Server 180/180 (no server change).
