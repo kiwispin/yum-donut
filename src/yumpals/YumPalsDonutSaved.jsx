@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { advance, describePal, needsAttention, takeEvents } from './donutPal.js';
-import { EVENT_TEXT, TICK_MS } from './donutUi.js';
+import { EVENT_TEXT, SOUND_TEXT, TICK_MS, giftMessages } from './donutUi.js';
 import { useDonutUi, makeOperationId } from './useDonutUi.js';
 import DonutDevice, { HowToPlay } from './DonutDevice.jsx';
 import { validName } from './pocketClient.js';
@@ -20,19 +20,6 @@ const LOAD_ERRORS = {
 };
 const seenKey = uid => `yumpals-donut-seen-${uid}`;
 const soundKey = uid => `yumpals-donut-sound-${uid}`;
-
-function giftMessage(view) {
-    const parts = [];
-    if (view.visit) {
-        const { welcomeBack, gains } = view.visit;
-        if (welcomeBack) parts.push('Welcome back! A free heart of food and happy.');
-        else if (gains.hunger) parts.push('A free gift for visiting today: +1 food.');
-        else if (gains.happy) parts.push('A free gift for visiting today: +1 happy.');
-        else parts.push('Thanks for visiting today!');
-    }
-    if (view.cheer) parts.push(view.cheer.gain ? 'Giving a donut cheered your pal up: +1 happy.' : 'Thanks for giving a donut today!');
-    return parts.join(' ');
-}
 
 function read(storage, key) { try { return storage?.getItem(key) ?? null; } catch { return null; } }
 function write(storage, key, value) { try { storage?.setItem(key, value); } catch { /* fine */ } }
@@ -72,7 +59,7 @@ export default function YumPalsDonutSaved({ ownerUid, transport, storage = globa
     const [pal, setPal] = useState(null);
     const [clock, setClock] = useState(() => Date.now());
     // Latest values for presses and timers; state is for drawing.
-    const live = useRef({ view: null, pal: null, skew: 0, giftShown: '', queue: [] });
+    const live = useRef({ view: null, pal: null, skew: 0, giftShown: [], queue: [] });
     const getNow = useCallback(() => Date.now() + live.current.skew, []);
 
     const device = useDonutUi({
@@ -115,9 +102,10 @@ export default function YumPalsDonutSaved({ ownerUid, transport, storage = globa
             const next = await transport.read(ownerUid);
             accept(next);
             markPalVisited(ownerUid, next.aucklandDate, Boolean(next.pal));
-            const gift = giftMessage(next);
-            if (gift && live.current.giftShown !== `${next.aucklandDate}:${gift}`) {
-                live.current.giftShown = `${next.aucklandDate}:${gift}`;
+            for (const gift of giftMessages(next)) {
+                const key = `${next.aucklandDate}:${gift}`;
+                if (live.current.giftShown.includes(key)) continue;
+                live.current.giftShown.push(key);
                 enqueue('happy', gift);
             }
         } catch (failure) {
@@ -158,7 +146,7 @@ export default function YumPalsDonutSaved({ ownerUid, transport, storage = globa
 
     const toggleSound = () => {
         write(storage, soundKey(ownerUid), sound ? 'off' : 'on');
-        device.say(sound ? 'Sound off.' : 'Sound on.'); setSound(!sound);
+        device.say(sound ? SOUND_TEXT.off : SOUND_TEXT.on); setSound(!sound);
     };
 
     const adopt = async adoption => {

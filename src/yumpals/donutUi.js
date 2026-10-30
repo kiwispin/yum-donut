@@ -13,7 +13,7 @@ export const GLAZES = { berry: '#f48fb1', mint: '#8fe0c4', sky: '#8ecbf5', sun: 
 export const EVENT_TEXT = {
     hatched: () => 'Your egg hatched!', sick: pal => `${pal.name} feels sick. Try Medicine.`,
     grew: (pal, event) => event.stage !== 'adult' ? `${pal.name} grew into a ${event.stage}!`
-        : event.form === 'scruffy' ? `${pal.name} grew into a scruffy adult. Too many care mistakes!` : `${pal.name} grew into a well-raised adult!`,
+        : event.form === 'scruffy' ? `${pal.name} grew up scruffy. Too many care mistakes!` : `${pal.name} grew into a well-raised adult!`,
     napped: pal => `${pal.name} had a good nap.`,
 };
 export const SUCCESS = {
@@ -31,7 +31,22 @@ export const BUTTON_HELP = {
     status: ['A: next page', 'B: next page', 'C: back'], game: ['A: guess left', 'B: guess right', 'C: stop playing'],
     anim: ['A', 'B', 'C: skip'], clock: ['A', 'B: back', 'C: back'],
 };
-const GAME_HINT = 'Which way will your pal turn? A left, B right. C stops.';
+export const GAME_HINT = 'Which way will your pal turn? A left, B right. C stops.';
+export const SOUND_TEXT = { on: 'Sound on.', off: 'Sound off.' };
+
+// The day's gifts, each shown on its own (never joined into one long message).
+export function giftMessages(view) {
+    const messages = [];
+    if (view.visit) {
+        const { welcomeBack, gains } = view.visit;
+        if (welcomeBack) messages.push('Welcome back! A free heart of food and happy.');
+        else if (gains.hunger) messages.push('A free gift for visiting today: +1 food.');
+        else if (gains.happy) messages.push('A free gift for visiting today: +1 happy.');
+        else messages.push('Thanks for visiting today!');
+    }
+    if (view.cheer) messages.push(view.cheer.gain ? 'Giving a donut cheered your pal up: +1 happy.' : 'Thanks for giving a donut today!');
+    return messages;
+}
 
 export const INITIAL_UI = { mode: 'room', selected: -1, cursor: 0, page: 0, game: null, anim: null, x: 8, tick: 0, message: '', intent: null, seq: 0 };
 
@@ -106,9 +121,9 @@ function finishAnimation(state, ctx) {
     return { ...state, mode: 'room', anim: null };
 }
 
-function gameMessage(ending, pal) {
+export function gameMessage(ending, pal) {
     if (!ending.ok) return UI_REFUSALS[ending.reason] || UI_REFUSALS.unknown;
-    return `${SUCCESS[ending.animation]} ${pal.sleepy ? 'Your pal is sleepy now.' : 'Next game! C stops.'}`;
+    return `${SUCCESS[ending.animation]} ${pal.sleepy ? 'Time for a nap.' : 'Next game! C stops.'}`;
 }
 
 // ctx: { pal, now, donuts, id (a fresh id for a new game), random, reducedMotion }
@@ -193,4 +208,22 @@ export function screenRows(ui, { pal, now, donuts, reducedMotion }) {
     if (ui.mode === 'game') return drawGame(pal, ui.game, ui.tick);
     if (ui.mode === 'clock') { const { hour, minute } = aucklandParts(now); return drawClock(hour, minute); }
     return drawRoom(pal, { x: ui.x, tick: ui.tick, ms: now, reducedMotion });
+}
+
+// Every message the caption box can show, with the longest pal name, so the box
+// can be sized to fit them all (verification/caption-sizes).
+export function allCaptions(name = 'Abcdefghijklmnop') {
+    const pal = { name, sleepy: false };
+    const events = [['hatched'], ['sick'], ['napped'], ...['child', 'teen'].map(stage => ['grew', { stage }]),
+        ...['good', 'scruffy'].map(form => ['grew', { stage: 'adult', form }])];
+    const gifts = [{ visit: { welcomeBack: true, gains: {} } }, { visit: { welcomeBack: false, gains: { hunger: 1 } } },
+        { visit: { welcomeBack: false, gains: { happy: 1 } } }, { visit: { welcomeBack: false, gains: {} } },
+        { cheer: { gain: 1 } }, { cheer: { gain: 0 } }];
+    return [...new Set([
+        ...Object.values(SUCCESS), ...Object.values(UI_REFUSALS), GAME_HINT, ...Object.values(SOUND_TEXT),
+        ...Object.values(ICON_LABELS),
+        ...['happy', 'shrug'].flatMap(animation => [gameMessage({ ok: true, animation }, pal), gameMessage({ ok: true, animation }, { ...pal, sleepy: true })]),
+        ...events.map(([type, event = {}]) => EVENT_TEXT[type](pal, event)),
+        ...gifts.flatMap(giftMessages),
+    ])];
 }

@@ -85,6 +85,31 @@ Branch `codex/yumpals-donut-pal-students`. Nothing deployed in this step.
     in the pixel font (font loaded). The two-line gift message wraps inside the box.
     No sideways scroll. The whole manual page down to the Pro tip was inspected.
 
+- ACCEPTED (owner feedback, 31 October) — one fixed caption box. Owner: the first
+  message of the day was two lines and then everything else one, which was
+  jarring.
+  - Cause: the box grew to fit each message. Measured before the fix: 47, 65, 84
+    or 103px tall (1–4 lines at 320px). The day's visit gift and giving cheer were
+    also joined into one long message.
+  - Fix: the box is a fixed three-line size like a game dialog box
+    (`height: calc(3 * 1.7em + 28px)`, 84px), with the text centred.
+  - The day's gifts are now separate messages, queued one after another
+    (`giftMessages` in `donutUi.js`).
+  - Two messages that needed four lines on a 320px phone were shortened:
+    - "… grew into a scruffy adult. Too many care mistakes!" became "… grew up
+      scruffy. Too many care mistakes!"
+    - "Your pal is sleepy now." after a game became "Time for a nap."
+  - `allCaptions()` lists every message the box can show (51, using a 16-letter
+    name). `verification/caption-sizes.html`/`.jsx` and `-check.mjs` measure them
+    all in the real box.
+  - Measured:
+    - `caption-sizes-check.mjs` 8/8: one height and no overflow at 320, 360, 390
+      and 1280px. At most 3 lines; 320px: 20 one-line, 16 two-line, 15 three-line.
+    - A real sequence on the test page (start, hatching, gift, three icon picks):
+      the box stayed 84px tall at the same position at 320, 390 and 1280px.
+    - Frontend 197/197, lint exit 0. `donut-saved-check.mjs` 14/14,
+      `donut-pal-check.mjs` 28/28.
+
 ## Measured results
 
 - Frontend 196/196 (195 + 1), lint exit 0. Server 180/180 (no server change).

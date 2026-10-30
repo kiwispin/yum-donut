@@ -198,7 +198,10 @@
 .donut-caption {
   box-sizing: border-box;
   width: min(100%, 360px);
-  min-height: 3.2em;
+  /* One fixed size, like a game's dialog box: three lines, whatever the message.
+     verification/caption-sizes-check.mjs checks every message fits. */
+  height: calc(3 * 1.7em + 28px);
+  overflow: hidden;
   margin: 8px 0 0;
   padding: 10px 14px;
   display: flex;
