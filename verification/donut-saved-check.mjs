@@ -25,23 +25,23 @@ try {
   check('loads the moved pal as an egg, with its name', (await label()).includes('Niblet is an egg') && (await page.locator('.donut-pal-name').innerText()) === 'Niblet');
   await page.clock.fastForward('05:01');
   await page.waitForTimeout(1200);
-  check('hatches after about 5 minutes', (await label()).startsWith('Niblet is a baby') && (await caption()) === 'Your egg hatched!', `${await label()} | ${await caption()}`);
+  check('hatches after about 5 minutes', (await label()).startsWith('Niblet is a baby') && (await caption()) === 'It hatched!', `${await label()} | ${await caption()}`);
   await settle();
   await page.evaluate(() => window.dispatchEvent(new Event('focus'))); await page.waitForTimeout(1200);
-  check('then the visit gift plays after the hatching', (await caption()).startsWith('A free gift for visiting today'), await caption());
+  check('then the visit gift plays after the hatching', (await caption()) === 'Daily gift: +1 food', await caption());
   await settle();
   const before = await server();
   await icon('Food'); await press('B'); await page.waitForTimeout(400);
   check('a free meal goes to the server and plays', (await caption()) === 'Yum!' && (await server()).acts === before.acts + 1 && (await server()).wallet === before.wallet, JSON.stringify(await server()));
   await settle();
   await icon('Food'); await press('A'); await press('B'); await page.waitForTimeout(400);
-  check('a treat spends 1 donut on the server', (await caption()).startsWith('A cupcake treat') && (await server()).wallet === before.wallet - 1, JSON.stringify(await server()));
+  check('a treat spends 1 donut on the server', (await caption()) === 'Cupcake! -1 donut' && (await server()).wallet === before.wallet - 1, JSON.stringify(await server()));
   await settle();
   let refusedSent = null;
   for (let i = 0; i < 5 && refusedSent === null; i++) {
     const sent = (await server()).acts;
     await icon('Food'); await press('B'); await page.waitForTimeout(400);
-    if ((await caption()) === 'Your pal is full.') refusedSent = (await server()).acts - sent;
+    if ((await caption()) === 'Too full!') refusedSent = (await server()).acts - sent;
     await settle();
   }
   check('a refusal the rules predict (full) sends nothing', refusedSent === 0, `extra requests: ${refusedSent}`);
@@ -49,14 +49,14 @@ try {
   for (let round = 0; round < 5; round++) { await press(round % 2 ? 'A' : 'B'); await page.waitForTimeout(1700); }
   await page.waitForTimeout(400);
   const gameText = await caption();
-  check('a 5-round game on the server ends with a result and carries on', (gameText.startsWith('You won!') || gameText.startsWith('Close!')) && gameText.includes('Next game'), gameText);
+  check('a 5-round game on the server ends with a result', gameText.startsWith('You won!') || gameText.startsWith('Close!'), gameText);
   await settle(); await press('C');
   await page.evaluate(() => window.__fakeServer.failNextAct());
   await page.clock.fastForward('06:01:00'); // six hours: hungry again await page.waitForTimeout(600); await settle();
   const sentBefore = (await server()).acts;
   await icon('Food'); await press('B'); await page.waitForTimeout(600);
   const dropped = await caption();
-  check('a dropped connection is explained, not hidden', dropped === 'Your pal could not be reached. Please try again.' && (await server()).acts === sentBefore + 1, dropped);
+  check('a dropped connection is explained, not hidden', dropped === 'No signal. Try again.' && (await server()).acts === sentBefore + 1, dropped);
   await settle();
   await page.screenshot({ path: `${shots}/donut-saved-390.png` });
   const layout = await page.evaluate(() => ({ overflow: document.documentElement.scrollWidth > innerWidth, minButton: Math.min(...[...document.querySelectorAll('.donut-button')].map(b => b.getBoundingClientRect().width)) }));
@@ -79,7 +79,7 @@ try {
   fail.on('pageerror', error => errors.push(error.message));
   await fail.goto(`${base}?fail=1`);
   await fail.getByRole('button', { name: 'Try again' }).waitFor();
-  check('a failed first load offers Try again', (await fail.locator('.donut-caption').innerText()).includes('could not be reached'));
+  check('a failed first load offers Try again', (await fail.locator('.donut-status-text').innerText()).includes('could not be reached'));
   await fail.getByRole('button', { name: 'Try again' }).click();
   await fail.locator('.donut-lcd').waitFor();
   check('and Try again loads the pal', (await fail.locator('.donut-lcd').getAttribute('aria-label')).includes('Niblet'));

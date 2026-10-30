@@ -10,28 +10,34 @@ import {
 
 export const TICK_MS = 450;
 export const GLAZES = { berry: '#f48fb1', mint: '#8fe0c4', sky: '#8ecbf5', sun: '#ffd36e' };
+// Caption text is short, like an old handheld game: one line, at most 22
+// characters, so the caption strip stays one slim size (checked by
+// verification/caption-sizes-check.mjs). How to play has the full explanations, and
+// screen readers get the full description of the pal from the screen itself.
+export const MAX_CAPTION = 22;
 export const EVENT_TEXT = {
-    hatched: () => 'Your egg hatched!', sick: pal => `${pal.name} feels sick. Try Medicine.`,
-    grew: (pal, event) => event.stage !== 'adult' ? `${pal.name} grew into a ${event.stage}!`
-        : event.form === 'scruffy' ? `${pal.name} grew up scruffy. Too many care mistakes!` : `${pal.name} grew into a well-raised adult!`,
-    napped: pal => `${pal.name} had a good nap.`,
+    hatched: () => 'It hatched!', sick: () => 'Feeling sick...', napped: () => 'Good nap!',
+    grew: (_pal, event) => event.stage !== 'adult' ? `Grew into a ${event.stage}!`
+        : event.form === 'scruffy' ? 'Grew up scruffy!' : 'All grown up!',
 };
 export const SUCCESS = {
-    eat: 'Yum!', snack: 'A cupcake treat! 1 donut spent.', happy: 'You won! Your pal is happier.',
-    shrug: 'Close! Win 3 of 5 to cheer your pal up.', clean: 'All clean!', medicine: 'All better!', dose: 'One more dose needed.',
-    lightsOff: 'Lights off. Sleep tight.', lightsOn: 'Lights on.',
+    eat: 'Yum!', snack: 'Cupcake! -1 donut', happy: 'You won! +1 happy', shrug: 'Close! Need 3 of 5.',
+    clean: 'All clean!', medicine: 'All better!', dose: 'One more dose!', lightsOff: 'Lights off. Zzz', lightsOn: 'Lights on!',
 };
+// One short line for every reason the rules or the server can give.
 export const UI_REFUSALS = {
-    ...REFUSALS,
-    paused: 'YumPals is resting right now.',
-    offline: 'Your pal could not be reached. Please try again.',
+    ...Object.fromEntries(Object.keys(REFUSALS).map(key => [key, 'Nothing happened.'])),
+    egg: 'Still an egg!', asleep: 'Shh! Asleep.', full: 'Too full!', happy: 'Already happy!', heavy: 'Too heavy! Play.',
+    sick: 'Too sick! Medicine?', treats: 'No more treats today.', donuts: 'Needs 1 donut.', sleepy: 'Sleepy! Lights off?',
+    clean: 'Nothing to clean.', well: 'Not sick!', napping: 'Napping. Shh!', awake: 'Not sleepy!', unknown: 'Nothing happened.',
+    paused: 'YumPals is resting.', offline: 'No signal. Try again.',
 };
 export const BUTTON_HELP = {
     room: ['A: next icon', 'B: use icon', 'C: cancel'], food: ['A: switch food', 'B: eat it', 'C: back'],
     status: ['A: next page', 'B: next page', 'C: back'], game: ['A: guess left', 'B: guess right', 'C: stop playing'],
     anim: ['A', 'B', 'C: skip'], clock: ['A', 'B: back', 'C: back'],
 };
-export const GAME_HINT = 'Which way will your pal turn? A left, B right. C stops.';
+export const GAME_HINT = 'A=left B=right C=stop';
 export const SOUND_TEXT = { on: 'Sound on.', off: 'Sound off.' };
 
 // The day's gifts, each shown on its own (never joined into one long message).
@@ -39,12 +45,12 @@ export function giftMessages(view) {
     const messages = [];
     if (view.visit) {
         const { welcomeBack, gains } = view.visit;
-        if (welcomeBack) messages.push('Welcome back! A free heart of food and happy.');
-        else if (gains.hunger) messages.push('A free gift for visiting today: +1 food.');
-        else if (gains.happy) messages.push('A free gift for visiting today: +1 happy.');
-        else messages.push('Thanks for visiting today!');
+        if (welcomeBack) messages.push('Welcome back gift!');
+        else if (gains.hunger) messages.push('Daily gift: +1 food');
+        else if (gains.happy) messages.push('Daily gift: +1 happy');
+        else messages.push('Thanks for visiting!');
     }
-    if (view.cheer) messages.push(view.cheer.gain ? 'Giving a donut cheered your pal up: +1 happy.' : 'Thanks for giving a donut today!');
+    if (view.cheer) messages.push(view.cheer.gain ? 'Giving cheer: +1 happy' : 'Thanks for giving!');
     return messages;
 }
 
@@ -116,14 +122,15 @@ function guess(state, side, id) {
 
 function finishAnimation(state, ctx) {
     if (state.anim.then === 'game' && act(ctx.pal, 'game', { nowMs: ctx.now, wins: 0 }).ok) {
-        return { ...state, mode: 'game', anim: null, game: newGame(ctx.id) };
+        return { ...state, mode: 'game', anim: null, game: newGame(ctx.id), message: GAME_HINT };
     }
     return { ...state, mode: 'room', anim: null };
 }
 
+// The next game starts by itself unless the pal is now sleepy.
 export function gameMessage(ending, pal) {
     if (!ending.ok) return UI_REFUSALS[ending.reason] || UI_REFUSALS.unknown;
-    return `${SUCCESS[ending.animation]} ${pal.sleepy ? 'Time for a nap.' : 'Next game! C stops.'}`;
+    return pal.sleepy ? 'Sleepy! Lights off?' : SUCCESS[ending.animation];
 }
 
 // ctx: { pal, now, donuts, id (a fresh id for a new game), random, reducedMotion }

@@ -196,28 +196,30 @@
 .donut-pal { --ink: #1b1424; --pixel: 'Press Start 2P', ui-monospace, monospace; }
 
 .donut-caption {
+  /* A slim one-line strip, the same size for every message: captions are kept
+     to 22 characters (donutUi.js MAX_CAPTION), checked by
+     verification/caption-sizes-check.mjs. */
   box-sizing: border-box;
-  width: min(100%, 360px);
-  /* One fixed size, like a game's dialog box: three lines, whatever the message.
-     verification/caption-sizes-check.mjs checks every message fits. */
-  height: calc(3 * 1.7em + 28px);
-  overflow: hidden;
-  margin: 8px 0 0;
-  padding: 10px 14px;
+  width: min(100%, 290px);
+  height: calc(1.6em + 18px);
+  margin: 6px 0 0;
+  padding: 4px 10px;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  white-space: nowrap;
   background: var(--ink);
   color: #fff;
-  border: 4px double #fff;
-  outline: 3px solid var(--ink);
+  border: 3px double #fff;
+  outline: 2px solid var(--ink);
   font-family: var(--pixel);
   font-size: 11px;
-  line-height: 1.7;
-  text-align: center;
+  line-height: 1.6;
 }
 .donut-caption.is-empty { visibility: hidden; }
 .donut-caption.is-pick::before { content: '▶ '; color: #ffd43b; }
+.donut-status-text { margin: 6px 0 0; text-align: center; font-size: 0.95rem; font-weight: 600; }
 
 .donut-help.manual {
   box-sizing: border-box;

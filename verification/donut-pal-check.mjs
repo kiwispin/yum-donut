@@ -31,16 +31,16 @@ try {
   for (let i = 0; i < 6; i++) {
     await icon('Food'); await press('B'); await page.waitForTimeout(300);
     const text = await caption(); if (text === 'Yum!') meals++; await settle();
-    if (text === 'Your pal is full.') break;
+    if (text === 'Too full!') break;
   }
   check('meals are free and stop when full', meals >= 1 && (await label()).includes('Food 4 of 4') && (await tools()).includes('10 pretend'), `${meals} meals; ${await tools()}`);
 
   await icon('Play');
-  check('game starts with a hint', (await caption()).includes('A left, B right'));
+  check('game starts with a hint', (await caption()) === 'A=left B=right C=stop');
   for (let round = 0; round < 5; round++) { await press(round % 2 ? 'A' : 'B'); await page.waitForTimeout(1600); }
   await page.waitForTimeout(400);
   const gameText = await caption();
-  check('game ends with a result and carries on', (gameText.startsWith('You won!') || gameText.startsWith('Close!')) && gameText.includes('Next game'), gameText);
+  check('game ends with a result', gameText.startsWith('You won!') || gameText.startsWith('Close!'), gameText);
   await settle();
   check('the next game starts by itself', (await page.locator('.donut-button').first().getAttribute('aria-label')) === 'A: guess left');
   await press('C');
@@ -53,18 +53,18 @@ try {
   await settle();
 
   await icon('Food'); await press('A'); await press('B'); await page.waitForTimeout(300);
-  check('a cupcake treat costs 1 pretend donut', (await caption()).startsWith('A cupcake treat') && (await tools()).includes('9 pretend'), await tools());
+  check('a cupcake treat costs 1 pretend donut', (await caption()) === 'Cupcake! -1 donut' && (await tools()).includes('9 pretend'), await tools());
   await settle();
 
   await icon('Medicine'); await page.waitForTimeout(300);
-  check('medicine is refused when well', (await caption()) === 'Your pal is not sick.');
+  check('medicine is refused when well', (await caption()) === 'Not sick!');
   await settle();
 
   for (let i = 0; i < 3 && !(await label()).includes('sick'); i++) { await tool('Next morning'); await tool('+6 hours'); await tool('+6 hours'); }
   await page.waitForTimeout(600);
   check('neglect makes the pal sick', (await label()).includes('sick'), await label());
   await icon('Play'); await page.waitForTimeout(300);
-  check('a sick pal will not play', (await caption()).includes('too sick'));
+  check('a sick pal will not play', (await caption()) === 'Too sick! Medicine?');
   await settle();
   let doses = 0;
   for (; doses < 3 && (await label()).includes('sick'); doses++) { await icon('Medicine'); await page.waitForTimeout(300); await settle(); }
@@ -88,14 +88,14 @@ try {
   await tool('Next morning'); for (let i = 0; i < 14; i++) await tool('+1 hour'); await page.waitForTimeout(600);
   check('asleep at night', (await label()).includes('asleep'), await label());
   await icon('Food'); await page.waitForTimeout(300);
-  check('no feeding while asleep', (await caption()).includes('asleep'));
+  check('no feeding while asleep', (await caption()) === 'Shh! Asleep.');
   await settle();
   await icon('Status'); await page.waitForTimeout(300);
   check('Status still works while asleep', (await page.locator('.donut-button').first().getAttribute('aria-label')) === 'A: next page');
   await press('C');
   await settle();
   await icon('Lights'); await page.waitForTimeout(300);
-  check('lights off at night', (await caption()) === 'Lights off. Sleep tight.');
+  check('lights off at night', (await caption()) === 'Lights off. Zzz');
   await page.screenshot({ path: `${shots}/donut-night-390.png` });
   await settle();
 

@@ -110,6 +110,37 @@ Branch `codex/yumpals-donut-pal-students`. Nothing deployed in this step.
     - Frontend 197/197, lint exit 0. `donut-saved-check.mjs` 14/14,
       `donut-pal-check.mjs` 28/28.
 
+- REFUSED (owner feedback, 31 October) — the fixed three-line box. Owner: "Waayyy
+  too much space… almost as big as the Tamagotchi itself." It was 84px tall and
+  360px wide for one word. It is replaced by:
+- ACCEPTED — a slim one-line caption strip, like an old handheld's text line.
+  - Size: 290px wide at most, 36px tall (`height: calc(1.6em + 18px)`), with a 3px
+    double border and a 2px outline. One line, never wrapping.
+  - Every caption is rewritten as short game-style text of at most 22 characters
+    (`MAX_CAPTION` in `donutUi.js`). Examples: "Too full!", "Shh! Asleep.", "Daily
+    gift: +1 food", "It hatched!", "Grew up scruffy!", "Cupcake! -1 donut",
+    "No signal. Try again.", "A=left B=right C=stop".
+  - Every rule refusal reason has its own short line; anything unexpected says
+    "Nothing happened.". The longer `REFUSALS` text in the shared rules
+    (`donutPal.js`, also on the server) is unchanged, so no server change.
+  - When the next game starts by itself, the strip shows the game hint again.
+    After a third game the result line is "Sleepy! Lights off?".
+  - The full explanations stay in How to play. Screen readers still get the full
+    description of the pal from the screen's label.
+  - Loading and error text on the no-pal and failed-load screens moved to a plain
+    `donut-status-text` line (not the strip).
+  - Tests and checks updated for the new wording, plus a test that every caption is
+    at most 22 characters. `caption-sizes-check.mjs` now also requires exactly one
+    line and no sideways overflow.
+  - Measured:
+    - `caption-sizes-check.mjs` 12/12: all 47 captions on one line, one strip height,
+      no overflow, at 320, 360, 390 and 1280px.
+    - A real sequence (start, hatching, gift, three icon picks): the strip stayed
+      36px tall at the same position at 320, 390 and 1280px (was 84px).
+    - Frontend 198/198, lint exit 0. `donut-saved-check.mjs` 14/14,
+      `donut-pal-check.mjs` 28/28. Screenshot inspected: "▶ Clean" in a strip
+      narrower than the donut.
+
 ## Measured results
 
 - Frontend 196/196 (195 + 1), lint exit 0. Server 180/180 (no server change).

@@ -99,7 +99,7 @@ export default function YumPalsDonutPreview() {
                 <div className="donut-tools-row">
                     {SPECIES.map(species => <button key={species} type="button" onClick={() => {
                         commitPal(createDonutPal({ name: 'Pip', species, nowMs: getNow() }));
-                        device.press('C'); device.say('A new egg! It hatches in about 5 minutes.');
+                        device.press('C'); device.say('A new egg!');
                     }}>New {species} egg</button>)}
                     <label>Glaze <select value={casing} onChange={event => setCasing(event.target.value)}>
                         {Object.keys(GLAZES).map(name => <option key={name} value={name}>{name}</option>)}

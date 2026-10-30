@@ -159,14 +159,14 @@ export default function YumPalsDonutSaved({ ownerUid, transport, storage = globa
     };
 
     if (!view) {
-        return <section className="donut-pal donut-status-only"><p className="donut-caption" aria-live="polite">
+        return <section className="donut-pal donut-status-only"><p className="donut-status-text" aria-live="polite">
             {error ? LOAD_ERRORS[error] || LOAD_ERRORS.UNAVAILABLE : 'Loading your pal…'}</p>
             {error && <button type="button" className="donut-retry" onClick={() => { setError(null); void load(); }}>Try again</button>}</section>;
     }
     if (!view.pal || !pal) {
         return <section className="donut-pal">
             <Adopt price={view.prices.adoption} balance={view.wallet.available ? view.wallet.balance : 0} busy={adopting} onAdopt={adopt} />
-            {error && <p className="donut-caption" aria-live="polite">{LOAD_ERRORS[error] || error}</p>}
+            {error && <p className="donut-status-text" aria-live="polite">{LOAD_ERRORS[error] || error}</p>}
         </section>;
     }
     const caption = !view.enabled ? 'YumPals is resting right now.' : device.ui.message;

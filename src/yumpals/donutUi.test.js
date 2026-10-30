@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { HATCH_MS, advance, createDonutPal } from './donutPal.js';
-import { INITIAL_UI, donutUiReducer, screenRows } from './donutUi.js';
+import { INITIAL_UI, MAX_CAPTION, allCaptions, donutUiReducer, screenRows } from './donutUi.js';
 import { donutPalShown } from './donutRollout.js';
 
 const NOW = Date.parse('2026-11-01T20:00:00Z'); // Monday 9am Auckland.
@@ -30,11 +30,11 @@ test('picking an icon names it underneath, by A or by tapping; C clears it', () 
 
 test('refusals the rules can predict are shown at once, with no request', () => {
     const full = run(INITIAL_UI, ['A'], ['B'], ['B', {}, ctx(baby({ hunger: 4 }))]);
-    assert.equal(full.intent, null); assert.equal(full.message, 'Your pal is full.');
+    assert.equal(full.intent, null); assert.equal(full.message, 'Too full!');
     const noDonuts = run(INITIAL_UI, ['A'], ['B'], ['A'], ['B', {}, ctx(baby({ happy: 1 }), { donuts: 0 })]);
-    assert.equal(noDonuts.intent, null); assert.equal(noDonuts.message, 'A treat costs 1 donut.');
+    assert.equal(noDonuts.intent, null); assert.equal(noDonuts.message, 'Needs 1 donut.');
     const server = run(run(INITIAL_UI, ['A'], ['B'], ['B']), ['result', { seq: 1, result: { ok: false, reason: 'paused' } }]);
-    assert.equal(server.message, 'YumPals is resting right now.');
+    assert.equal(server.message, 'YumPals is resting.');
 });
 
 test('the game: each guess asks the host, the turn is revealed, and round 5 shows the score', () => {
@@ -94,4 +94,10 @@ test('who sees the Donut pal: the teacher only in teacher mode, everyone when en
     assert.equal(donutPalShown({ mode: 'enabled', sandbox: true, uid: 'u', teacher: true }), false);
     assert.equal(donutPalShown({ mode: undefined, sandbox: false, uid: 'u', teacher: true }), false);
     assert.equal(donutPalShown({ mode: 'teacher', sandbox: false, uid: '', teacher: true }), false);
+});
+
+test('every caption is one short line (at most 22 characters), so the strip never changes size', () => {
+    const captions = allCaptions();
+    assert.ok(captions.length > 40);
+    assert.deepEqual(captions.filter(text => text.length > MAX_CAPTION), []);
 });

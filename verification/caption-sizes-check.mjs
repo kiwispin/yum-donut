@@ -1,4 +1,4 @@
-// Every caption must fit the fixed caption box at every width, so the box never
+// Every caption must fit the slim one-line caption strip at every width, so it never
 // changes size between messages. Usage: node verification/caption-sizes-check.mjs [port]
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const browser = await chromium.launch({ headless: true });
@@ -12,13 +12,15 @@ try {
     const m = await page.evaluate(() => [...document.querySelectorAll('.donut-caption')].map(p => {
       const range = document.createRange(); range.selectNodeContents(p);
       const lines = new Set([...range.getClientRects()].map(r => Math.round(r.top))).size;
-      return { text: p.textContent, lines, height: Math.round(p.getBoundingClientRect().height), overflow: p.scrollHeight > p.clientHeight + 1 };
+      return { text: p.textContent, lines, height: Math.round(p.getBoundingClientRect().height),
+        overflow: p.scrollHeight > p.clientHeight + 1 || p.scrollWidth > p.clientWidth + 1 };
     }));
     const heights = new Set(m.map(x => x.height)); const maxLines = Math.max(...m.map(x => x.lines));
     const over = m.filter(x => x.overflow).map(x => x.text);
     console.log(`${width}px: ${m.length} captions, lines max ${maxLines}, by lines`, JSON.stringify(m.reduce((a, x) => ({ ...a, [x.lines]: (a[x.lines] || 0) + 1 }), {})));
     check(`${width}px: every caption box is the same height`, heights.size === 1, [...heights].join(', '));
     check(`${width}px: no caption spills out of its box`, over.length === 0, over.join(' | '));
+    check(`${width}px: every caption is one line`, maxLines === 1, `max ${maxLines}`);
     await page.close();
   }
 } finally { await browser.close(); }
