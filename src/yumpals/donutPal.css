@@ -191,23 +191,90 @@
 .donut-button:active { box-shadow: 0 1px 0 #a0727a; translate: 0 3px; }
 .donut-button:focus-visible { outline: 3px solid var(--bezel); outline-offset: 2px; }
 
-.donut-caption {
-  min-height: 1.4em;
-  margin: 6px 0 0;
-  text-align: center;
-  font-size: 0.95rem;
-  font-weight: 600;
-}
+/* Retro game styling: a dialog box for the caption and a manual page for How to
+   play. Only headings and the short caption use the pixel font. */
+.donut-pal { --ink: #1b1424; --pixel: 'Press Start 2P', ui-monospace, monospace; }
 
-.donut-help {
-  width: min(100%, 420px);
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  background: #fff;
-  padding: 8px 14px;
+.donut-caption {
+  box-sizing: border-box;
+  width: min(100%, 360px);
+  min-height: 3.2em;
+  margin: 8px 0 0;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink);
+  color: #fff;
+  border: 4px double #fff;
+  outline: 3px solid var(--ink);
+  font-family: var(--pixel);
+  font-size: 11px;
+  line-height: 1.7;
+  text-align: center;
 }
-.donut-help summary { cursor: pointer; font-weight: 700; }
-.donut-help ul { margin: 8px 0 4px; padding-left: 1.1em; font-size: 0.9rem; line-height: 1.45; }
+.donut-caption.is-empty { visibility: hidden; }
+.donut-caption.is-pick::before { content: '▶ '; color: #ffd43b; }
+
+.donut-help.manual {
+  box-sizing: border-box;
+  width: min(100%, 420px);
+  margin-top: 8px;
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 4px;
+  color: var(--ink);
+}
+.manual-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  list-style: none;
+  cursor: pointer;
+  padding: 12px 14px;
+  background: #e64980;
+  color: #fff;
+  font-family: var(--pixel);
+  font-size: 12px;
+}
+.manual-bar::-webkit-details-marker { display: none; }
+.manual-bar::before { content: '▶'; font-size: 10px; margin-right: 10px; }
+.manual[open] .manual-bar { border-bottom: 3px solid var(--ink); }
+.manual[open] .manual-bar::before { content: '▼'; }
+.manual-bar span:first-child { margin-right: auto; }
+.manual-sec { padding: 12px 14px; border-bottom: 2px dashed var(--ink); }
+.manual-sec h3 { margin: 0 0 8px; font-family: var(--pixel); font-size: 10px; line-height: 1.6; font-weight: 400; }
+.manual-sec p { margin: 0; font-size: 0.92rem; line-height: 1.6; }
+.manual-num {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 3px 6px;
+  background: #ffd43b;
+  border: 2px solid var(--ink);
+}
+.manual-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--cream);
+  border: 2px solid var(--ink);
+  font-size: 11px;
+  font-weight: 800;
+  vertical-align: middle;
+}
+.manual-tip {
+  margin: 14px;
+  padding: 10px 12px;
+  background: #74c0fc;
+  border: 3px solid var(--ink);
+  transform: rotate(-1.2deg);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+.manual-tip > b:first-child { display: block; margin-bottom: 4px; font-family: var(--pixel); font-size: 10px; font-weight: 400; }
 
 .donut-tools {
   width: min(100%, 420px);

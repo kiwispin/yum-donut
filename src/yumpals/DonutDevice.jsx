@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import PixelDrawing from './PixelDrawing.jsx';
 import { ICONS, ICON_LABELS, ICON_ORDER } from './donutPalArt.js';
 import { GLAZES } from './donutUi.js';
+import '@fontsource/press-start-2p/latin-400.css';
 import './donutPal.css';
 
 // The Donut pal handheld itself: glazed donut case, dot-matrix screen, six care
@@ -13,6 +14,7 @@ const SPRINKLES = [
     [41, 9, 30, 0], [55, 9, -35, 3], [13, 29, 60, 1], [9, 39, -20, 2], [8, 49, 70, 1], [9, 60, 40, 3], [88, 49, -40, 2],
     [87, 60, 20, 1], [83, 69, -60, 0], [18, 76, -70, 0], [78, 76, 25, 3], [48, 89, 10, 1], [58, 88, -30, 2], [38, 88, 50, 0],
 ];
+const ICON_NAMES = new Set(Object.values(ICON_LABELS));
 const KEYS = { a: 'A', arrowright: 'A', arrowdown: 'A', b: 'B', enter: 'B', ' ': 'B', c: 'C', escape: 'C', backspace: 'C' };
 
 function ignoreKey(event) {
@@ -126,26 +128,46 @@ export default function DonutDevice({ name, glaze, rows, describe, attention, se
                     ))}
                 </div>
             </div>
-            <p className="donut-caption" aria-live="polite">{caption}</p>
+            {/* A game-style dialog box; an icon name gets a pointer in front. */}
+            <p className={`donut-caption${caption ? '' : ' is-empty'}${ICON_NAMES.has(caption) ? ' is-pick' : ''}`} aria-live="polite">{caption}</p>
             {children}
         </section>
     );
 }
 
+function Btn({ children }) {
+    return <span className="manual-btn" aria-label={`${children} button`}>{children}</span>;
+}
+
+// How to play, laid out like a page from an old game manual.
 export function HowToPlay() {
     return (
-        <details className="donut-help">
-            <summary>How to play</summary>
-            <ul>
-                <li><b>A</b> picks an icon, <b>B</b> uses it, <b>C</b> goes back. You can also tap an icon, then tap it again. <b>B</b> on its own shows the clock.</li>
-                <li><b>Food:</b> meals are free. A cupcake treat costs 1 donut (up to 3 a day) and adds weight.</li>
-                <li><b>Play:</b> guess which way your pal turns. Win 3 of 5 to cheer it up. Games burn off weight and keep going until you press <b>C</b>.</li>
-                <li><b>Clean</b> up messes, give <b>Medicine</b> when it is sick (sometimes it needs 2 or 3 doses), and use <b>Lights</b> for a nap when it is sleepy.</li>
-                <li><b>Status</b> shows age and weight, food, happy, and your donuts.</li>
-                <li>The light on the donut blinks when your pal needs you. While it sleeps, only Lights and Status work.</li>
-                <li>Care for it on school days and it grows: egg, baby, child, teen, adult. Few care mistakes (leaving it hungry, sad or sick) and it grows into a well-raised adult; many and it turns out scruffy. It never gets worse than sick.</li>
-                <li>Hold <b>C</b> and press <b>A</b> to turn beeps on or off.</li>
-            </ul>
+        <details className="donut-help manual">
+            <summary className="manual-bar"><span>How to play</span><span aria-hidden="true">P.1</span></summary>
+            <section className="manual-sec">
+                <h3><span className="manual-num">1</span>The buttons</h3>
+                <p><Btn>A</Btn> picks an icon, <Btn>B</Btn> uses it, <Btn>C</Btn> goes back. You can also tap an icon, then tap it again. <Btn>B</Btn> on its own shows the clock.</p>
+            </section>
+            <section className="manual-sec">
+                <h3><span className="manual-num">2</span>Feed your pal</h3>
+                <p>Meals are free. A cupcake treat costs 1 donut (up to 3 a day) and adds weight. <b>Status</b> shows age and weight, food, happy, and your donuts.</p>
+            </section>
+            <section className="manual-sec">
+                <h3><span className="manual-num">3</span>Left or right?</h3>
+                <p>Guess which way your pal turns: <Btn>A</Btn> left, <Btn>B</Btn> right. Win 3 of 5 to cheer it up. Games burn off weight and keep going until you press <Btn>C</Btn>.</p>
+            </section>
+            <section className="manual-sec">
+                <h3><span className="manual-num">4</span>Keep it well</h3>
+                <p><b>Clean</b> up messes. Give <b>Medicine</b> when it is sick (sometimes it needs 2 or 3 doses). Sleepy? Turn the <b>Lights</b> off for a nap. At night (9pm to 7am) it sleeps, and only Lights and Status work.</p>
+            </section>
+            <section className="manual-sec">
+                <h3><span className="manual-num">5</span>Watch it grow</h3>
+                <p>Care for it on school days and it grows: egg, baby, child, teen, adult. Few care mistakes (leaving it hungry, sad or sick) and it grows into a well-raised adult; lots, and it turns out scruffy. It never gets worse than sick.</p>
+            </section>
+            <aside className="manual-tip">
+                <b>Pro tip!</b>
+                The light on the donut blinks when your pal needs you. Check <b>Status</b> to see why. Hold <Btn>C</Btn> and press <Btn>A</Btn> to turn beeps on or off.
+            </aside>
         </details>
     );
 }

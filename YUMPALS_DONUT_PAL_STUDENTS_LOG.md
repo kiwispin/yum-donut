@@ -50,6 +50,41 @@ Branch `codex/yumpals-donut-pal-students`. Nothing deployed in this step.
   - On the test page, A three times gave "Clean" under the donut, with the Clean
     icon highlighted (screenshot inspected).
 
+- ACCEPTED (owner request, 31 October; sketch approved first) — a retro
+  game-manual look for the caption and How to play. Style only: no real magazine
+  names, logos or characters.
+  - The caption under the donut is a game dialog box: dark, with a double white
+    border and pixel lettering. A picked icon gets a yellow ▶ in front ("▶ Clean").
+    Long messages wrap inside the box. An empty box keeps its space, so nothing
+    jumps.
+  - How to play is a manual page:
+    - A pink title bar ("How to play", "P.1") with ▶/▼ for closed and open.
+    - Five numbered sections in yellow tabs: the buttons, feeding, left or right,
+      keeping it well, growing up.
+    - Round A, B and C buttons drawn inline.
+    - A tilted blue "Pro tip!" box.
+  - Only headings and the caption use the pixel font. Explanations stay in the
+    normal font for reading.
+  - Font: "Press Start 2P" (`@fontsource/press-start-2p` 5.3.0, OFL-1.1, pinned
+    exactly), Latin subset only. It is bundled into the site (woff2 12.5 KB, woff
+    6.3 KB), so nothing loads from an outside font server.
+  - `package-lock.json`: the only change besides the new package is npm dropping
+    `"peer": true` markers. No installed version changed.
+  - Files: `DonutDevice.jsx` (caption classes, the `HowToPlay` manual layout) and
+    `donutPal.css`.
+- REFUSED (my error, fixed) — my edit script turned the CSS escape codes for ▶, ▼
+  and a non-breaking space into control characters, so the page showed "B6", "a0"
+  and "BC". The CSS now holds the real characters. Seen on the test page and fixed
+  before any commit.
+- Measured:
+  - Frontend 197/197, lint exit 0. `donut-saved-check.mjs` 14/14,
+    `donut-pal-check.mjs` 28/28.
+  - Build exit 0: JS 977.71kB / 291.80kB gzip, CSS 103.35kB / 19.25kB gzip, plus
+    the two font files.
+  - Checked in the browser pane at desktop width and 375px: "▶ Clean" in the box
+    in the pixel font (font loaded). The two-line gift message wraps inside the box.
+    No sideways scroll. The whole manual page down to the Pro tip was inspected.
+
 ## Measured results
 
 - Frontend 196/196 (195 + 1), lint exit 0. Server 180/180 (no server change).
