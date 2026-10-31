@@ -2,7 +2,9 @@ import { Children, cloneElement, useEffect, useLayoutEffect, useId, useRef, useS
 import { BriefcaseBusiness, Check, ChevronDown, Flag, Gamepad2, Gift, GraduationCap, Landmark, MessageCircle, ShoppingBag, Sparkles, Trophy } from 'lucide-react';
 import './appNavigation.css';
 
-const ORDER = ['give', 'goal', 'feed', 'arcade', 'bank', 'shop', 'jobs', 'leaderboard', 'yumpals', 'yumpals-saved', 'training', 'yumpals-preview'];
+// YumPals comes last: it can arrive a moment after the rest (it waits for the
+// server on a first visit), and last means nothing else shifts when it does.
+const ORDER = ['give', 'goal', 'feed', 'arcade', 'bank', 'shop', 'jobs', 'leaderboard', 'training', 'yumpals', 'yumpals-saved', 'yumpals-preview'];
 const ICONS = { give: Gift, goal: Flag, yumpals: Sparkles, 'yumpals-saved': Sparkles, 'yumpals-preview': Sparkles, arcade: Gamepad2, bank: Landmark, shop: ShoppingBag, jobs: BriefcaseBusiness, training: GraduationCap, feed: MessageCircle, leaderboard: Trophy };
 
 export default function AppNavigation({ activeView, children }) {

@@ -210,6 +210,39 @@ Branch `codex/yumpals-donut-pal-students`. Nothing deployed in this step.
     106.17kB / 19.82kB gzip, plus the two font files.
   - Full-page screenshots at 320 and 390px, with How to play open, inspected.
 
+- ACCEPTED (owner question, 31 October: "Why does YumPals and Training take 2 or 3
+  seconds to appear in the menu?") — the menu now appears in one go.
+  - Measured live, signed in as the owner:
+    - The page loaded at 0.6s, and the menu (with Training) appeared at 2.7s.
+    - YumPals was added at 3.8s, right after `yumpalsGetPaidCareState` returned
+      (1.46s; up to about 3s on a server start-up).
+    - Only YumPals was late. It slotted in before Training, so Training jumped
+      one place, which made both look late.
+  - Cause: the YumPals item waits for the server to confirm YumPals is on, which
+    the teacher's on/off switch relies on.
+  - Fix, part 1: `useSavedVisibility.js` remembers the last answer per student on
+    this device (`yumpals_menu_{uid}`: on or off) and shows YumPals at once from
+    it. The server check still runs:
+    - If YumPals has been switched off, the item goes away, and stays away next
+      time.
+    - A failed check hides it as before, without erasing the memory.
+    - Only an answer of "on" is remembered as on.
+  - Fix, part 2: `AppNavigation.jsx` puts YumPals after Training. On a first visit,
+    when nothing is remembered, it arrives at the end and nothing else moves.
+  - Tests: `savedVisibility.test.js` (memory per student, switched off,
+    blocked storage) and `verification/visibility-remember.html`/`.jsx`/
+    `-check.mjs` (a 2-second server).
+  - Measured:
+    - `visibility-remember-check.mjs` 4/4:
+      - First visit: not shown until the server answered.
+      - Return visit: shown before the server answered.
+      - Switched off: shown from memory, then removed.
+      - Then not shown on the next load.
+    - `visibility-pause-check.mjs` 4/4, `donut-saved-check.mjs` 14/14.
+    - Frontend 199/199, lint exit 0, build exit 0.
+  - The live menu is checked after Monday's release: the first load after it
+    still waits once per device.
+
 ## Measured results
 
 - Frontend 196/196 (195 + 1), lint exit 0. Server 180/180 (no server change).
