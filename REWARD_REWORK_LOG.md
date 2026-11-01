@@ -101,3 +101,21 @@ The Donut pal student release went out this morning (`main` `edb14cc`, site
 - Rollback: rebuild and publish `codex/reward-rework-baseline-20261102` (`edb14cc`,
   the production source before this release). Trophies already bought stay on
   profiles as a harmless `trophies` field; arcade counters likewise.
+- RELEASE VERIFIED — source `1378b5f` is on `main` and `codex/reward-rework`, with
+  the rollback tag `codex/reward-rework-baseline-20261102` (`edb14cc`) pushed; remote
+  IDs verified. Published with `npm run deploy` as `gh-pages` `13f96ea`, live after
+  ~50s. Byte-identical to the build:
+  - `index.html` (MD5 `bf430884afcbea18c4de064104a5c5c2`).
+  - JS `index-zax7v6nT.js` (`40d5c1e04fabb74e2c81010f645d2e0b`).
+  - CSS `index-7ptzX6b7.css` (`062d078b5deee2eaa17eadb46ce414f9`).
+- Live, signed out (no sign-in attempted): the page loads `index-zax7v6nT.js`; What's
+  New shows "A new Trophy Cabinet, and your YumPal has moved into a Donut!", then
+  "Trophy Cabinet" and "Arcade update" (with the 150 rule), then the Donut pal
+  entries. No console errors. The live bundle contains the Trophy Cabinet, the
+  full-jar message and the goal-rank line.
+- Not yet seen live signed in: the Bank, Arcade, Leaderboard and goal pages. The
+  owner's own price changes (snacks 5→8 and 9→14, raffle 2→4–5) are Admin Settings
+  edits, not part of this release.
+- Next: rerun the read-only export in about two weeks and compare spending, goal
+  progress and trophy sales against the 1 November figures. Then "one more go"
+  arcade replays with weekly high scores, as its own release.
