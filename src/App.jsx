@@ -4218,7 +4218,7 @@ function YumDonutDashboard() {
                 )}
 
                 {view === 'leaderboard' && (
-                    <LeaderboardView users={users} roster={roster} sponsorships={sponsorships} sponsorshipSlots={currentSponsorshipSlots} />
+                    <LeaderboardView users={users} roster={roster} currentUserName={myProfile.name} sponsorships={sponsorships} sponsorshipSlots={currentSponsorshipSlots} />
                 )}
 
                 {view === 'yumpals' && yumpalsAvailable && (
@@ -7644,7 +7644,9 @@ function FeedView({ transactions, onReact, coreValues, onDelete, currentUser, us
     );
 }
 
-function LeaderboardView({ users, roster, sponsorships, sponsorshipSlots }) {
+// Balances are private: each student sees only their own, so the Leaderboard
+// shows status from giving and trophies, not from the size of a pile.
+function LeaderboardView({ users, roster, currentUserName, sponsorships, sponsorshipSlots }) {
     const combinedList = roster.map(name => {
         const userData = users.find(u => u.name === name);
         return {
@@ -7712,7 +7714,7 @@ function LeaderboardView({ users, roster, sponsorships, sponsorshipSlots }) {
                                         {rank.icon} {rank.title}
                                     </span>
                                 </div>
-                                <p className="text-xs text-slate-500">{u.balance} donuts available</p>
+                                {u.name === currentUserName && <p className="text-xs text-slate-500">You have {u.balance} donuts available</p>}
                             </div>
                             <div className="text-right pl-2 flex flex-col items-center">
                                 <div className="inline-flex items-center bg-pink-50 text-pink-600 px-3 py-1 rounded-full font-bold">

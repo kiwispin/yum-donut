@@ -36,6 +36,14 @@ as a class total, not per student.
   top of the Trophy Cabinet, best first, with ×n for repeats. Leaderboard order is
   unchanged (lifetime given).
 - ACCEPTED — the student audit counts "The Trophy Cabinet" as spent, like "The Shop".
+- ACCEPTED — balances hidden from other students. Auctions had not worked ("they
+  don't care"), which suggests a visible pile is itself the status students save for.
+  The Leaderboard line "{n} donuts available" now shows only on the viewer's own row,
+  as "You have {n} donuts available". It was the only place students could see each
+  other's balances; the depositor ledger and user audit are teacher-only and
+  unchanged. Display only: Firestore still lets any visitor read public profiles.
+- REFUSED — an overflow cap sending donuts above 150 to the class goal. The owner
+  judged it unfair: it would take donuts from some students.
 - ACCEPTED — `releaseScope.test.js` names the removal of `handlePayInterest` as approved.
 - NOT CHANGED — the bank ledger mismatch. 23 of 42 profiles' bank balances do not
   equal their logged deposits, withdrawals and interest. Most of the gap is interest
