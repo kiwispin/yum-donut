@@ -278,3 +278,58 @@ Branch `codex/yumpals-donut-pal-students`. Nothing deployed in this step.
   - Site: rebuild and publish the tag; students return to the current handheld
     with old data intact.
   - Server: set the parameter back to false and redeploy the two functions.
+
+## Release 3 — Monday 2 November 2026
+
+- Owner: "Time to push". Every deploy was shown first and approved ("Approved,
+  deploy" for the server, "Approved, publish" for the site).
+- Rollback tag `codex/donut-pal-students-baseline-20261102` → `b750d54` (live
+  before). `main` fast-forwarded to `e2d0c36`, then two switch commits:
+  - `7663253` `YUMPALS_POCKET_READY=true` (server open to students).
+  - `3fafab4` `VITE_YUMPALS_POCKET=enabled` (site shows the Donut pal to
+    everyone).
+- On `main`: frontend 199/199, server 180/180, both lints exit 0, build exit 0.
+  Atomic push of `main`, `codex/yumpals-only-release` and the tag. Remote IDs
+  verified: both branches at `3fafab4`, and the tag at `b750d54`.
+- READ-ONLY COUNT BEFORE (6:4x am, Firebase console, owner's personal account,
+  totals only):
+  - 15 pal records, every one a real pal (no placeholders). That is 2 more than the
+    13 in the plan, so they were adopted since.
+  - 1 moved to the Donut pal (the owner's), matching 1 `migrations/*_pocket`
+    record.
+  - Method: each record was opened and only "exists" and "has Donut pal fields"
+    were read. Two first attempts misread the console's panels (a race with fields
+    still loading, and a pal's own ID inside its Donut pal data). Calibrated
+    against the owner's known-moved pal before the final count.
+- SERVER VERIFIED — `deploy --only functions:teams:yumpalsGetPaidCareState,
+  functions:teams:yumpalsPurchaseCare` (186.03 KB, environment file with
+  `YUMPALS_POCKET_READY=true`): "Successful update operation" for both. 10 functions
+  listed.
+  - Live as the owner: the Donut pal loaded ("Fizzgig is a child, asleep, 1 mess to
+    clean"; it grew over the weekend).
+  - `yumpalsGetPaidCareState` 200 in 4,226ms (start-up after the deploy), then
+    951ms.
+- SITE VERIFIED — `npm run deploy` gave `gh-pages` `cae4fa4`, live after ~60s.
+  Byte-identical to the build:
+  - `index.html` (MD5 `0c081430bd11699be0bdaf0799b57e90`).
+  - JS `index-Du47vG8z.js` (`55cc0d17a712cf7dbc0c4f8be4fd630a`).
+  - CSS `index-CO-054AH.css` (`7ea2dab00e18163b7f4d537be7aa786c`).
+  - All four Baloo 2 font files.
+- Live as the owner, 6:58am:
+  - The pane first showed the cached old page (`index-DUJnJVjF.js`). GitHub Pages
+    lets browsers keep it for up to 10 minutes, so some students may get the old
+    version for a few minutes. That is harmless: it still works, and the next
+    load switches over.
+  - With a fresh load (`index-Du47vG8z.js`): the packaging card, the "Fizzgig"
+    sticker, and the starburst "Growing!" (child), in Baloo 2.
+  - Menu order: … Leaderboard | Training | YumPals.
+  - The first load on the new version waited once for YumPals (4.2s, nothing
+    remembered yet). The next load showed YumPals with the rest of the menu (both at
+    1.2s).
+  - What's New: the subtitle "Your YumPal has moved into a Donut!", then "Your pal
+    moved into a Donut!", then the earlier entries.
+- Next: the read-only count again one day after release, and after one to two weeks
+  (pals moved, Donut pal actions and treats; totals only).
+- Rollback:
+  - Site: rebuild and publish `codex/donut-pal-students-baseline-20261102`.
+  - Server: set `YUMPALS_POCKET_READY=false` and redeploy the two functions.
