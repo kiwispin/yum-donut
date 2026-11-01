@@ -53,6 +53,10 @@ as a class total, not per student.
   say the jar is full and to spend some. 11 of 41 students held 150+ on 1 November.
   `releaseScope.test.js` now requires `capArcadePrize(won, earnedToday, held)`.
 - ACCEPTED — `releaseScope.test.js` names the removal of `handlePayInterest` as approved.
+- ACCEPTED — the goal page says "🏆 Your donations count toward your Leaderboard
+  rank." under the Give 1 / Give 5 buttons. It was already true (goal donations add
+  to lifetime given, which ranks the Leaderboard) but never said. Shown only while
+  the goal is open; not seen live yet because the goal stood at 500/500 when checked.
 - NOT CHANGED — the bank ledger mismatch. 23 of 42 profiles' bank balances do not
   equal their logged deposits, withdrawals and interest. Most of the gap is interest
   logged only as class totals before September; several students hold large balances

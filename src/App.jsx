@@ -7176,22 +7176,27 @@ function GoalView({ goalData, userBalance, onContribute, currentUserName, onActi
                             )}
                         </div>
                     ) : (
-                        <div className="flex gap-2 justify-center max-w-sm mx-auto">
-                            <Button
-                                onClick={() => onContribute(1)}
-                                disabled={userBalance < 1}
-                                className="flex-1"
-                            >
-                                Give 1 {EMOJI}
-                            </Button>
-                            <Button
-                                onClick={() => onContribute(5)}
-                                disabled={userBalance < 5}
-                                className="flex-1"
-                            >
-                                Give 5 {EMOJI}
-                            </Button>
-                        </div>
+                        <>
+                            <div className="flex gap-2 justify-center max-w-sm mx-auto">
+                                <Button
+                                    onClick={() => onContribute(1)}
+                                    disabled={userBalance < 1}
+                                    className="flex-1"
+                                >
+                                    Give 1 {EMOJI}
+                                </Button>
+                                <Button
+                                    onClick={() => onContribute(5)}
+                                    disabled={userBalance < 5}
+                                    className="flex-1"
+                                >
+                                    Give 5 {EMOJI}
+                                </Button>
+                            </div>
+                            <p className="mt-3 text-xs font-medium text-slate-500">
+                                🏆 Your donations count toward your Leaderboard rank.
+                            </p>
+                        </>
                     )}
                 </div>
             </Card>
