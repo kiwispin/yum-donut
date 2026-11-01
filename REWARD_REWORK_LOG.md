@@ -84,3 +84,20 @@ as a class total, not per student.
 - Not exercised: actually buying a trophy or winning past the cap, which would
   write to the live project. The Leaderboard shelf has no trophies to show until one
   is bought.
+
+## Release — 2 November 2026 (afternoon)
+
+The Donut pal student release went out this morning (`main` `edb14cc`, site
+`gh-pages` `cae4fa4`). The owner then approved this release ("Ready to roll this").
+
+- `main` merged into `codex/reward-rework` cleanly (`cc3aad1`); this morning's
+  changes touched only `.env.production`, the server environment file, a log and a
+  launch image. `VITE_YUMPALS_POCKET=enabled` is kept.
+- Frontend suite (`src/*.test.js src/arcade/*.test.js src/yumpals/*.test.js`):
+  210/210. Functions suite: 180/180 (no server code changed). Lint clean.
+  `git diff --check` clean. `npm run build`: JS `index-zax7v6nT.js` 983.42 kB /
+  293.84 kB gzip, CSS `index-7ptzX6b7.css` 106.35 kB.
+- Frontend only: no function deploy and no Firestore rules change.
+- Rollback: rebuild and publish `codex/reward-rework-baseline-20261102` (`edb14cc`,
+  the production source before this release). Trophies already bought stay on
+  profiles as a harmless `trophies` field; arcade counters likewise.
