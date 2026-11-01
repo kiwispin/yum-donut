@@ -27,6 +27,7 @@ import { synchronizePetWallet } from './yumpals/syncWallet.js';
 import { canShowYumPalsPreview } from './yumpals/previewGate.js';
 import AppNavigation from './yumpals/AppNavigation.jsx';
 import VisionMixerModal from './arcade/VisionMixerModal.jsx';
+import { ARCADE_DAILY_CAP, arcadeEarnedOn, capArcadePrize } from './arcade/arcadeCap.js';
 import { PAL_VISITED_EVENT, palGiftWaiting } from './yumpals/visitReminder.js';
 import './yumpals/appSurround.css';
 import { useSavedVisibility } from './yumpals/useSavedVisibility.js';
@@ -1691,6 +1692,8 @@ function ArcadeView({ user, profile, onWinBonus, sponsorships, sponsorshipSlots 
     const [showCableCommander, setShowCableCommander] = useState(false);
     const [showMemoryMatch, setShowMemoryMatch] = useState(false);
     const [showVisionMixer, setShowVisionMixer] = useState(false);
+    const arcadeEarned = Math.min(arcadeEarnedOn(profile, getLocalDateKey()), ARCADE_DAILY_CAP);
+    const arcadeAllowanceUsed = arcadeEarned >= ARCADE_DAILY_CAP;
 
     return (
         <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 p-4 sm:p-6">
@@ -1702,6 +1705,12 @@ function ArcadeView({ user, profile, onWinBonus, sponsorships, sponsorshipSlots 
                 <div>
                     <h1 className="text-3xl font-black text-slate-800 tracking-tight">ARCADE</h1>
                     <p className="text-slate-500 font-medium">Daily games & prizes</p>
+                </div>
+                <div className={`mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold ${arcadeAllowanceUsed ? 'bg-slate-100 text-slate-600' : 'bg-pink-50 text-pink-600'}`}>
+                    <span aria-hidden="true">{EMOJI}</span>
+                    {arcadeAllowanceUsed
+                        ? `Today's ${ARCADE_DAILY_CAP} arcade donuts earned · games still count for glory`
+                        : `Arcade donuts today: ${arcadeEarned} of ${ARCADE_DAILY_CAP}`}
                 </div>
             </div>
 
@@ -2735,8 +2744,10 @@ function YumDonutDashboard() {
         const userRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
         const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
 
+        const won = prize.type === 'donut' ? prize.amount : 10; // Golden Ticket
+
         try {
-            await runTransaction(db, async (transaction) => {
+            const amount = await runTransaction(db, async (transaction) => {
                 const userDoc = await transaction.get(userRef);
                 const publicDoc = await transaction.get(publicRef);
                 if (!userDoc.exists()) throw "User profile not found";
@@ -2763,37 +2774,40 @@ function YumDonutDashboard() {
                     }
                 }
 
-                // 2. Prepare Updates
+                // 2. Prepare Updates, paying no more than is left of today's arcade allowance
+                const dateKey = getLocalDateKey();
+                const earnedToday = arcadeEarnedOn(data, dateKey);
+                const paid = capArcadePrize(won, earnedToday);
                 const updates = {
-                    [cooldownField]: serverTimestamp()
+                    [cooldownField]: serverTimestamp(),
+                    arcade_earned_today: earnedToday + paid,
+                    arcade_earned_date: dateKey
                 };
-
-                let amount = 0;
-                if (prize.type === 'donut') {
-                    amount = prize.amount;
-                } else if (prize.type === 'item') {
-                    amount = 10; // Golden Ticket
-                }
 
                 // The public profile is the wallet source of truth. Repair a small
                 // private/public drift as part of the same atomic reward.
-                updates.balance = currentPublicBalance + amount;
+                updates.balance = currentPublicBalance + paid;
 
                 // 3. Atomic Update (Private & Public)
                 transaction.update(userRef, updates);
                 transaction.update(publicRef, {
-                    balance: currentPublicBalance + amount,
-                    lifetime_received: currentPublicLifetimeReceived + amount
+                    balance: currentPublicBalance + paid,
+                    lifetime_received: currentPublicLifetimeReceived + paid
                 });
+                return paid;
             });
 
             // 4. Post-Transaction UI & Logs
-            const amount = prize.type === 'donut' ? prize.amount : 10;
+            if (amount === 0) {
+                showNotification(`Nice win! You've already earned today's ${ARCADE_DAILY_CAP} arcade donuts, so this one's just for glory.`);
+                return;
+            }
 
+            const limitNote = amount < won ? ` That's today's ${ARCADE_DAILY_CAP}-donut arcade limit.` : '';
             if (prize.type === 'donut') {
-                showNotification(`You won ${amount} Donut${amount > 1 ? 's' : ''}! Added to wallet.`);
+                showNotification(`You won ${amount} Donut${amount > 1 ? 's' : ''}! Added to wallet.${limitNote}`);
             } else {
-                showNotification("GOLDEN TICKET! You won 10 Donuts!");
+                showNotification(`GOLDEN TICKET! You won ${amount} Donut${amount > 1 ? 's' : ''}!${limitNote}`);
             }
 
             // 4. Log Transaction

@@ -36,6 +36,11 @@ test('YumPals-only release preserves every existing named action handler from th
       assert.match(current.get(name)[0], /action: 'add'/);
       continue;
     }
+    if (name === 'handleWinBonus') { // Explicitly approved shared daily cap on Arcade donut prizes.
+      assert.match(current.get(name)[0], /capArcadePrize\(won, earnedToday\)/);
+      assert.match(current.get(name)[0], /arcade_earned_today/);
+      continue;
+    }
     if (name === 'handleResetPassword') {
       assert.match(current.get(name)[0], /yumpalsManageStudentAccount/);
       assert.match(current.get(name)[0], /action: 'set-password'/);
