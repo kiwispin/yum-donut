@@ -1,9 +1,26 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ARCADE_DAILY_CAP, arcadeEarnedOn, capArcadePrize } from './arcadeCap.js';
+import { ARCADE_DAILY_CAP, ARCADE_HOLDING_CAP, arcadeEarnedOn, capArcadePrize, donutsHeld, isJarFull } from './arcadeCap.js';
 
-test('the daily arcade allowance is three donuts', () => {
+test('the daily arcade allowance is three donuts and the jar holds 150', () => {
     assert.equal(ARCADE_DAILY_CAP, 3);
+    assert.equal(ARCADE_HOLDING_CAP, 150);
+});
+
+test('donuts held counts the wallet and the bank, ignoring broken values', () => {
+    assert.equal(donutsHeld({ balance: 40, bank_balance: 110 }), 150);
+    assert.equal(donutsHeld({ balance: 40 }), 40);
+    assert.equal(donutsHeld({ balance: NaN, bank_balance: -5 }), 0);
+    assert.equal(donutsHeld(null), 0);
+});
+
+test('a full jar pays nothing, and spending below it pays again', () => {
+    assert.equal(isJarFull(149), false);
+    assert.equal(isJarFull(150), true);
+    assert.equal(capArcadePrize(2, 0, 150), 0);
+    assert.equal(capArcadePrize(2, 0, 400), 0);
+    assert.equal(capArcadePrize(2, 0, 149), 2);
+    assert.equal(capArcadePrize(5, 1, 149), 2);
 });
 
 test('only today\'s count is carried forward', () => {

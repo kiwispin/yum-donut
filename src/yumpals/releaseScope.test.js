@@ -37,7 +37,7 @@ test('YumPals-only release preserves every existing named action handler from th
       continue;
     }
     if (name === 'handleWinBonus') { // Explicitly approved shared daily cap on Arcade donut prizes.
-      assert.match(current.get(name)[0], /capArcadePrize\(won, earnedToday\)/);
+      assert.match(current.get(name)[0], /capArcadePrize\(won, earnedToday, held\)/);
       assert.match(current.get(name)[0], /arcade_earned_today/);
       continue;
     }

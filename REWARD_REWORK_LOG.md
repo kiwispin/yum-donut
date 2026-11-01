@@ -44,6 +44,14 @@ as a class total, not per student.
   unchanged. Display only: Firestore still lets any visitor read public profiles.
 - REFUSED — an overflow cap sending donuts above 150 to the class goal. The owner
   judged it unfair: it would take donuts from some students.
+- ACCEPTED instead — a full donut jar stops Arcade prizes (`ARCADE_HOLDING_CAP` 150
+  in `src/arcade/arcadeCap.js`). While a student holds 150 or more (wallet plus bank,
+  read from the public profile in the prize transaction) every Arcade win pays 0.
+  Nothing held is taken; gifts, teacher gifts, bounties and Training are not limited;
+  trophies don't count, so buying one makes room. A win below 150 pays its normal
+  (daily-capped) prize even if it crosses 150. The win message and the Arcade header
+  say the jar is full and to spend some. 11 of 41 students held 150+ on 1 November.
+  `releaseScope.test.js` now requires `capArcadePrize(won, earnedToday, held)`.
 - ACCEPTED — `releaseScope.test.js` names the removal of `handlePayInterest` as approved.
 - NOT CHANGED — the bank ledger mismatch. 23 of 42 profiles' bank balances do not
   equal their logged deposits, withdrawals and interest. Most of the gap is interest
@@ -53,7 +61,9 @@ as a class total, not per student.
   sections go above the YumPals ones: "Trophy Cabinet" (`Trophy` icon) and "Arcade
   update" (`Gamepad2` icon), each with the approved paragraph. The subtitle "Your
   YumPal has moved into a Donut!" became "A new Trophy Cabinet, and your YumPal has
-  moved into a Donut!". The YumPals and older sections are unchanged.
+  moved into a Donut!". The YumPals and older sections are unchanged. When the jar
+  cap was added, the Arcade paragraph gained "and pays nothing while you hold 150 or
+  more" so it stays accurate.
 
 ## Checks
 
