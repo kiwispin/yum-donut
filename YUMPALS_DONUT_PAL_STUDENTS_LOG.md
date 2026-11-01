@@ -333,3 +333,9 @@ Branch `codex/yumpals-donut-pal-students`. Nothing deployed in this step.
 - Rollback:
   - Site: rebuild and publish `codex/donut-pal-students-baseline-20261102`.
   - Server: set `YUMPALS_POCKET_READY=false` and redeploy the two functions.
+- Launch post (owner asked what to post in Teams, with a screenshot):
+  `marketing/donut-pal-launch.png` (888×1278, 2×, 233 KB). It shows the real
+  handheld on its packaging card at the moment an egg hatches ("It hatched!", "New
+  pal!"), with "Your pal" on the name sticker. Rendered from the stand-in server page
+  by `verification/launch-shot.mjs`. The post text follows the What's New entry.
+  The owner posts it; I posted nothing.
