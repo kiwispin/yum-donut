@@ -41,8 +41,11 @@ as a class total, not per student.
   equal their logged deposits, withdrawals and interest. Most of the gap is interest
   logged only as class totals before September; several students hold large balances
   with no deposit ever logged, which the log cannot explain. No balance is rewritten.
-- NOT CHANGED — What's New. Its wording is owner-approved, and the YumPals release
-  may change it too.
+- ACCEPTED — What's New (`PatchNotesModal`), using the owner-approved draft. Two
+  sections go above the YumPals ones: "Trophy Cabinet" (`Trophy` icon) and "Arcade
+  update" (`Gamepad2` icon), each with the approved paragraph. The subtitle "Your
+  YumPal has moved into a Donut!" became "A new Trophy Cabinet, and your YumPal has
+  moved into a Donut!". The YumPals and older sections are unchanged.
 
 ## Checks
 
@@ -50,5 +53,12 @@ as a class total, not per student.
   0 fail (5 new trophy tests).
 - `npx eslint .`: clean. `git diff --check`: clean. Production build compiles
   (existing large-chunk warning only).
-- Not checked in a browser: the Bank and Leaderboard need a signed-in account, and
-  the dev server writes to the live project.
+- Browser, local dev server, teacher account already signed in, view only (nothing
+  bought, paid or written): What's New shows the two new sections first under the
+  new subtitle. The Bank page shows no interest panel and the Trophy Cabinet with
+  four tiers. With 18 in the wallet and 49 in the bank only "Medal: Bank" is enabled.
+  At 375px wide the tiers sit two to a row with no sideways scroll. The Arcade header
+  reads "Arcade donuts today: 0 of 3". No console errors.
+- Not exercised: actually buying a trophy or winning past the cap, which would
+  write to the live project. The Leaderboard shelf has no trophies to show until one
+  is bought.

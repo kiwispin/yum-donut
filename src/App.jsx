@@ -5186,7 +5186,7 @@ function PatchNotesModal({ onClose }) {
                         <h2 className="text-2xl font-bold flex items-center gap-2">
                             <Sparkles className="text-yellow-300" /> What's New
                         </h2>
-                        <p className="opacity-90 text-sm mt-1">Your YumPal has moved into a Donut!</p>
+                        <p className="opacity-90 text-sm mt-1">A new Trophy Cabinet, and your YumPal has moved into a Donut!</p>
                     </div>
                     <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
                         <XCircle size={24} />
@@ -5195,6 +5195,20 @@ function PatchNotesModal({ onClose }) {
 
                 <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
                     <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                        <Trophy className="text-yellow-500" size={20} /> Trophy Cabinet
+                    </h3>
+                    <p className="text-slate-600 text-sm">
+                        Turn your donuts into trophies that sit beside your name on the Leaderboard for good, from a Medal at 25 to a Crown at 500. Find it in the Bank.
+                    </p>
+
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2 pt-2 border-t border-slate-100">
+                        <Gamepad2 className="text-red-500" size={20} /> Arcade update
+                    </h3>
+                    <p className="text-slate-600 text-sm">
+                        The Arcade now pays up to 3 donuts a day across all games. After that, wins are just for glory!
+                    </p>
+
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2 pt-2 border-t border-slate-100">
                         <Donut className="text-pink-500" size={20} /> Your pal moved into a Donut!
                     </h3>
                     <p className="text-slate-600 text-sm">
