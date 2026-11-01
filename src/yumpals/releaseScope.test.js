@@ -41,6 +41,10 @@ test('YumPals-only release preserves every existing named action handler from th
       assert.match(current.get(name)[0], /arcade_earned_today/);
       continue;
     }
+    if (name === 'handlePayInterest') { // Explicitly approved: bank interest is switched off.
+      assert.equal(current.has(name), false);
+      continue;
+    }
     if (name === 'handleResetPassword') {
       assert.match(current.get(name)[0], /yumpalsManageStudentAccount/);
       assert.match(current.get(name)[0], /action: 'set-password'/);

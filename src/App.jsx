@@ -11,6 +11,7 @@ import {
 } from 'firebase/auth';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getBankBalance, resolveBankBalance } from './bankBalance';
+import { TROPHIES, trophyCounts, payForTrophy } from './trophies.js';
 import { accountEmailCandidatesForName, accountEmailForName } from './authIdentity';
 import YumPalsView from './yumpals/YumPalsView';
 import YumPalsHandheldDemo from './yumpals/YumPalsHandheldDemo';
@@ -537,7 +538,6 @@ const DAILY_LIMIT = 5;
 const GOAL_TARGET = 500;
 const EMOJI = "🍩";
 const APP_ID = 'yum-donut-school';
-const BANK_INTEREST_RATE = 0.02;
 
 // 3. Live Studio Configuration
 const ENABLE_LIVE_STUDIO = true;
@@ -1028,23 +1028,34 @@ const LiveDock = ({ users, currentUser, onEditPixels }) => {
 
 // --- Main Application ---
 
-function BankView({ user, onDeposit, onWithdraw, onPayInterest, isAdmin, allUsers, balanceRepairRequired = false }) {
+// Owned trophies, best first, each with a count when there is more than one.
+function TrophyShelf({ trophies, className = '' }) {
+    const counts = trophyCounts(trophies);
+    const owned = TROPHIES.filter(t => counts[t.id] > 0).reverse();
+    if (owned.length === 0) return null;
+    const label = owned.map(t => `${counts[t.id]} ${t.name}${counts[t.id] > 1 ? 's' : ''}`).join(', ');
+    return (
+        <span className={`inline-flex items-center gap-1 whitespace-nowrap ${className}`} title={`Trophy cabinet: ${label}`} aria-label={`Trophy cabinet: ${label}`}>
+            {owned.map(t => (
+                <span key={t.id} aria-hidden="true">
+                    {t.icon}{counts[t.id] > 1 && <span className="text-[10px] font-bold text-slate-500">×{counts[t.id]}</span>}
+                </span>
+            ))}
+        </span>
+    );
+}
+
+function BankView({ user, trophies, onDeposit, onWithdraw, onBakeTrophy, isAdmin, allUsers, balanceRepairRequired = false }) {
     const [amount, setAmount] = useState("");
     const walletBalance = getDonutBalance(user.balance);
     const bankBalance = getDonutBalance(user.bank_balance);
     const amountValue = Number(amount);
     const hasValidAmount = isValidDonutAmount(amountValue);
     const canUseBank = !balanceRepairRequired;
-    const interestRate = BANK_INTEREST_RATE;
-    const interestPercent = Math.round(interestRate * 100);
-    const interestUnit = Math.ceil(1 / interestRate);
-    const projectedInterest = Math.floor(bankBalance * interestRate);
-    const nextMilestone = Math.floor((projectedInterest + 1) / interestRate);
-    const neededForNext = nextMilestone - bankBalance;
+    const trophyCount = trophyCounts(trophies);
 
     // Admin Calc
     const totalBanked = allUsers.reduce((sum, u) => sum + getDonutBalance(u.bank_balance), 0);
-    const totalInterestPayout = allUsers.reduce((sum, u) => sum + Math.floor(getDonutBalance(u.bank_balance) * interestRate), 0);
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1056,7 +1067,7 @@ function BankView({ user, onDeposit, onWithdraw, onPayInterest, isAdmin, allUser
                     <h2 className="text-2xl font-bold flex items-center gap-2 mb-1">
                         <Landmark className="text-yellow-400" /> The Donut Bank
                     </h2>
-                    <p className="text-slate-400 text-sm mb-6">Secure your sweets. Earn interest.</p>
+                    <p className="text-slate-400 text-sm mb-6">Secure your sweets. Save up for a trophy.</p>
 
                     {balanceRepairRequired && (
                         <div className="mb-4 rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-sm text-amber-200">
@@ -1064,7 +1075,7 @@ function BankView({ user, onDeposit, onWithdraw, onPayInterest, isAdmin, allUser
                         </div>
                     )}
 
-                    <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="grid grid-cols-2 gap-4">
                         <div className="bg-white/10 p-4 rounded-xl backdrop-blur-sm">
                             <p className="text-xs text-slate-400 uppercase font-bold">Wallet</p>
                             <p className="text-2xl font-bold">{walletBalance} {EMOJI}</p>
@@ -1074,22 +1085,46 @@ function BankView({ user, onDeposit, onWithdraw, onPayInterest, isAdmin, allUser
                             <p className="text-2xl font-bold text-yellow-400">{bankBalance} {EMOJI}</p>
                         </div>
                     </div>
+                </div>
+            </Card>
 
-                    <div className="bg-white/5 p-4 rounded-xl border border-white/10">
-                        <div className="flex justify-between items-center mb-2">
-                            <span className="text-sm font-bold text-slate-300">Projected Interest ({interestPercent}%)</span>
-                            <span className="text-xl font-bold text-green-400">+{projectedInterest} {EMOJI}</span>
+            <Card>
+                <div className="flex items-start justify-between gap-3 mb-1">
+                    <h3 className="font-bold text-slate-700 flex items-center gap-2">
+                        <span aria-hidden="true">🏆</span> Trophy Cabinet
+                    </h3>
+                    <TrophyShelf trophies={trophies} className="text-base" />
+                </div>
+                <p className="text-xs text-slate-500 mb-4">
+                    Turn donuts into trophies that sit beside your name on the Leaderboard for good. Pay from your wallet or straight from the bank. Trophies can't be turned back into donuts.
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {TROPHIES.map(trophy => (
+                        <div key={trophy.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3 flex flex-col items-center text-center">
+                            <span className="text-3xl" aria-hidden="true">{trophy.icon}</span>
+                            <p className="font-bold text-slate-800 text-sm mt-1">{trophy.name}</p>
+                            <p className="text-xs font-bold text-pink-600">{trophy.cost} {EMOJI}</p>
+                            <p className="text-[10px] text-slate-400 mb-2">{trophyCount[trophy.id] ? `You have ${trophyCount[trophy.id]}` : 'Not yet earned'}</p>
+                            <div className="grid grid-cols-2 gap-1 w-full mt-auto">
+                                <button
+                                    onClick={() => onBakeTrophy(trophy.id, 'wallet')}
+                                    disabled={!canUseBank || walletBalance < trophy.cost}
+                                    className="rounded-lg bg-pink-500 text-white text-[11px] font-bold py-1.5 hover:bg-pink-600 disabled:bg-slate-200 disabled:text-slate-400"
+                                    aria-label={`Buy a ${trophy.name} with wallet donuts`}
+                                >
+                                    Wallet
+                                </button>
+                                <button
+                                    onClick={() => onBakeTrophy(trophy.id, 'bank')}
+                                    disabled={!canUseBank || bankBalance < trophy.cost}
+                                    className="rounded-lg bg-slate-800 text-yellow-400 text-[11px] font-bold py-1.5 hover:bg-slate-700 disabled:bg-slate-200 disabled:text-slate-400"
+                                    aria-label={`Buy a ${trophy.name} with bank donuts`}
+                                >
+                                    Bank
+                                </button>
+                            </div>
                         </div>
-                        <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
-                            <div className="bg-green-500 h-full" style={{ width: `${((bankBalance % interestUnit) / interestUnit) * 100}%` }}></div>
-                        </div>
-                        <p className="text-[10px] text-slate-500 mt-2 text-right">
-                            {neededForNext > 0 ? `Deposit ${neededForNext} more to earn +1 interest!` : "Maximizing interest!"}
-                        </p>
-                        <p className="text-[10px] text-slate-500 mt-1 italic text-center">
-                            "The Bank doesn't deal in crumbs. We round down."
-                        </p>
-                    </div>
+                    ))}
                 </div>
             </Card>
 
@@ -1145,23 +1180,7 @@ function BankView({ user, onDeposit, onWithdraw, onPayInterest, isAdmin, allUser
                             <span>Total Deposits:</span>
                             <span className="font-bold">{totalBanked} {EMOJI}</span>
                         </div>
-                        <div className="flex justify-between">
-                            <span>Total Payout:</span>
-                            <span className="font-bold text-green-400">{totalInterestPayout} {EMOJI}</span>
-                        </div>
                     </div>
-                    <Button
-                        variant="success"
-                        className="w-full"
-                        onClick={() => {
-                            if (confirm(`Pay out ${totalInterestPayout} donuts in interest to all users?`)) {
-                                onPayInterest();
-                            }
-                        }}
-                        disabled={totalInterestPayout === 0}
-                    >
-                        Pay Interest ({interestPercent}%)
-                    </Button>
 
                     <div className="mt-6 pt-6 border-t border-slate-700">
                         <h4 className="font-bold text-sm text-slate-400 mb-3 uppercase tracking-wider flex items-center gap-2">
@@ -3589,70 +3608,63 @@ function YumDonutDashboard() {
         }
     };
 
-    const handlePayInterest = async () => {
-        // Admin only function to pay bank interest (rounded down)
-        if (myProfile.name !== "Mr Rayner") return;
+    const handleBakeTrophy = async (trophyId, source) => {
+        const trophy = TROPHIES.find(t => t.id === trophyId);
+        if (!user || !myProfile || !trophy) return;
+        const from = source === 'bank' ? 'bank' : 'wallet';
+        if (!confirm(`Add a ${trophy.icon} ${trophy.name} to your trophy cabinet for ${trophy.cost} donuts from your ${from}?\n\nTrophies are permanent and can't be turned back into donuts.`)) return;
 
         if (isSandbox) {
-            showNotification("Sandbox: Interest paid (Simulated)", "info");
+            showNotification(`Sandbox: Added a ${trophy.name} (Simulated)`, "info");
             return;
         }
 
         try {
-            let totalPaid = 0;
+            const userRef = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'data');
+            const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
 
-            for (const u of users) {
-                const bBalance = getDonutBalance(u.bank_balance);
-                if (bBalance < Math.ceil(1 / BANK_INTEREST_RATE)) continue;
+            await runTransaction(db, async (transaction) => {
+                const userDoc = await transaction.get(userRef);
+                const publicDoc = await transaction.get(publicRef);
+                if (!userDoc.exists() || !publicDoc.exists()) throw "User missing";
 
-                const interest = Math.floor(bBalance * BANK_INTEREST_RATE);
-                if (interest > 0) {
-                    const userPublicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', u.id);
+                // The public profile is the wallet source of truth; the bank must agree on both copies.
+                const wallet = getDonutBalance(publicDoc.data().balance, null);
+                const bank = resolveBankBalance(userDoc.data().bank_balance, publicDoc.data().bank_balance);
+                if (wallet === null || bank === null) throw "CORRUPT_BALANCE";
 
-                    if (u.uid) {
-                        const userPrivateRef = doc(db, 'artifacts', APP_ID, 'users', u.uid, 'profile', 'data');
+                const paid = payForTrophy({ wallet, bank }, from, trophy.cost);
+                if (!paid) throw "NOT_ENOUGH";
+                const owned = trophyCounts(publicDoc.data().trophies)[trophy.id];
 
-                        await updateDoc(userPublicRef, {
-                            bank_balance: bBalance + interest
-                        });
-
-                        await updateDoc(userPrivateRef, {
-                            bank_balance: bBalance + interest
-                        });
-
-                        await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
-                            fromName: "The Bank",
-                            toName: u.name,
-                            message: `Interest payout: +${interest} donut${interest === 1 ? '' : 's'}.`,
-                            timestamp: serverTimestamp(),
-                            emoji: "💸",
-                            amount: interest,
-                            likes: []
-                        });
-
-                        totalPaid += interest;
-                    }
-                }
-            }
-
-            if (totalPaid > 0) {
-                await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), {
-                    fromName: "The Bank",
-                    toName: "EVERYONE",
-                    message: `PAID INTEREST! Total of ${totalPaid} Donuts distributed to savers! 🏦`,
+                transaction.update(userRef, { balance: paid.wallet, bank_balance: paid.bank });
+                transaction.update(publicRef, {
+                    balance: paid.wallet,
+                    bank_balance: paid.bank,
+                    [`trophies.${trophy.id}`]: owned + 1
+                });
+                const txRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
+                transaction.set(txRef, {
+                    fromName: myProfile.name,
+                    toName: "The Trophy Cabinet",
+                    message: `Added a ${trophy.name} to their trophy cabinet!`,
                     timestamp: serverTimestamp(),
-                    emoji: "💸",
+                    emoji: trophy.icon,
+                    amount: trophy.cost,
                     likes: []
                 });
-                triggerConfetti();
-                showNotification(`Paid ${totalPaid} donuts in interest!`);
-            } else {
-                showNotification("No interest to pay (nobody has enough savings).");
-            }
-
+            });
+            showNotification(`${trophy.icon} ${trophy.name} added to your trophy cabinet!`);
+            triggerConfetti();
         } catch (e) {
             console.error(e);
-            showNotification("Interest payout failed.", "error");
+            if (e === "NOT_ENOUGH") {
+                showNotification(`Not enough donuts in your ${from}.`, "error");
+            } else if (e === "CORRUPT_BALANCE") {
+                showNotification("Your donut balance needs repair before you can buy a trophy.", "error");
+            } else {
+                showNotification("Trophy purchase failed.", "error");
+            }
         }
     };
 
@@ -4154,9 +4166,10 @@ function YumDonutDashboard() {
                 {view === 'bank' && (
                     <BankView
                         user={myProfile}
+                        trophies={users.find(u => u.name === myProfile.name)?.trophies}
                         onDeposit={handleDeposit}
                         onWithdraw={handleWithdraw}
-                        onPayInterest={handlePayInterest}
+                        onBakeTrophy={handleBakeTrophy}
                         isAdmin={myProfile.name === "Mr Rayner"}
                         allUsers={users.filter(u => roster.includes(u.name))}
                         balanceRepairRequired={Boolean(
@@ -6370,7 +6383,7 @@ function UserAuditModal({ userToCheck, onClose }) {
                                 type = 'received'; received += (t.amount || 0);
                             }
                         } else {
-                            if (t.toName === "The Shop") {
+                            if (t.toName === "The Shop" || t.toName === "The Trophy Cabinet") {
                                 type = 'spent'; spent += (t.amount || 0);
                             } else {
                                 type = 'given'; given += (t.amount || 0);
@@ -7635,7 +7648,8 @@ function LeaderboardView({ users, roster, sponsorships, sponsorshipSlots }) {
             perfectionist_badge: userData ? userData.perfectionist_badge : false,
             typing_license: userData ? userData.typing_license : false,
             lifetime_received: userData ? userData.lifetime_received : 0,
-            lifetime_given: userData ? userData.lifetime_given : 0
+            lifetime_given: userData ? userData.lifetime_given : 0,
+            trophies: userData ? userData.trophies : undefined
         };
     }).filter(u => u.name !== "Mr Rayner").sort((a, b) => b.lifetime_given - a.lifetime_given);
 
@@ -7679,6 +7693,7 @@ function LeaderboardView({ users, roster, sponsorships, sponsorshipSlots }) {
                                     {u.verified_badge && <span className="text-blue-500 text-xs" title="Verified">✅</span>}
                                     {u.perfectionist_badge && <span className="text-red-500 text-xs" title="Perfectionist">🎯</span>}
                                     {u.typing_license && <span className="text-slate-500 text-[10px] flex items-center" title="Typing License">⌨️</span>}
+                                    <TrophyShelf trophies={u.trophies} className="text-sm" />
                                     <span className="text-[10px] bg-slate-100 px-1.5 rounded text-slate-500" title={`Given: ${u.lifetime_given || 0}`}>
                                         {rank.icon} {rank.title}
                                     </span>
