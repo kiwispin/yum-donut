@@ -12,6 +12,7 @@ import {
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getBankBalance, resolveBankBalance } from './bankBalance';
 import { TROPHIES, trophyCounts, payForTrophy } from './trophies.js';
+import { getWeekKey, stockLeft, shopLimitBlock } from './shopLimits.js';
 import { accountEmailCandidatesForName, accountEmailForName } from './authIdentity';
 import YumPalsView from './yumpals/YumPalsView';
 import YumPalsHandheldDemo from './yumpals/YumPalsHandheldDemo';
@@ -659,6 +660,8 @@ const SHOP_ITEMS = [
     { id: 'raffle_ticket', name: 'Weekly Raffle Ticket', cost: 2, icon: '🎟️', desc: 'Win the FRIDAY JACKPOT! (Prize: 2 items from the box).', type: 'physical' },
     { id: 'snack_box', name: 'Snack Box Treat', cost: 5, icon: '🍪', desc: 'One treat from the box.', type: 'physical', dailyLimit: 2 },
     { id: 'snack_2', name: 'Double Snack Attack', cost: 9, icon: '🍫', desc: 'Permission to take a SECOND treat.', type: 'physical', dailyLimit: 1 },
+    // Starts off sale (stock 0); the teacher sets Stock Per Day in Admin Settings to sell it.
+    { id: 'hot_chocolate', name: 'Hot Chocolate', cost: 25, icon: '☕', desc: 'A hot chocolate from the studio. Only a few each day, one each per week.', type: 'physical', weeklyLimit: 1, dailyStock: 0 },
     { id: 'vip_schedule', name: 'VIP Schedule Bump', cost: 25, icon: '📅', desc: "Bump your show to the top of the 'let's work on it' list.", type: 'physical' },
     { id: 'comfy_chair', name: 'Comfy Chair Rental', cost: 30, icon: '🪑', desc: 'Rent the good chair for a day.', type: 'physical' },
     { id: 'rainbow_name', name: 'Rainbow Name', cost: 50, icon: '🌈', desc: 'Make your name shimmer on the leaderboard!', type: 'digital' },
@@ -1868,6 +1871,8 @@ function YumDonutDashboard() {
     const [roster, setRoster] = useState([]);
     const [isAdminSettingsOpen, setIsAdminSettingsOpen] = useState(false);
     const [shopDailyPurchases, setShopDailyPurchases] = useState({});
+    const [shopWeeklyPurchases, setShopWeeklyPurchases] = useState({});
+    const [shopStockSold, setShopStockSold] = useState({});
     const [currentDateKey, setCurrentDateKey] = useState(() => getLocalDateKey());
     const [palVisitTick, setPalVisitTick] = useState(0);
     const [sponsorships, setSponsorships] = useState({});
@@ -2164,6 +2169,46 @@ function YumDonutDashboard() {
         return () => unsubDailyPurchases();
     }, [myProfile?.name, currentDateKey]);
 
+    // --- WEEKLY SHOP LIMITS AND SHARED DAILY STOCK ---
+    useEffect(() => {
+        if (!myProfile?.name) {
+            setShopWeeklyPurchases({});
+            return undefined;
+        }
+        const weekKey = getWeekKey(currentDateKey);
+        const weeklyQuery = query(collection(db, 'artifacts', APP_ID, 'public', 'data', 'shop_weekly'), where('userName', '==', myProfile.name));
+        return onSnapshot(weeklyQuery, (snap) => {
+            const counts = {};
+            snap.forEach(docSnap => {
+                const data = docSnap.data();
+                if (data.weekKey === weekKey && data.itemId) counts[data.itemId] = Number(data.count) || 0;
+            });
+            setShopWeeklyPurchases(counts);
+        }, (error) => {
+            console.warn("Shop weekly purchase listener error:", error);
+            setShopWeeklyPurchases({});
+        });
+    }, [myProfile?.name, currentDateKey]);
+
+    useEffect(() => {
+        if (!user) {
+            setShopStockSold({});
+            return undefined;
+        }
+        const stockQuery = query(collection(db, 'artifacts', APP_ID, 'public', 'data', 'shop_stock'), where('dateKey', '==', currentDateKey));
+        return onSnapshot(stockQuery, (snap) => {
+            const counts = {};
+            snap.forEach(docSnap => {
+                const data = docSnap.data();
+                if (data.itemId) counts[data.itemId] = Number(data.count) || 0;
+            });
+            setShopStockSold(counts);
+        }, (error) => {
+            console.warn("Shop stock listener error:", error);
+            setShopStockSold({});
+        });
+    }, [user, currentDateKey]);
+
     // --- LIVE STUDIO HEARTBEAT ---
     useEffect(() => {
         if (!ENABLE_LIVE_STUDIO || !user || !myProfile) return;
@@ -2221,6 +2266,8 @@ function YumDonutDashboard() {
             const legacyPrice = shopPrices?.[item.id];
             const overrideCost = override.cost !== undefined ? override.cost : legacyPrice;
             const dailyLimit = normaliseDailyLimit(override.dailyLimit, item.dailyLimit ?? null);
+            const weeklyLimit = normaliseDailyLimit(override.weeklyLimit, item.weeklyLimit ?? null);
+            const dailyStock = normaliseDailyLimit(override.dailyStock, item.dailyStock ?? null);
 
             return {
                 ...item,
@@ -2228,6 +2275,8 @@ function YumDonutDashboard() {
                 desc: override.desc !== undefined ? override.desc : item.desc,
                 cost: overrideCost !== undefined ? Number(overrideCost) : item.cost,
                 dailyLimit,
+                weeklyLimit,
+                dailyStock,
                 originalCost: item.cost
             };
         });
@@ -3101,6 +3150,26 @@ function YumDonutDashboard() {
                     dailyPurchaseDoc = await transaction.get(dailyPurchaseRef);
                 }
 
+                // Weekly per-person limit and a stock shared by everyone each day
+                const weekKey = getWeekKey(todayKey);
+                const weeklyLimit = normaliseDailyLimit(item.weeklyLimit);
+                const dailyStock = normaliseDailyLimit(item.dailyStock);
+                const hasWeeklyLimit = Number.isFinite(weeklyLimit) && weeklyLimit >= 0;
+                const hasDailyStock = Number.isFinite(dailyStock) && dailyStock >= 0;
+                const weeklyPurchaseRef = hasWeeklyLimit
+                    ? doc(db, 'artifacts', APP_ID, 'public', 'data', 'shop_weekly', getShopDailyPurchaseDocId(weekKey, myProfile.name, item.id))
+                    : null;
+                const stockRef = hasDailyStock
+                    ? doc(db, 'artifacts', APP_ID, 'public', 'data', 'shop_stock', `${todayKey}_${encodeURIComponent(item.id)}`)
+                    : null;
+                const weeklyPurchaseDoc = weeklyPurchaseRef ? await transaction.get(weeklyPurchaseRef) : null;
+                const stockDoc = stockRef ? await transaction.get(stockRef) : null;
+                const purchasedThisWeek = weeklyPurchaseDoc?.exists() ? (Number(weeklyPurchaseDoc.data().count) || 0) : 0;
+                const soldToday = stockDoc?.exists() ? (Number(stockDoc.data().count) || 0) : 0;
+                const limitBlock = shopLimitBlock({ weeklyLimit, purchasedThisWeek, dailyStock, soldToday });
+                if (limitBlock === 'off' || limitBlock === 'sold_out') throw new Error("SOLD_OUT");
+                if (limitBlock === 'weekly') throw new Error("WEEKLY_SHOP_LIMIT");
+
                 // Read Raffle State if needed
                 let raffleDoc = null;
                 const raffleRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'raffle', 'state');
@@ -3147,6 +3216,25 @@ function YumDonutDashboard() {
                     }, { merge: true });
                 }
 
+                if (weeklyPurchaseRef) {
+                    transaction.set(weeklyPurchaseRef, {
+                        userName: myProfile.name,
+                        itemId: item.id,
+                        weekKey,
+                        count: purchasedThisWeek + 1,
+                        updatedAt: serverTimestamp()
+                    }, { merge: true });
+                }
+
+                if (stockRef) {
+                    transaction.set(stockRef, {
+                        itemId: item.id,
+                        dateKey: todayKey,
+                        count: soldToday + 1,
+                        updatedAt: serverTimestamp()
+                    }, { merge: true });
+                }
+
                 const txRef = doc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
                 transaction.set(txRef, {
                     fromName: myProfile.name,
@@ -3166,6 +3254,10 @@ function YumDonutDashboard() {
             console.error(e);
             if (e?.message === "DAILY_SHOP_LIMIT") {
                 showNotification(`Daily limit reached for ${item.name}.`, "error");
+            } else if (e?.message === "WEEKLY_SHOP_LIMIT") {
+                showNotification(`You've had your ${item.name} this week. Back on Monday!`, "error");
+            } else if (e?.message === "SOLD_OUT") {
+                showNotification(`${item.name} is sold out today.`, "error");
             } else if (e === "CORRUPT_BALANCE") {
                 showNotification("Your donut balance needs repair before you can shop.", "error");
             } else {
@@ -4166,6 +4258,8 @@ function YumDonutDashboard() {
                         featuredItemIds={featuredItemIds}
                         onToggleFeatured={handleToggleFeatured}
                         dailyPurchases={shopDailyPurchases}
+                        weeklyPurchases={shopWeeklyPurchases}
+                        stockSold={shopStockSold}
                         sponsorships={sponsorships}
                         sponsorshipSlots={currentSponsorshipSlots}
                         onPurchaseSponsorship={handlePurchaseSponsorship}
@@ -5522,7 +5616,9 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                         ? shopPrices[item.id]
                         : item.cost,
                 desc: override.desc !== undefined ? override.desc : item.desc,
-                dailyLimit: override.dailyLimit !== undefined ? override.dailyLimit : item.dailyLimit ?? ''
+                dailyLimit: override.dailyLimit !== undefined ? override.dailyLimit : item.dailyLimit ?? '',
+                weeklyLimit: override.weeklyLimit !== undefined ? override.weeklyLimit : item.weeklyLimit ?? '',
+                dailyStock: override.dailyStock !== undefined ? override.dailyStock : item.dailyStock ?? ''
             };
         });
 
@@ -5647,6 +5743,18 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
             const newDailyLimit = rawDailyLimit === '' || rawDailyLimit === null || rawDailyLimit === undefined
                 ? null
                 : Number(rawDailyLimit);
+            const optionalLimit = (raw) => (raw === '' || raw === null || raw === undefined ? null : Number(raw));
+            const newWeeklyLimit = optionalLimit(draft.weeklyLimit);
+            const newDailyStock = optionalLimit(draft.dailyStock);
+            const badLimit = [newWeeklyLimit, newDailyStock].some(limit => limit !== null && (!Number.isInteger(limit) || limit < 0));
+
+            if (badLimit) {
+                setShopSaveStatus(prev => ({
+                    ...prev,
+                    [itemId]: { type: 'error', message: 'Enter whole-number limits' }
+                }));
+                return;
+            }
 
             if (!Number.isFinite(newPrice) || newPrice < 0) {
                 setShopSaveStatus(prev => ({
@@ -5683,7 +5791,9 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                     name: newName,
                     cost: newPrice,
                     desc: newDesc,
-                    dailyLimit: newDailyLimit
+                    dailyLimit: newDailyLimit,
+                    weeklyLimit: newWeeklyLimit,
+                    dailyStock: newDailyStock
                 },
                 [`shop_prices.${itemId}`]: newPrice
             });
@@ -6055,7 +6165,9 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                                             name: item.name,
                                             cost: hasLegacyPrice ? shopPrices[item.id] : item.cost,
                                             desc: item.desc,
-                                            dailyLimit: item.dailyLimit ?? ''
+                                            dailyLimit: item.dailyLimit ?? '',
+                                            weeklyLimit: item.weeklyLimit ?? '',
+                                            dailyStock: item.dailyStock ?? ''
                                         };
                                         const draftPrice = draftItem.cost;
                                         const saveStatus = shopSaveStatus[item.id];
@@ -6131,6 +6243,33 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                                                                     placeholder="No limit"
                                                                     value={draftItem.dailyLimit ?? ''}
                                                                     onChange={(e) => handleShopItemChange(item.id, 'dailyLimit', e.target.value)}
+                                                                    className="mt-1 w-full px-3 py-2 text-sm font-bold text-right rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none"
+                                                                />
+                                                            </label>
+                                                        </div>
+
+                                                        <div className="grid grid-cols-2 sm:grid-cols-[8rem_10rem] gap-3">
+                                                            <label className="block">
+                                                                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Weekly Limit</span>
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    step="1"
+                                                                    placeholder="No limit"
+                                                                    value={draftItem.weeklyLimit ?? ''}
+                                                                    onChange={(e) => handleShopItemChange(item.id, 'weeklyLimit', e.target.value)}
+                                                                    className="mt-1 w-full px-3 py-2 text-sm font-bold text-right rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none"
+                                                                />
+                                                            </label>
+                                                            <label className="block" title="Shared by everyone each day. 0 takes it off sale.">
+                                                                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Stock Per Day (all)</span>
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    step="1"
+                                                                    placeholder="Unlimited"
+                                                                    value={draftItem.dailyStock ?? ''}
+                                                                    onChange={(e) => handleShopItemChange(item.id, 'dailyStock', e.target.value)}
                                                                     className="mt-1 w-full px-3 py-2 text-sm font-bold text-right rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none"
                                                                 />
                                                             </label>
@@ -6511,7 +6650,7 @@ function UserAuditModal({ userToCheck, onClose }) {
     );
 }
 
-function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleState, onDrawRaffle, featuredItemIds, onToggleFeatured, dailyPurchases = {}, sponsorships = {}, sponsorshipSlots = SPONSORSHIP_SLOTS, onPurchaseSponsorship, onClearSponsorship }) {
+function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleState, onDrawRaffle, featuredItemIds, onToggleFeatured, dailyPurchases = {}, weeklyPurchases = {}, stockSold = {}, sponsorships = {}, sponsorshipSlots = SPONSORSHIP_SLOTS, onPurchaseSponsorship, onClearSponsorship }) {
     const isAdmin = currentUserPublic?.name === "Mr Rayner";
 
     return (
@@ -6648,7 +6787,13 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleSta
                     const dailyLimit = normaliseDailyLimit(item.dailyLimit);
                     const hasDailyLimit = Number.isFinite(dailyLimit) && dailyLimit >= 0;
                     const purchasedToday = Number(dailyPurchases[item.id]) || 0;
-                    const reachedDailyLimit = hasDailyLimit && purchasedToday >= dailyLimit;
+                    const weeklyLimit = normaliseDailyLimit(item.weeklyLimit);
+                    const dailyStock = normaliseDailyLimit(item.dailyStock);
+                    const purchasedThisWeek = Number(weeklyPurchases[item.id]) || 0;
+                    const leftToday = stockLeft(dailyStock, Number(stockSold[item.id]) || 0);
+                    const limitBlock = shopLimitBlock({ dailyLimit, purchasedToday, weeklyLimit, purchasedThisWeek, dailyStock, soldToday: Number(stockSold[item.id]) || 0 });
+                    const reachedDailyLimit = limitBlock !== null;
+                    const blockedLabel = { off: 'Not on sale', sold_out: 'Sold Out', weekly: 'Next Week', daily: 'Limit Reached' }[limitBlock];
 
                     // Safe check for ownership
                     let isOwned = false;
@@ -6700,9 +6845,20 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleSta
                                 <h3 className={`font-bold text-lg ${isFeatured ? 'text-yellow-900' : 'text-slate-800'}`}>{item.name}</h3>
                                 <p className={`text-sm mb-4 ${isFeatured ? 'text-yellow-800/80' : 'text-slate-500'}`}>{item.desc}</p>
                                 {hasDailyLimit && (
-                                    <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ${reachedDailyLimit ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500'}`}>
+                                    <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ${purchasedToday >= dailyLimit ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500'}`}>
                                         <Clock size={12} />
                                         Today {purchasedToday}/{dailyLimit}
+                                    </div>
+                                )}
+                                {leftToday !== null && (
+                                    <div className={`inline-flex items-center gap-1.5 px-2 py-1 mr-1 rounded-full text-[10px] font-black uppercase tracking-wide ${leftToday === 0 ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-700'}`}>
+                                        {dailyStock === 0 ? 'Not on sale today' : leftToday === 0 ? 'Sold out today' : `Only ${leftToday} left today`}
+                                    </div>
+                                )}
+                                {Number.isFinite(weeklyLimit) && weeklyLimit > 0 && (
+                                    <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ${purchasedThisWeek >= weeklyLimit ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500'}`}>
+                                        <Clock size={12} />
+                                        This week {purchasedThisWeek}/{weeklyLimit}
                                     </div>
                                 )}
                             </div>
@@ -6714,7 +6870,7 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleSta
                                     disabled={!canAfford || isOwned || reachedDailyLimit}
                                     className={`px-4 py-2 rounded transition-colors text-white ${!canAfford || reachedDailyLimit ? "opacity-50 cursor-not-allowed" : "hover:bg-opacity-90"} ${isFeatured ? "bg-yellow-600" : "bg-pink-600"}`}
                                 >
-                                    {isOwned ? "Owned" : reachedDailyLimit ? "Limit Reached" : "Buy"}
+                                    {isOwned ? "Owned" : reachedDailyLimit ? blockedLabel : "Buy"}
                                 </button>
                             </div>
                         </div>

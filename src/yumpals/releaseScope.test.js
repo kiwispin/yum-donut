@@ -45,6 +45,16 @@ test('YumPals-only release preserves every existing named action handler from th
       assert.equal(current.has(name), false);
       continue;
     }
+    if (name === 'handlePurchase') { // Explicitly approved weekly limit and shared daily stock (hot chocolate).
+      assert.match(current.get(name)[0], /shopLimitBlock\(\{ weeklyLimit, purchasedThisWeek, dailyStock, soldToday \}\)/);
+      assert.match(current.get(name)[0], /DAILY_SHOP_LIMIT/);
+      continue;
+    }
+    if (name === 'handleSaveShopItem') { // Explicitly approved: saves the weekly limit and daily stock too.
+      assert.match(current.get(name)[0], /weeklyLimit: newWeeklyLimit/);
+      assert.match(current.get(name)[0], /dailyStock: newDailyStock/);
+      continue;
+    }
     if (name === 'handleResetPassword') {
       assert.match(current.get(name)[0], /yumpalsManageStudentAccount/);
       assert.match(current.get(name)[0], /action: 'set-password'/);
