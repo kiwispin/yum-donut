@@ -52,3 +52,16 @@ Branch: `codex/hot-chocolate`, from `main` `050c658` (the reward rework release)
   and a disabled Closed button; the raffle still shows Buy. No console errors.
 - Not exercised: buying while in stock, selling out, the weekly limit, and the open
   state during hours, which would write to the live project or need daytime.
+
+## Release — 3 November 2026
+
+The owner approved the release ("Release it"), then added the opening hours.
+
+- Frontend only: no function deploy and no Firestore rules change.
+- `npm run build`: JS `index-CGOTsd8X.js` 988.72 kB / 295.23 kB gzip, CSS
+  `index-OpsmyNCt.css` 106.44 kB.
+- Rollback: rebuild and publish `codex/hot-chocolate-baseline-20261103` (`050c658`,
+  the production source before this release). Weekly and stock counts already
+  written stay as harmless `shop_weekly` / `shop_stock` documents.
+- To sell hot chocolate: Admin Settings → Store Items → Hot Chocolate → Stock Per Day
+  (all) = 3 → Save. It is off sale (stock 0) until then.
