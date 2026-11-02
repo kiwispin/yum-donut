@@ -1,6 +1,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { getWeekKey, stockLeft, shopLimitBlock } from './shopLimits.js';
+import { getWeekKey, stockLeft, shopLimitBlock, aucklandHour, isFoodOpen } from './shopLimits.js';
+
+test('food and drink are on sale from 7am until 5pm', () => {
+    assert.equal(isFoodOpen(6), false);
+    assert.equal(isFoodOpen(7), true);
+    assert.equal(isFoodOpen(16), true);
+    assert.equal(isFoodOpen(17), false);
+    assert.equal(isFoodOpen(0), false);
+});
+
+test('the hour is read on Auckland time', () => {
+    assert.equal(aucklandHour(new Date('2026-11-02T20:30:00Z')), 9); // NZDT, UTC+13
+    assert.equal(aucklandHour(new Date('2026-06-01T05:00:00Z')), 17); // NZST, UTC+12
+    assert.equal(aucklandHour(new Date('2026-11-02T11:00:00Z')), 0); // midnight
+});
 
 test('weeks run Monday to Sunday', () => {
     assert.equal(getWeekKey('2026-11-02'), '2026-11-02'); // Monday

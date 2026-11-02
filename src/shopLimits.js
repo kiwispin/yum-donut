@@ -10,6 +10,16 @@ export const getWeekKey = (dateKey) => {
     return date.toISOString().slice(0, 10);
 };
 
+// Food and drink are sold only during the school day, Auckland time.
+export const FOOD_OPEN_HOUR = 7;
+export const FOOD_CLOSE_HOUR = 17;
+
+export const aucklandHour = (date = new Date()) => Number(new Intl.DateTimeFormat('en-NZ', {
+    timeZone: 'Pacific/Auckland', hour: 'numeric', hourCycle: 'h23'
+}).format(date));
+
+export const isFoodOpen = (hour) => hour >= FOOD_OPEN_HOUR && hour < FOOD_CLOSE_HOUR;
+
 const hasLimit = (limit) => Number.isFinite(limit) && limit >= 0;
 
 export const stockLeft = (dailyStock, soldToday) => (

@@ -27,6 +27,14 @@ Branch: `codex/hot-chocolate`, from `main` `050c658` (the reward rework release)
   sale. To sell it, set Stock Per Day to 3 in Admin Settings and save; set 0 to stop.
 - ACCEPTED — `releaseScope.test.js` names `handlePurchase` and `handleSaveShopItem`
   as approved changes.
+- ACCEPTED — food and drink opening hours, asked for during the release ("Shut the
+  shop after 5pm, open at 7 am? Food food/drink stuff?"). Snack Box Treat, Double
+  Snack Attack and Hot Chocolate are marked `food: true` and sell only from 7:00 to
+  16:59 Auckland time, every day (`isFoodOpen`, `aucklandHour` in
+  `src/shopLimits.js`). `handlePurchase` refuses outside those hours
+  ("SHOP_CLOSED"); the card shows "Open 7am–5pm" and a Closed button. Everything
+  else, including the raffle, is unchanged. The hour comes from the device clock, like
+  the app's other daily limits.
 - NOT CHANGED — What's New. The owner may announce hot chocolate when it goes on sale.
 
 ## Checks
@@ -39,5 +47,8 @@ Branch: `codex/hot-chocolate`, from `main` `050c658` (the reward rework release)
   (raffle 4, Snack Box 8, Double Snack 14). As the teacher, Store Items shows Weekly
   Limit and Stock Per Day for every item, and Hot Chocolate at 25 / 1 / 0. No
   console errors.
-- Not exercised: buying while in stock, selling out, and the weekly limit, which
-  would write to the live project.
+- With opening hours: 218 pass, 0 fail (2 more). Lint clean. Sandbox student view
+  at 17:xx Auckland: Snack Box, Double Snack and Hot Chocolate show "Open 7am–5pm"
+  and a disabled Closed button; the raffle still shows Buy. No console errors.
+- Not exercised: buying while in stock, selling out, the weekly limit, and the open
+  state during hours, which would write to the live project or need daytime.
