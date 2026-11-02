@@ -55,6 +55,11 @@ test('YumPals-only release preserves every existing named action handler from th
       assert.match(current.get(name)[0], /dailyStock: newDailyStock/);
       continue;
     }
+    if (name === 'handleGiveDonut') { // Explicitly approved: students' gifts come out of their wallet, then bank.
+      assert.match(current.get(name)[0], /payForGift\(\{ wallet, bank \}, totalAmount\)/);
+      assert.match(current.get(name)[0], /DAILY_LIMIT/);
+      continue;
+    }
     if (name === 'handleResetPassword') {
       assert.match(current.get(name)[0], /yumpalsManageStudentAccount/);
       assert.match(current.get(name)[0], /action: 'set-password'/);
