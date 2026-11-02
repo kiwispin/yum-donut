@@ -1,13 +1,27 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { getWeekKey, stockLeft, shopLimitBlock, aucklandHour, isFoodOpen } from './shopLimits.js';
+import { getWeekKey, stockLeft, shopLimitBlock, aucklandHour, aucklandWeekday, isFoodOpen, isFoodOpenAt } from './shopLimits.js';
 
 test('food and drink are on sale from 7am until 5pm', () => {
-    assert.equal(isFoodOpen(6), false);
-    assert.equal(isFoodOpen(7), true);
-    assert.equal(isFoodOpen(16), true);
-    assert.equal(isFoodOpen(17), false);
-    assert.equal(isFoodOpen(0), false);
+    assert.equal(isFoodOpen(6, 1), false);
+    assert.equal(isFoodOpen(7, 1), true);
+    assert.equal(isFoodOpen(16, 5), true);
+    assert.equal(isFoodOpen(17, 3), false);
+    assert.equal(isFoodOpen(0, 3), false);
+});
+
+test('food and drink are not on sale at the weekend', () => {
+    assert.equal(isFoodOpen(10, 6), false); // Saturday
+    assert.equal(isFoodOpen(10, 0), false); // Sunday
+});
+
+test('the weekday is read on Auckland time', () => {
+    assert.equal(aucklandWeekday(new Date('2026-11-02T20:30:00Z')), 2); // Tuesday 9:30am in Auckland, Monday in UTC
+    assert.equal(aucklandWeekday(new Date('2026-11-06T22:00:00Z')), 6); // Saturday 11am
+    assert.equal(isFoodOpenAt(new Date('2026-11-02T20:30:00Z')), true);
+    assert.equal(isFoodOpenAt(new Date('2026-11-06T22:00:00Z')), false);
+    assert.equal(isFoodOpenAt(new Date('2026-11-06T03:59:00Z')), true); // Friday 4:59pm
+    assert.equal(isFoodOpenAt(new Date('2026-11-06T04:00:00Z')), false); // Friday 5pm
 });
 
 test('the hour is read on Auckland time', () => {

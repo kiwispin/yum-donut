@@ -10,7 +10,7 @@ export const getWeekKey = (dateKey) => {
     return date.toISOString().slice(0, 10);
 };
 
-// Food and drink are sold only during the school day, Auckland time.
+// Food and drink are sold only during the school day, Monday to Friday, Auckland time.
 export const FOOD_OPEN_HOUR = 7;
 export const FOOD_CLOSE_HOUR = 17;
 
@@ -18,7 +18,17 @@ export const aucklandHour = (date = new Date()) => Number(new Intl.DateTimeForma
     timeZone: 'Pacific/Auckland', hour: 'numeric', hourCycle: 'h23'
 }).format(date));
 
-export const isFoodOpen = (hour) => hour >= FOOD_OPEN_HOUR && hour < FOOD_CLOSE_HOUR;
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+// 0 = Sunday … 6 = Saturday.
+export const aucklandWeekday = (date = new Date()) => WEEKDAYS.indexOf(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Pacific/Auckland', weekday: 'short'
+}).format(date));
+
+export const isFoodOpen = (hour, weekday) => weekday >= 1 && weekday <= 5
+    && hour >= FOOD_OPEN_HOUR && hour < FOOD_CLOSE_HOUR;
+
+export const isFoodOpenAt = (date = new Date()) => isFoodOpen(aucklandHour(date), aucklandWeekday(date));
 
 const hasLimit = (limit) => Number.isFinite(limit) && limit >= 0;
 

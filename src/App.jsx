@@ -12,7 +12,7 @@ import {
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getBankBalance, resolveBankBalance } from './bankBalance';
 import { TROPHIES, trophyCounts, payForTrophy } from './trophies.js';
-import { getWeekKey, stockLeft, shopLimitBlock, aucklandHour, isFoodOpen, FOOD_OPEN_HOUR, FOOD_CLOSE_HOUR } from './shopLimits.js';
+import { getWeekKey, stockLeft, shopLimitBlock, isFoodOpenAt, FOOD_OPEN_HOUR, FOOD_CLOSE_HOUR } from './shopLimits.js';
 import { accountEmailCandidatesForName, accountEmailForName } from './authIdentity';
 import YumPalsView from './yumpals/YumPalsView';
 import YumPalsHandheldDemo from './yumpals/YumPalsHandheldDemo';
@@ -661,7 +661,7 @@ const SHOP_ITEMS = [
     { id: 'snack_box', name: 'Snack Box Treat', cost: 5, icon: '🍪', desc: 'One treat from the box.', type: 'physical', dailyLimit: 2, food: true },
     { id: 'snack_2', name: 'Double Snack Attack', cost: 9, icon: '🍫', desc: 'Permission to take a SECOND treat.', type: 'physical', dailyLimit: 1, food: true },
     // Starts off sale (stock 0); the teacher sets Stock Per Day in Admin Settings to sell it.
-    { id: 'hot_chocolate', name: 'Hot Chocolate', cost: 25, icon: '☕', desc: 'A hot chocolate from the studio. Only a few each day, one each per week.', type: 'physical', weeklyLimit: 1, dailyStock: 0, food: true },
+    { id: 'hot_chocolate', name: 'Sugar-Free Hot Chocolate', cost: 25, icon: '☕', desc: 'A sugar-free hot chocolate from the studio. Only 2 each day, one each per week.', type: 'physical', weeklyLimit: 1, dailyStock: 2, food: true },
     { id: 'vip_schedule', name: 'VIP Schedule Bump', cost: 25, icon: '📅', desc: "Bump your show to the top of the 'let's work on it' list.", type: 'physical' },
     { id: 'comfy_chair', name: 'Comfy Chair Rental', cost: 30, icon: '🪑', desc: 'Rent the good chair for a day.', type: 'physical' },
     { id: 'rainbow_name', name: 'Rainbow Name', cost: 50, icon: '🌈', desc: 'Make your name shimmer on the leaderboard!', type: 'digital' },
@@ -3150,7 +3150,7 @@ function YumDonutDashboard() {
                     dailyPurchaseDoc = await transaction.get(dailyPurchaseRef);
                 }
 
-                if (item.food && !isFoodOpen(aucklandHour())) throw new Error("SHOP_CLOSED");
+                if (item.food && !isFoodOpenAt()) throw new Error("SHOP_CLOSED");
 
                 // Weekly per-person limit and a stock shared by everyone each day
                 const weekKey = getWeekKey(todayKey);
@@ -3261,7 +3261,7 @@ function YumDonutDashboard() {
             } else if (e?.message === "SOLD_OUT") {
                 showNotification(`${item.name} is sold out today.`, "error");
             } else if (e?.message === "SHOP_CLOSED") {
-                showNotification(`Food and drink are on sale ${FOOD_OPEN_HOUR}am–${FOOD_CLOSE_HOUR - 12}pm.`, "error");
+                showNotification(`Food and drink are on sale Monday to Friday, ${FOOD_OPEN_HOUR}am–${FOOD_CLOSE_HOUR - 12}pm.`, "error");
             } else if (e === "CORRUPT_BALANCE") {
                 showNotification("Your donut balance needs repair before you can shop.", "error");
             } else {
@@ -6796,7 +6796,7 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleSta
                     const purchasedThisWeek = Number(weeklyPurchases[item.id]) || 0;
                     const leftToday = stockLeft(dailyStock, Number(stockSold[item.id]) || 0);
                     const limitBlock = shopLimitBlock({ dailyLimit, purchasedToday, weeklyLimit, purchasedThisWeek, dailyStock, soldToday: Number(stockSold[item.id]) || 0 });
-                    const foodClosed = Boolean(item.food) && !isFoodOpen(aucklandHour());
+                    const foodClosed = Boolean(item.food) && !isFoodOpenAt();
                     const reachedDailyLimit = foodClosed || limitBlock !== null;
                     const blockedLabel = foodClosed ? 'Closed' : { off: 'Not on sale', sold_out: 'Sold Out', weekly: 'Next Week', daily: 'Limit Reached' }[limitBlock];
 
@@ -6858,7 +6858,7 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleSta
                                 {foodClosed && (
                                     <div className="inline-flex items-center gap-1.5 px-2 py-1 mr-1 rounded-full text-[10px] font-black uppercase tracking-wide bg-slate-800 text-white">
                                         <Clock size={12} />
-                                        Open {FOOD_OPEN_HOUR}am–{FOOD_CLOSE_HOUR - 12}pm
+                                        Open Mon–Fri {FOOD_OPEN_HOUR}am–{FOOD_CLOSE_HOUR - 12}pm
                                     </div>
                                 )}
                                 {leftToday !== null && (
