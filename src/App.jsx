@@ -12,6 +12,7 @@ import {
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getBankBalance, resolveBankBalance } from './bankBalance';
 import { TROPHIES, trophyCounts, payForTrophy } from './trophies.js';
+import { payForGift } from './giving.js';
 import { getWeekKey, stockLeft, shopLimitBlock, isFoodOpenAt, FOOD_OPEN_HOUR, FOOD_CLOSE_HOUR } from './shopLimits.js';
 import { accountEmailCandidatesForName, accountEmailForName } from './authIdentity';
 import YumPalsView from './yumpals/YumPalsView';
@@ -2669,14 +2670,27 @@ function YumDonutDashboard() {
                     throw new Error("DAILY_LIMIT");
                 }
 
+                // Students pay for their gifts: wallet first, then bank. The teacher's gifts are free.
+                let paid = null;
+                if (!isAdmin) {
+                    if (!senderPrivateDoc.exists() || !senderPublicDoc.exists()) throw new Error("CORRUPT_BALANCE");
+                    const wallet = getDonutBalance(senderPublicDoc.data().balance, null);
+                    const bank = resolveBankBalance(senderPrivateDoc.data().bank_balance, senderPublicDoc.data().bank_balance);
+                    if (wallet === null || bank === null) throw new Error("CORRUPT_BALANCE");
+                    paid = payForGift({ wallet, bank }, totalAmount);
+                    if (!paid) throw new Error("NOT_ENOUGH");
+                }
+
                 transaction.set(senderPrivateRef, {
                     given_today: currentGiven + totalAmount,
-                    last_given_date: today
+                    last_given_date: today,
+                    ...(paid && { balance: paid.wallet, bank_balance: paid.bank })
                 }, { merge: true });
 
                 if (senderPublicDoc.exists()) {
                     transaction.update(senderPublicRef, {
-                        lifetime_given: increment(totalAmount)
+                        lifetime_given: increment(totalAmount),
+                        ...(paid && { balance: paid.wallet, bank_balance: paid.bank })
                     });
                 }
 
@@ -2738,8 +2752,10 @@ function YumDonutDashboard() {
             if (e?.message === "DAILY_LIMIT") {
                 const currentGiven = myProfile.last_given_date === today ? (myProfile.given_today || 0) : 0;
                 showNotification(`You only have ${DAILY_LIMIT - currentGiven} ${EMOJI} left!`, "error");
+            } else if (e?.message === "NOT_ENOUGH") {
+                showNotification(`You don't have ${totalAmount} ${EMOJI} to give.`, "error");
             } else if (e?.message === "CORRUPT_BALANCE") {
-                showNotification("That account's donut balance needs repair before it can receive donuts.", "error");
+                showNotification("A donut balance needs repair before these donuts can be given.", "error");
             } else {
                 showNotification("Failed to send donut.", "error");
             }
@@ -4220,6 +4236,7 @@ function YumDonutDashboard() {
                         onGive={handleGiveDonut}
                         onMunch={handleMunchDonut}
                         remaining={DAILY_LIMIT - (myProfile.last_given_date === new Date().toDateString() ? myProfile.given_today : 0)}
+                        donutsAvailable={donutsHeld(users.find(u => u.name === myProfile.name))}
                         coreValues={CORE_VALUES}
                     />
                 )}
@@ -7399,7 +7416,7 @@ function GoalView({ goalData, userBalance, onContribute, currentUserName, onActi
     );
 }
 
-function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, remaining, coreValues }) {
+function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, remaining, donutsAvailable, coreValues }) {
     const [selectedUsers, setSelectedUsers] = useState([]);
     const [message, setMessage] = useState("");
     const [filter, setFilter] = useState("");
@@ -7413,7 +7430,9 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
     const isMunch = mode === "munch";
     const selectedCount = selectedUsers.length;
     const totalGiveAmount = amount * selectedCount;
-    const overDailyLimit = !isAdmin && !isMunch && totalGiveAmount > remaining;
+    // Students can give up to their daily limit, and no more than the donuts they hold.
+    const canGive = isAdmin ? Infinity : Math.min(remaining, donutsAvailable);
+    const overDailyLimit = !isAdmin && !isMunch && totalGiveAmount > canGive;
     const amountOptions = isAdmin ? [1, 2, 5, 10] : [1, 2, 3, 4, 5];
     const recipientSummary = selectedCount === 1 ? selectedUsers[0] : `${selectedCount} people`;
 
@@ -7469,8 +7488,8 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className={`md:hidden p-6 rounded-2xl shadow-lg shadow-pink-200 flex justify-between items-center transition-colors ${isMunch ? 'bg-red-500 text-white' : 'bg-pink-500 text-white'}`}>
                 <div>
-                    <h2 className="font-bold text-lg opacity-90">{isMunch ? "The Muncher" : "Daily Balance"}</h2>
-                    <p className="text-xs opacity-75">{isMunch ? "Feeding Time 👾" : "Use them or lose them!"}</p>
+                    <h2 className="font-bold text-lg opacity-90">{isMunch ? "The Muncher" : "Left to give today"}</h2>
+                    <p className="text-xs opacity-75">{isMunch ? "Feeding Time 👾" : isAdmin ? "Teacher gifts are free" : "Gifts come out of your donuts"}</p>
                 </div>
                 <div className="text-4xl font-black">{isAdmin ? "∞" : remaining}</div>
             </div>
@@ -7674,7 +7693,7 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
                                         </label>
                                         <div className="flex gap-2">
                                             {amountOptions.map(n => {
-                                                const wouldExceedLimit = !isAdmin && !isMunch && selectedCount > 0 && (n * selectedCount) > remaining;
+                                                const wouldExceedLimit = !isAdmin && !isMunch && selectedCount > 0 && (n * selectedCount) > canGive;
                                                 return (
                                                 <button
                                                     key={n}
@@ -7694,6 +7713,11 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
                                             <p className={`text-xs font-bold ${overDailyLimit ? "text-red-500" : "text-slate-500"}`}>
                                                 {totalGiveAmount} total for {recipientSummary}
                                                 {!isAdmin && `, ${remaining} left today`}
+                                            </p>
+                                        )}
+                                        {!isMunch && !isAdmin && (
+                                            <p className={`text-xs ${donutsAvailable < remaining ? "font-bold text-red-500" : "text-slate-500"}`}>
+                                                Comes out of your wallet first, then your bank. You have {donutsAvailable} {EMOJI}.
                                             </p>
                                         )}
                                     </div>
