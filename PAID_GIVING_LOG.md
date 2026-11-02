@@ -39,3 +39,20 @@ Branch: `codex/paid-giving`, from `main` `2572333`.
   first, then your bank. You have 340 🍩."; the header reads "5 left to give". No
   console errors.
 - Not exercised: a real gift, the wallet-then-bank split, or the refusal when short.
+
+## Release — 2 November 2026
+
+The owner approved the release ("Release it").
+
+- Frontend only: no function deploy and no Firestore rules change.
+- Rollback: rebuild and publish `codex/paid-giving-baseline-20261102` (`2572333`,
+  the production source before this release).
+- RELEASE VERIFIED — source `a746bee` on `codex/paid-giving`, merged to `main` as
+  `a4e44d1`, rollback tag pushed; remote IDs verified. Published with
+  `npm run deploy` as `gh-pages` `708ed65`, live after ~80s. Byte-identical to the
+  build:
+  - `index.html` (MD5 `415f2754239a5a5622a264a470b43ec6`).
+  - JS `index-D7t0-xzk.js` (`d9862d4086b9f7aa4ea4d00ebe260aa9`).
+  - CSS `index-OpsmyNCt.css` (`eccb77a99785e1455dbfa54ab771f4fc`).
+  The live bundle contains "Gifts come out of your donuts" and "Comes out of your
+  wallet first". Not seen live signed in.
