@@ -65,3 +65,12 @@ The owner approved the release ("Release it"), then added the opening hours.
   written stay as harmless `shop_weekly` / `shop_stock` documents.
 - To sell hot chocolate: Admin Settings → Store Items → Hot Chocolate → Stock Per Day
   (all) = 3 → Save. It is off sale (stock 0) until then.
+- RELEASE VERIFIED — source `3221cc4` is on `main` and `codex/hot-chocolate`, with
+  the rollback tag `codex/hot-chocolate-baseline-20261103` (`050c658`) pushed; remote
+  IDs verified. Published with `npm run deploy` as `gh-pages` `5ce01e8`, live after
+  ~40s. Byte-identical to the build:
+  - `index.html` (MD5 `b81be73d953f9845a6515fece849c256`).
+  - JS `index-CGOTsd8X.js` (`3682e98de2d4b6bd2115c3238b39d29b`).
+  - CSS `index-OpsmyNCt.css` (`eccb77a99785e1455dbfa54ab771f4fc`).
+  The live bundle contains Hot Chocolate, the closed-hours refusal, "Not on sale
+  today" and the Stock Per Day setting. Not seen live signed in.
