@@ -103,3 +103,21 @@ Branch: `codex/food-weekdays`, from `main` `14e37a1`.
   Chocolate shows its new description, "Only 2 left today" and "This week 0/1";
   the raffle still shows Buy. No console errors.
 - Not exercised: the open state during a weekday and a real purchase.
+
+### Release — 2 November 2026
+
+The owner considered once a fortnight per student and kept the weekly limit ("Keep
+weekly, deploy").
+
+- Frontend only: no function deploy and no Firestore rules change.
+- Rollback: rebuild and publish `codex/food-weekdays-baseline-20261102`
+  (`14e37a1`, the production source before this release).
+- RELEASE VERIFIED — source `a81d953` on `codex/food-weekdays`, merged to `main` as
+  `b19f5d7`, rollback tag pushed; remote IDs verified. Published with
+  `npm run deploy` as `gh-pages` `133d315`, live after ~50s. Byte-identical to the
+  build:
+  - `index.html` (MD5 `a409ee38171b053032cf2a12e4e030ee`).
+  - JS `index-e390AuNd.js` (`7b92c58c1bbf155d60b2007aac4e4661`).
+  - CSS `index-OpsmyNCt.css` (`eccb77a99785e1455dbfa54ab771f4fc`).
+  The live bundle contains "Sugar-Free Hot Chocolate", "Open Mon–Fri" and the
+  "Monday to Friday" refusal. Not seen live signed in.
