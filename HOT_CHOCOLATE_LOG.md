@@ -74,3 +74,32 @@ The owner approved the release ("Release it"), then added the opening hours.
   - CSS `index-OpsmyNCt.css` (`eccb77a99785e1455dbfa54ab771f4fc`).
   The live bundle contains Hot Chocolate, the closed-hours refusal, "Not on sale
   today" and the Stock Per Day setting. Not seen live signed in.
+
+## Sugar-free, 2 a day, weekdays only — 2 November 2026
+
+Request: "There's only 10 things in the box, so let's do 2 a day ALSO, list it as
+Sugar-Free Hot Chocolate." Selling every day would let 2 a day empty the box before
+the week was out, so the owner chose to sell food and drink on weekdays only.
+
+Branch: `codex/food-weekdays`, from `main` `14e37a1`.
+
+- ACCEPTED — the default item is now "Sugar-Free Hot Chocolate", with the
+  description "A sugar-free hot chocolate from the studio. Only 2 each day, one each
+  per week." and a stock of 2 a day, so it goes on sale with this release. There is
+  no Admin override for it yet; any saved later in Admin wins over these defaults.
+- ACCEPTED — food and drink (Snack Box Treat, Double Snack Attack, Sugar-Free Hot
+  Chocolate) sell Monday to Friday, 7:00–16:59 Auckland time (`aucklandWeekday`,
+  `isFoodOpen(hour, weekday)`, `isFoodOpenAt` in `src/shopLimits.js`). The card
+  reads "Open Mon–Fri 7am–5pm"; the refusal says "Monday to Friday, 7am–5pm".
+  2 a day × 5 days = the box of 10 each week.
+
+### Checks
+
+- `node --test src/*.test.js src/arcade/*.test.js src/yumpals/*.test.js`: 220 pass,
+  0 fail (2 new: weekends closed, weekday read on Auckland time across the UTC date
+  line). `npx eslint .`: clean.
+- Browser, local dev server, read-only sandbox as "Alice", Monday 6:53pm Auckland:
+  the three food items show "Open Mon–Fri 7am–5pm" and Closed; Sugar-Free Hot
+  Chocolate shows its new description, "Only 2 left today" and "This week 0/1";
+  the raffle still shows Buy. No console errors.
+- Not exercised: the open state during a weekday and a real purchase.
