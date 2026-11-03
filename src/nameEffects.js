@@ -23,6 +23,14 @@ export const avatarBorderClass = (user) => {
     return '';
 };
 
+// A Leaderboard row takes on the look of the student's name effect, or a gold
+// wash for a gold border when they have no name effect.
+export const rowThemeClass = (user) => {
+    const effect = nameEffect(user);
+    if (effect) return `row-${effect}`;
+    return user?.gold_border ? 'row-gold' : '';
+};
+
 // Shop items that change how a student looks, previewed on the Shop card.
 const PREVIEW_ITEM_IDS = ['neon_name', 'rainbow_name', 'gold_border', 'verified_badge'];
 

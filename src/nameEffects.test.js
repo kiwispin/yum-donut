@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nameEffect, nameEffectClass, avatarBorderClass, shopPreview } from './nameEffects.js';
+import { nameEffect, nameEffectClass, avatarBorderClass, rowThemeClass, shopPreview } from './nameEffects.js';
 
 test('a bought Neon Name shows even when the student also has rainbow or flame', () => {
     assert.equal(nameEffect({ neon_name: true, flame_name: true }), 'neon');
@@ -30,6 +30,15 @@ test('a gold border beats a silver one, and no border is no class', () => {
     assert.equal(avatarBorderClass({ silver_border: true }), 'silver-border');
     assert.equal(avatarBorderClass({}), '');
     assert.equal(avatarBorderClass(undefined), '');
+});
+
+test('a Leaderboard row follows the name effect, then a gold border', () => {
+    assert.equal(rowThemeClass({ neon_name: true, gold_border: true }), 'row-neon');
+    assert.equal(rowThemeClass({ rainbow_name: true }), 'row-rainbow');
+    assert.equal(rowThemeClass({ flame_name: true }), 'row-flame');
+    assert.equal(rowThemeClass({ gold_border: true }), 'row-gold');
+    assert.equal(rowThemeClass({ silver_border: true }), '');
+    assert.equal(rowThemeClass(undefined), '');
 });
 
 test('the Shop previews only the items that change how a student looks', () => {

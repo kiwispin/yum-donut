@@ -143,8 +143,60 @@
   to { box-shadow: 0 0 14px 3px rgba(251, 191, 36, 0.75); }
 }
 
+/* --- Leaderboard rows themed to match. Still or very slow, so the name stays
+       the thing that moves and the board stays readable. --- */
+
+.row-neon,
+.row-rainbow,
+.row-flame,
+.row-gold {
+  position: relative;
+}
+
+/* Neon: a dark sign mount down the left edge, pink light spilling across the wall. */
+.row-neon {
+  background-image: linear-gradient(90deg, rgba(255, 58, 216, 0.16), rgba(255, 58, 216, 0.05) 40%, transparent 70%);
+  box-shadow:
+    inset 5px 0 0 #2a0f4a,
+    inset 9px 0 12px -4px rgba(255, 58, 216, 0.7);
+}
+
+/* Rainbow: a faint wash and a rainbow line sliding slowly along the bottom. */
+.row-rainbow {
+  background-image: linear-gradient(90deg, rgba(239, 68, 68, 0.06), rgba(234, 179, 8, 0.06), rgba(34, 197, 94, 0.06), rgba(99, 102, 241, 0.06), rgba(236, 72, 153, 0.06));
+}
+
+.row-rainbow::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background-image: linear-gradient(90deg, #ef4444, #f97316, #eab308, #22c55e, #06b6d4, #6366f1, #a855f7, #ec4899, #ef4444);
+  background-size: 200% 100%;
+  animation: row-rainbow-slide 8s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes row-rainbow-slide {
+  to { background-position: 200% 0; }
+}
+
+/* Flame: a warm glow rising from the bottom-left, like a fire just out of shot. */
+.row-flame {
+  background-image:
+    radial-gradient(ellipse 60% 140% at 0% 100%, rgba(255, 106, 0, 0.24), rgba(255, 61, 0, 0.08) 55%, transparent 80%);
+}
+
+/* Gold border: a soft gold wash so the frame belongs to the row. */
+.row-gold {
+  background-image: linear-gradient(90deg, rgba(251, 191, 36, 0.18), rgba(253, 230, 138, 0.08) 50%, transparent 85%);
+}
+
 /* Students who ask their device for less motion get the still versions. */
 @media (prefers-reduced-motion: reduce) {
+  .row-rainbow::after,
   .neon-text,
   .rainbow-text,
   .flame-text,
