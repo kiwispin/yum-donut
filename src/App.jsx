@@ -16,6 +16,7 @@ import { payForGift } from './giving.js';
 import { nameEffectClass, avatarBorderClass, rowThemeClass, shopPreview } from './nameEffects.js';
 import './nameEffects.css';
 import VerifiedSeal from './VerifiedSeal.jsx';
+import TeamsLinksPanel from './TeamsLinksPanel.jsx';
 import { getWeekKey, stockLeft, shopLimitBlock, isFoodOpenAt, FOOD_OPEN_HOUR, FOOD_CLOSE_HOUR } from './shopLimits.js';
 import { accountEmailCandidatesForName, accountEmailForName } from './authIdentity';
 import YumPalsView from './yumpals/YumPalsView';
@@ -509,6 +510,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 const functions = getFunctions(app);
+const manageTeamsLinks = httpsCallable(functions, 'teamsManageLinks');
 
 // 2. School Roster
 const INITIAL_ROSTER = [
@@ -5604,7 +5606,7 @@ function GoalSettingsTab({ goalData, onUpdateGoal, onResetGoal, onToggleGoalActi
 
 function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrices, shopItemOverrides, sponsorshipSlotOverrides, goalData, onUpdateGoal, onResetGoal, onToggleGoalActive, yumpalsOwnerUid, yumpalsPreviewEnabled, onToggleYumPalsPreview }) {
     const paidSettingsIdentity = useMemo(() => () => ({ uid: auth.currentUser?.uid, isAnonymous: auth.currentUser?.isAnonymous, sandbox: isSandbox }), [isSandbox]);
-    const [activeTab, setActiveTab] = useState('general'); // general, roster, shop, sponsorships, goal, yumpals
+    const [activeTab, setActiveTab] = useState('general'); // general, roster, shop, sponsorships, goal, yumpals, teams
     const [newName, setNewName] = useState("");
     const [error, setError] = useState("");
     const [auditUser, setAuditUser] = useState(null);
@@ -6061,10 +6063,20 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                     >
                         YumPals
                     </button>
+                    <button
+                        onClick={() => setActiveTab('teams')}
+                        className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors shrink-0 ${activeTab === 'teams' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                    >
+                        Teams
+                    </button>
                 </div>
 
                 {/* Content */}
                 <div className="flex-1 overflow-auto p-6 bg-slate-50/50">
+                    {activeTab === 'teams' && (
+                        <TeamsLinksPanel manageLinks={manageTeamsLinks} isSandbox={isSandbox} />
+                    )}
+
                     {/* --- GENERAL TAB --- */}
                     {activeTab === 'general' && (
                         <div className="space-y-6">
