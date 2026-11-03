@@ -29,6 +29,7 @@ Branch: `codex/verified-seal`, from `main` `ba578a3` (the smooth neon release).
   the Leaderboard and in three Feed entries ("Mr Rayner recognized Elsie", "Elsie went
   shopping", "The Bank recognized Elsie"); hovering shows "Verified"; the shine was
   measured resting, then sweeping across about every 5 seconds. The Shop card shows
-  the seal icon and a preview on Mr Rayner. No console errors.
+  the seal icon and a preview on Mr Rayner. One console error, the same 400 from a
+  sign-in request seen in earlier checks, not from these files.
 - Not exercised: the header seal (Mr Rayner is not verified), tap on a phone, and
   reduced motion.
