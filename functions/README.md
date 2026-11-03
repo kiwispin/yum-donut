@@ -15,6 +15,7 @@ The function:
 - counts donut emojis as the amount per recipient;
 - allows multiple mentioned recipients;
 - enforces the same 5-donut daily giving limit;
+- charges students for their gifts like the web app: out of the wallet first, then the bank (Mr Rayner's gifts stay free). A student must have signed in to Yum Donut once, so their account is linked, before they can give from Teams;
 - writes to the existing Yum Donut Firestore users and transactions collections;
 - stores Teams-only mapping, daily fallback, and idempotency metadata under `integrations/teams`.
 

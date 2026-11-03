@@ -10,6 +10,7 @@ const {
 const { DAILY_LIMIT, DONUT_EMOJI } = require('./config');
 const { localDateKey, localDateLabel } = require('./dateKeys');
 const { mappingKeyForTeamsUser, stableTeamsId, displayNameForTeamsUser } = require('./identity');
+const { resolveBankBalance, payForGift } = require('./giving');
 
 function getFiniteDonutBalance(value, fallback = null) {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : fallback;
@@ -130,14 +131,37 @@ async function giveDonutsFromTeams({
       return { ok: false, code: 'DAILY_LIMIT', remaining, requested: totalRequested };
     }
 
+    // Students pay for their gifts: wallet first, then bank. The teacher's gifts are free.
+    let paid = null;
+    if (!isAdmin) {
+      if (!senderPrivateRef) return { ok: false, code: 'SENDER_NO_ACCOUNT' };
+      if (!senderCounterSnap.exists || !senderPublicSnap.exists) return { ok: false, code: 'SENDER_BALANCE_CORRUPT' };
+      const wallet = getFiniteDonutBalance(senderPublic.balance);
+      const bank = resolveBankBalance(senderCounter.bank_balance, senderPublic.bank_balance);
+      if (wallet === null || bank === null) return { ok: false, code: 'SENDER_BALANCE_CORRUPT' };
+      paid = payForGift({ wallet, bank }, totalRequested);
+      if (!paid) return { ok: false, code: 'NOT_ENOUGH', requested: totalRequested };
+    }
+
     const recipientPublicRefs = recipientMappings.map((mapping) => usersCollection(db).doc(mapping.yumName));
     const recipientPublicSnaps = await Promise.all(recipientPublicRefs.map((ref) => transaction.get(ref)));
+
+    // Check every recipient before writing anything: returning after a write would commit half a gift.
+    for (let i = 0; i < recipientMappings.length; i += 1) {
+      const recipientSnap = recipientPublicSnaps[i];
+      if (!recipientSnap.exists) continue;
+      const recipientData = recipientSnap.data();
+      if (getFiniteDonutBalance(recipientData.balance) === null || getFiniteDonutBalance(recipientData.lifetime_received) === null) {
+        return { ok: false, code: 'RECIPIENT_BALANCE_CORRUPT', yumName: recipientMappings[i].yumName };
+      }
+    }
 
     const newGivenToday = currentGiven + totalRequested;
     if (senderPrivateRef) {
       transaction.set(senderPrivateRef, {
         given_today: newGivenToday,
         last_given_date: dateLabel,
+        ...(paid && { balance: paid.wallet, bank_balance: paid.bank }),
       }, { merge: true });
     } else {
       transaction.set(senderDailyRef, {
@@ -152,6 +176,7 @@ async function giveDonutsFromTeams({
     if (senderPublicSnap.exists) {
       transaction.update(senderPublicDocRef, {
         lifetime_given: FieldValue.increment(totalRequested),
+        ...(paid && { balance: paid.wallet, bank_balance: paid.bank }),
       });
     } else {
       transaction.set(senderPublicDocRef, {
@@ -170,13 +195,6 @@ async function giveDonutsFromTeams({
         const recipientData = recipientSnap.data();
         const currentBalance = getFiniteDonutBalance(recipientData.balance);
         const currentLifetimeReceived = getFiniteDonutBalance(recipientData.lifetime_received);
-        if (currentBalance === null || currentLifetimeReceived === null) {
-          return {
-            ok: false,
-            code: 'RECIPIENT_BALANCE_CORRUPT',
-            yumName: mapping.yumName,
-          };
-        }
 
         transaction.update(recipientRef, {
           balance: currentBalance + donutCount,
