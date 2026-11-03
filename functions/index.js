@@ -9,6 +9,7 @@ const { createHolidayMode } = require('./src/yumpals/holidayMode');
 const { withPreflightCache } = require('./src/yumpals/preflightCache');
 const { yumPalsRoot } = require('./src/yumpals/paths');
 const { createStudentAccountService } = require('./src/studentAccountService');
+const { createTeamsLinkService } = require('./src/teamsLinkService');
 
 admin.initializeApp();
 exports.yumpalsSetHolidayMode = onCall({ region: 'us-central1' }, createHolidayMode({
@@ -96,3 +97,6 @@ const manageStudentAccount = createStudentAccountService({ authAdmin: admin.auth
   arrayRemove: (...values) => admin.firestore.FieldValue.arrayRemove(...values),
 });
 exports.yumpalsManageStudentAccount = onCall({ region: 'us-central1' }, manageStudentAccount);
+
+const manageTeamsLinks = createTeamsLinkService({ db: admin.firestore(), HttpsError, FieldValue: admin.firestore.FieldValue });
+exports.teamsManageLinks = onCall({ region: 'us-central1' }, manageTeamsLinks);
