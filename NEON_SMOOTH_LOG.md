@@ -34,3 +34,20 @@ release).
   and full opacity, and the spark angle was measured moving. Enlarged in the page
   (not saved), the spark shows as a white glint travelling round the outline. What's
   New opens with the new section first.
+
+## Release — 3 November 2026
+
+The owner approved the release and the What's New wording ("Release it").
+
+- Frontend only: no function deploy and no Firestore rules change.
+- Rollback: rebuild and publish `codex/neon-smooth-baseline-20261103` (`203e722`,
+  the production source before this release).
+- RELEASE VERIFIED — source `d318167` on `codex/neon-smooth`, merged to `main` as
+  `9a6e483`, rollback tag pushed; remote IDs verified. Published with
+  `npm run build` and `gh-pages` as `ee42771`, live after ~90s. Byte-identical to
+  the build:
+  - `index.html` (MD5 `ff0ec7d756861de2a94632f2803f510e`).
+  - JS `index-4C5t1gGD.js` (`71695a45d5d99522ec607ce8d3d77d6b`).
+  - CSS `index-CiA2hEFZ.css` (`93251509bb46c87eb4e797bef76597b9`).
+  The live CSS has no `neon-sign` flicker; the live bundle contains "Shop looks got
+  an upgrade". Not seen live signed in.
