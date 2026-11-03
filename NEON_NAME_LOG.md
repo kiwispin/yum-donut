@@ -59,5 +59,7 @@ The owner approved the release ("Release it").
   - `index.html` (MD5 `d94457d61fc5a01d3fa64b95cd7e2020`).
   - JS `index-DuUXNxhj.js` (`d64c51b53db18adc42f51468ddcd2297`).
   - CSS `index-AorIDkUl.css` (`abe0cb50c5aeceb21705eed03e475127`).
-  The live CSS contains the `.neon-text` dark pill and glow. Not seen live signed in
-  (the live site has no sandbox sign-in).
+  The live CSS contains the `.neon-text` dark pill and glow.
+- SEEN LIVE — the owner signed in as Mr Rayner; the live Leaderboard shows Lithuli
+  (#1) in neon on the dark pill, Elsie in rainbow, and gold and silver avatar
+  borders. Looked at only; nothing changed.
