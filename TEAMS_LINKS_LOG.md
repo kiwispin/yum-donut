@@ -78,9 +78,30 @@ Rollback tag: `codex/teams-links-baseline-20261103` (`218a774`).
 - Not exercised: the deployed callable, the real Admin Settings modal signed in as
   the teacher, and real Teams records.
 
-## Release — not yet
+## Release — 3 November 2026 (in progress)
 
-Waiting for the owner's approval. When approved:
+The owner approved the release ("Release it").
+
+- SOURCE PUSHED — `e3f6b9b` merged into `main` as `b3eb2a7` with an ordinary
+  `--no-ff` merge; `main` and `claude/fervent-payne-13daed` both at `b3eb2a7` on
+  GitHub, rollback tag `codex/teams-links-baseline-20261103` at `218a774`. Verified
+  with `git ls-remote`.
+- FUNCTION CREATED, NOT YET CALLABLE — `deploy --only functions:teams:teamsManageLinks`
+  built and started the function (`teams:teamsManageLinks(us-central1)`, revision
+  `teamsmanagelinks-00001-ren`, state ACTIVE). The last step, granting `allUsers` the
+  `roles/run.invoker` role on Cloud Run service `teamsmanagelinks`, failed: the
+  signed-in account lacks `run.services.setIamPolicy` (HTTP 403). An unauthenticated
+  POST to the function returns a bare 403 from Cloud Run, whereas
+  `yumpalsManageStudentAccount` reaches its own teacher check. Every callable here
+  carries this invoker grant; the teacher check is done inside the function.
+- WEBSITE HELD — not published until the function is callable, so the teacher
+  never sees a broken Teams tab.
+- Fix (owner): Google Cloud console → Cloud Run → `teamsmanagelinks` → Security →
+  "Allow public access" (or Permissions → add principal `allUsers`, role Cloud Run
+  Invoker). Alternatively give the deploying account Cloud Functions Admin and rerun
+  the deploy.
+
+Plan as approved:
 
 1. Merge this branch into `main` with an ordinary merge and push `main`, the branch
    and the rollback tag; confirm the remote IDs with `git ls-remote`.
