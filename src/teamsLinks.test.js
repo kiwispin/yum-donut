@@ -2,22 +2,24 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { suggestRosterName, otherLinksForName, seenLabel } from './teamsLinks.js';
 
-const roster = ['Mr Rayner', 'Aaishah', 'Lara', 'Lara C', 'Ben'];
+const roster = ['Mr Rayner', 'Aaishah', 'Lara', 'Lara C', 'Ben', 'Amelia S', 'Amelia T'];
 
 test('A roster name is suggested only when the Teams name matches exactly one student', () => {
     assert.equal(suggestRosterName('Aaishah Khan', roster), 'Aaishah');
     assert.equal(suggestRosterName('mr rayner', roster), 'Mr Rayner');
     assert.equal(suggestRosterName('Lara C', roster), 'Lara C');
+    assert.equal(suggestRosterName('Amelia Smith', roster), 'Amelia S', 'the surname initial picks between the Amelias');
+    assert.equal(suggestRosterName('Amelia Brown', roster), '', 'no Amelia B, and two Amelias');
     assert.equal(suggestRosterName('Lara Smith', roster), '', 'two Laras, so the teacher must choose');
     assert.equal(suggestRosterName('Zed', roster), '');
     assert.equal(suggestRosterName('', roster), '');
 });
 
-test('Other links for a name ignore the record being changed', () => {
-    const links = [{ mappingKey: 'a', yumName: 'Aaishah' }, { mappingKey: 'b', yumName: 'Aaishah' }, { mappingKey: 'c', yumName: 'Ben' }];
-    assert.deepEqual(otherLinksForName(links, 'Aaishah', 'a').map(link => link.mappingKey), ['b']);
-    assert.deepEqual(otherLinksForName(links, 'Ben', 'c'), []);
-    assert.deepEqual(otherLinksForName(links, 'Lara', 'z'), []);
+test('Other links for a name ignore the person being changed', () => {
+    const entries = [{ id: 'a', yumName: 'Aaishah' }, { id: 'b', yumName: 'Aaishah' }, { id: 'c', yumName: 'Ben' }, { id: 'd', yumName: null }];
+    assert.deepEqual(otherLinksForName(entries, 'Aaishah', 'a').map(entry => entry.id), ['b']);
+    assert.deepEqual(otherLinksForName(entries, 'Ben', 'c'), []);
+    assert.deepEqual(otherLinksForName(entries, 'Lara', 'z'), []);
 });
 
 test('The seen label says how Teams showed the person', () => {

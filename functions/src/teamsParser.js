@@ -95,15 +95,31 @@ function isBotMention(mention, activity) {
   );
 }
 
+// Teams can split one mention of "Amelia S" into "Amelia" and "S" for the same person.
+// Keep one recipient per person, named from the distinct pieces in order.
+function joinSplitMentions(mentionedUsers) {
+  const byPerson = new Map();
+  for (const user of mentionedUsers) {
+    const key = user.aadObjectId || user.id || user.name;
+    const entry = byPerson.get(key);
+    if (!entry) {
+      byPerson.set(key, { user: { ...user }, pieces: user.name ? [user.name] : [] });
+    } else if (user.name && !entry.pieces.includes(user.name)) {
+      entry.pieces.push(user.name);
+    }
+  }
+  return [...byPerson.values()].map(({ user, pieces }) => (pieces.length > 1 ? { ...user, name: pieces.join(' ') } : user));
+}
+
 function parseTeamsDonutActivity(activity) {
   const text = normalizeTeamsDonutEmoji(activity?.text || '');
   const attachmentText = normalizeTeamsDonutEmoji(attachmentSearchText(activity?.attachments || []));
   const mentions = (activity?.entities || []).filter((entity) => entity.type === 'mention');
   const botWasMentioned = mentions.some((mention) => isBotMention(mention, activity));
-  const recipientTeamsUsers = mentions
+  const recipientTeamsUsers = joinSplitMentions(mentions
     .filter((mention) => !isBotMention(mention, activity))
     .map((mention) => mention.mentioned)
-    .filter(Boolean);
+    .filter(Boolean));
 
   const textDonutCount = countDonutLiterals(text);
   const attachmentImageDonutCount = teamsEmojiImageFallbackCount(activity?.attachments || []);

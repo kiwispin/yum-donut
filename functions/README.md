@@ -27,18 +27,26 @@ When users mention the bot, the function records seen Teams users in:
 artifacts/yum-donut-school/public/data/integrations/teams/pendingMappings/{mappingKey}
 ```
 
-The teacher links them in the web app: Admin Settings → Teams lists the pending
-Teams users and the existing links, and lets the teacher pick a roster name for
-each person, or change or remove a link. The screen calls the teacher-only
-`teamsManageLinks` callable (`functions/src/teamsLinkService.js`), which checks the
-`yumpalsAdmin` claim, takes the Teams identity from the pending record rather than
-the browser, accepts only active roster names, and asks for confirmation before a
-second Teams record is linked to the same name. A changed link starts a fresh
-document, so a `uid` or `isAdmin` from the previous name never carries over.
+The teacher links people in the web app: Admin Settings → Teams. Each time the bot
+gets a message or event in the Team it saves the Team's details in
+`integrations/teams` (`teamReference`, `functions/src/teamsRoster.js`). The screen's
+teacher-only `teamsManageLinks` callable (`functions/src/teamsLinkService.js`) then
+reads the Team's current members through the bot. It needs the bot's Microsoft
+secrets for this. Every member is listed once with their real name and email.
+Bot records for anyone not in the Team (people who left, test accounts) are shown
+apart, with Remove.
 
-The bot keys a sender by their `aadObjectId` but a mentioned user by their Teams
-chat `id`, so the same student can appear twice. Link both records to the same
-name.
+The callable checks the `yumpalsAdmin` claim and accepts only active roster names.
+It takes Teams identities from Teams (or, before the Team is known, from the bot's
+pending record), never from the browser. It asks for confirmation before two
+people share a name. The bot looks up a giver by their `aadObjectId` but a mentioned
+person by their Teams `id`, so linking a member writes a mapping under both keys.
+A changed link starts a fresh document, so a `uid` or `isAdmin` from the previous
+name never carries over.
+
+The saved Team details sit in publicly writable data, so they are checked before
+each use. The service address must be a Microsoft Teams host, and the tenant must
+match `MICROSOFT_APP_TENANT_ID`, so the bot's token is never sent anywhere else.
 
 Confirmed mapping documents live in:
 
@@ -80,4 +88,4 @@ firebase functions:secrets:set MICROSOFT_APP_PASSWORD --project yum-donut-school
 `YUM_DONUT_TIME_ZONE` can be set as a normal environment variable if needed. It defaults to `Pacific/Auckland`.
 
 The exported HTTPS function is `teamsBot`. The teacher's linking screen uses the
-callable `teamsManageLinks`.
+callable `teamsManageLinks`, which also uses the three `MICROSOFT_APP_*` secrets.

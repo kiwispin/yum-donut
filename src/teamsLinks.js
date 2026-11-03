@@ -1,19 +1,23 @@
 const fold = value => String(value || '').normalize('NFKC').trim().toLowerCase();
 
-// Preselects a roster name only when the Teams name points to exactly one student.
+// Preselects a roster name only when the Teams name points to exactly one student:
+// the full name, then "First L" for a surname initial, then a unique first name.
 export function suggestRosterName(displayName, roster) {
-    const full = fold(displayName);
-    if (!full) return '';
-    const exact = roster.filter(name => fold(name) === full);
-    if (exact.length === 1) return exact[0];
-    const first = full.split(/\s+/u)[0];
-    const byFirstName = roster.filter(name => fold(name) === first || fold(name).split(/\s+/u)[0] === first);
-    return byFirstName.length === 1 ? byFirstName[0] : '';
+    const parts = fold(displayName).split(/\s+/u).filter(Boolean);
+    if (parts.length === 0) return '';
+    const only = matches => (matches.length === 1 ? matches[0] : '');
+    const exact = only(roster.filter(name => fold(name) === parts.join(' ')));
+    if (exact) return exact;
+    if (parts.length > 1) {
+        const initial = only(roster.filter(name => fold(name) === `${parts[0]} ${[...parts.at(-1)][0]}`));
+        if (initial) return initial;
+    }
+    return only(roster.filter(name => fold(name).split(/\s+/u)[0] === parts[0]));
 }
 
-// Other Teams records already linked to this name; a second link needs the teacher's confirmation.
-export function otherLinksForName(links, yumName, mappingKey) {
-    return links.filter(link => link.yumName === yumName && link.mappingKey !== mappingKey);
+// Other people already linked to this name; a second link needs the teacher's confirmation.
+export function otherLinksForName(entries, yumName, id) {
+    return entries.filter(entry => entry.yumName === yumName && entry.id !== id);
 }
 
 export function seenLabel(entry) {
