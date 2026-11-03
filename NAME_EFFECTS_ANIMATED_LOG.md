@@ -38,3 +38,20 @@ Branch: `codex/name-effects-animated`, from `main` `f990192` (the neon name rele
   time. Shop shows previews on Rainbow Name, Gold Border, Neon Name and Verified
   Badge. One console error, a 400 from a sign-in request, not from these files.
 - Not exercised: reduced motion, phone width, and Safari/Firefox.
+
+## Release — 3 November 2026
+
+The owner approved the release ("Release it").
+
+- Frontend only: no function deploy and no Firestore rules change.
+- Rollback: rebuild and publish `codex/name-effects-animated-baseline-20261103`
+  (`f990192`, the production source before this release).
+- RELEASE VERIFIED — source `6e26f52` on `codex/name-effects-animated`, merged to
+  `main` as `37d1198`, rollback tag pushed; remote IDs verified. Published with
+  `npm run build` and `gh-pages` as `ede2394`, live after ~45s. Byte-identical to
+  the build:
+  - `index.html` (MD5 `be41da16b8f8e7ba37b494be034b3370`).
+  - JS `index-CwV1ws_5.js` (`6db92445066ad8af5ae2c9fee63bc426`).
+  - CSS `index-C-Uw-aa8.css` (`5414798a0e9d564e7f46ceef33c44116`).
+  The live CSS contains `.rainbow-text`, `@keyframes neon-sign` and
+  `@property --ring-angle`. Not seen live signed in.
