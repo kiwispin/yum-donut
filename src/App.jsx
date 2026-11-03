@@ -15,6 +15,7 @@ import { TROPHIES, trophyCounts, payForTrophy } from './trophies.js';
 import { payForGift } from './giving.js';
 import { nameEffectClass, avatarBorderClass, rowThemeClass, shopPreview } from './nameEffects.js';
 import './nameEffects.css';
+import VerifiedSeal from './VerifiedSeal.jsx';
 import { getWeekKey, stockLeft, shopLimitBlock, isFoodOpenAt, FOOD_OPEN_HOUR, FOOD_CLOSE_HOUR } from './shopLimits.js';
 import { accountEmailCandidatesForName, accountEmailForName } from './authIdentity';
 import YumPalsView from './yumpals/YumPalsView';
@@ -4136,6 +4137,7 @@ function YumDonutDashboard() {
                     <div className="hidden md:block text-right">
                         <div className="flex items-center justify-end gap-2">
                             <p className={`text-sm font-semibold ${nameEffectClass(myPublicProfile)}`}>{myProfile.name}</p>
+                            {myPublicProfile?.verified_badge && <VerifiedSeal size={14} />}
 
                             <button
                                 onClick={() => setIsPixelStudioOpen(true)}
@@ -6877,7 +6879,7 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleSta
 
                             <div>
                                 <div className="text-4xl mb-2 flex items-center gap-2">
-                                    {item.icon}
+                                    {item.id === 'verified_badge' ? <VerifiedSeal size={36} tooltip={false} /> : item.icon}
                                     {isFeatured && <span className="text-lg animate-pulse">🔥</span>}
                                 </div>
                                 <h3 className={`font-bold text-lg ${isFeatured ? 'text-yellow-900' : 'text-slate-800'}`}>{item.name}</h3>
@@ -6894,7 +6896,7 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleSta
                                             />
                                         </div>
                                         <span className={`font-bold ${nameEffectClass(preview, 'text-slate-800')}`}>{currentUserPublic.name}</span>
-                                        {preview.verified_badge && <span className="text-blue-500 text-xs" title="Verified">✅</span>}
+                                        {preview.verified_badge && <VerifiedSeal />}
                                     </div>
                                 )}
                                 {hasDailyLimit && (
@@ -7626,7 +7628,7 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
                                                             </div>
                                                             <span className="flex items-center gap-1">
                                                                 <span className={nameClass && `${nameClass} font-bold`}>{name}</span>
-                                                                {hasVerified && <span className="text-blue-500 text-[10px]">✅</span>}
+                                                                {hasVerified && <VerifiedSeal size={14} tooltip={false} />}
                                                             </span>
                                                         </button>
                                                     )
@@ -7792,6 +7794,7 @@ function FeedView({ transactions, onReact, coreValues, onDelete, currentUser, us
 
                     // Find sender user data for avatar
                     const senderUser = users?.find(u => u.name === tx.fromName);
+                    const recipientVerified = users?.find(u => u.name === tx.toName)?.verified_badge;
                     const systemAvatar = SYSTEM_AVATARS[tx.fromName];
 
                     return (
@@ -7836,6 +7839,7 @@ function FeedView({ transactions, onReact, coreValues, onDelete, currentUser, us
                                 <div className="flex-grow pb-6">
                                     <div className="flex flex-wrap items-baseline gap-x-1 mb-1">
                                         <span className="font-bold text-slate-900">{tx.fromName}</span>
+                                        {senderUser?.verified_badge && <span className="self-center"><VerifiedSeal size={15} /></span>}
                                         {tx.toName === "Frosted Friday" || tx.toName === "EVERYONE" || tx.toName === "The Shop" || tx.fromName === "Job Board" || tx.fromName === "Goal" || tx.toName === "Team Goal" ? (
                                             <span className="text-slate-500 text-sm ml-1">
                                                 {tx.message.includes("activated") ? "announced" :
@@ -7846,11 +7850,13 @@ function FeedView({ transactions, onReact, coreValues, onDelete, currentUser, us
                                             <>
                                                 <span className="text-red-500 text-sm mx-1 font-bold">ATE a donut from</span>
                                                 <span className="font-bold text-slate-900">{tx.toName}</span>
+                                                {recipientVerified && <span className="self-center"><VerifiedSeal size={15} /></span>}
                                             </>
                                         ) : (
                                             <>
                                                 <span className="text-slate-400 text-sm mx-1">recognized</span>
                                                 <span className="font-bold text-slate-900">{tx.toName}</span>
+                                                {recipientVerified && <span className="self-center"><VerifiedSeal size={15} /></span>}
                                             </>
                                         )}
                                     </div>
@@ -7939,7 +7945,7 @@ function LeaderboardView({ users, roster, currentUserName, sponsorships, sponsor
                                     <p className={`font-bold ${nameEffectClass(u, 'truncate text-slate-800')}`}>
                                         {u.name}
                                     </p>
-                                    {u.verified_badge && <span className="text-blue-500 text-xs" title="Verified">✅</span>}
+                                    {u.verified_badge && <VerifiedSeal />}
                                     {u.perfectionist_badge && <span className="text-red-500 text-xs" title="Perfectionist">🎯</span>}
                                     {u.typing_license && <span className="text-slate-500 text-[10px] flex items-center" title="Typing License">⌨️</span>}
                                     <TrophyShelf trophies={u.trophies} className="text-sm" />

@@ -206,9 +206,54 @@
   background-image: linear-gradient(90deg, rgba(251, 191, 36, 0.18), rgba(253, 230, 138, 0.08) 50%, transparent 85%);
 }
 
+/* --- Verified Badge (Shop): a blue seal (VerifiedSeal.jsx) with a shine that
+       sweeps across every few seconds, and a "Verified" label on hover or tap. --- */
+
+.verified-seal {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  vertical-align: middle;
+  filter: drop-shadow(0 1px 1px rgba(30, 64, 175, 0.35));
+  outline: none;
+}
+
+.verified-seal svg {
+  overflow: visible;
+}
+
+.verified-seal-shine {
+  translate: -12px 0;
+  animation: seal-shine 5s ease-in-out infinite;
+}
+
+@keyframes seal-shine {
+  0%, 75% { translate: -12px 0; }
+  100% { translate: 30px 0; }
+}
+
+.verified-seal[data-tip]:hover::after,
+.verified-seal[data-tip]:focus::after {
+  content: 'Verified';
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: #0f172a;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+  z-index: 20;
+}
+
 /* Students who ask their device for less motion get the still versions. */
 @media (prefers-reduced-motion: reduce) {
   .row-rainbow::after,
+  .verified-seal-shine,
   .neon-text::before,
   .neon-text,
   .rainbow-text,
