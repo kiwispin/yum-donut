@@ -78,7 +78,7 @@ Rollback tag: `codex/teams-links-baseline-20261103` (`218a774`).
 - Not exercised: the deployed callable, the real Admin Settings modal signed in as
   the teacher, and real Teams records.
 
-## Release — 3 November 2026 (in progress)
+## Release — 3 November 2026
 
 The owner approved the release ("Release it").
 
@@ -100,6 +100,20 @@ The owner approved the release ("Release it").
   "Allow public access" (or Permissions → add principal `allUsers`, role Cloud Run
   Invoker). Alternatively give the deploying account Cloud Functions Admin and rerun
   the deploy.
+- PUBLIC ACCESS GRANTED (owner) — in the Cloud Run console, Security → Allow public
+  access, viewed the diff and deployed a new revision serving immediately. Same
+  code; only access changed. An unauthenticated POST now returns the function's own
+  `PERMISSION_DENIED` "Only the signed-in teacher can link Teams accounts.", and the
+  CORS preflight from `https://kiwispin.github.io` returns 204. `functions:list`
+  shows `teamsManageLinks` (v2 callable, us-central1) alongside `teamsBot`.
+  The next Firebase deploy of this function will replace the console-made revision.
+- WEBSITE PUBLISHED — `npm run deploy` from `main` `0e54de2` (production flags from
+  `.env.production`). `gh-pages` `99f9bf5` → `d3cb974`, an ordinary push. The live
+  page references `index-stihcS47.js` (SHA-256 `b126bcd18e8f87554613ac30026b47f2f3bd5bd722df83a8f25e38aea7094e9f`)
+  and `index-wKdY67Gh.css` (SHA-256 `ee044178c7b4535232a2a753a1856dfa6acf7735cd6423869039234f5242ceac`);
+  both match the local build byte for byte, and the JS contains `teamsManageLinks`.
+- NOT VERIFIED — the Teams tab signed in as the teacher against live data, and a
+  successful Teams gift after linking.
 
 Plan as approved:
 
