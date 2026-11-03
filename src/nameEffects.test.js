@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nameEffect, nameEffectClass } from './nameEffects.js';
+import { nameEffect, nameEffectClass, avatarBorderClass, shopPreview } from './nameEffects.js';
 
 test('a bought Neon Name shows even when the student also has rainbow or flame', () => {
     assert.equal(nameEffect({ neon_name: true, flame_name: true }), 'neon');
@@ -22,5 +22,20 @@ test('a student with no effect, or no profile yet, gets the plain style', () => 
 test('each effect maps to its CSS class', () => {
     assert.equal(nameEffectClass({ neon_name: true }, 'text-slate-800'), 'neon-text');
     assert.equal(nameEffectClass({ flame_name: true }), 'flame-text');
-    assert.match(nameEffectClass({ rainbow_name: true }), /animate-text-rainbow/);
+    assert.equal(nameEffectClass({ rainbow_name: true }), 'rainbow-text');
+});
+
+test('a gold border beats a silver one, and no border is no class', () => {
+    assert.equal(avatarBorderClass({ gold_border: true, silver_border: true }), 'gold-border');
+    assert.equal(avatarBorderClass({ silver_border: true }), 'silver-border');
+    assert.equal(avatarBorderClass({}), '');
+    assert.equal(avatarBorderClass(undefined), '');
+});
+
+test('the Shop previews only the items that change how a student looks', () => {
+    assert.deepEqual(shopPreview('neon_name'), { neon_name: true });
+    assert.equal(nameEffect(shopPreview('rainbow_name')), 'rainbow');
+    assert.equal(avatarBorderClass(shopPreview('gold_border')), 'gold-border');
+    assert.equal(shopPreview('raffle_ticket'), null);
+    assert.equal(shopPreview('hot_chocolate'), null);
 });
