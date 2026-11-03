@@ -13,7 +13,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getBankBalance, resolveBankBalance } from './bankBalance';
 import { TROPHIES, trophyCounts, payForTrophy } from './trophies.js';
 import { payForGift } from './giving.js';
-import { nameEffectClass, avatarBorderClass, shopPreview } from './nameEffects.js';
+import { nameEffectClass, avatarBorderClass, rowThemeClass, shopPreview } from './nameEffects.js';
 import './nameEffects.css';
 import { getWeekKey, stockLeft, shopLimitBlock, isFoodOpenAt, FOOD_OPEN_HOUR, FOOD_CLOSE_HOUR } from './shopLimits.js';
 import { accountEmailCandidatesForName, accountEmailForName } from './authIdentity';
@@ -7909,7 +7909,7 @@ function LeaderboardView({ users, roster, currentUserName, sponsorships, sponsor
                     // Ranks based on GIVEN
                     const rank = getRank(u.lifetime_given || 0);
                     return (
-                        <div key={u.name} className="flex items-center p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors last:border-none">
+                        <div key={u.name} className={`flex items-center p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors last:border-none ${rowThemeClass(u)}`}>
                             <div className="w-8 font-bold text-slate-400 text-center flex-shrink-0">
                                 {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}
                             </div>
