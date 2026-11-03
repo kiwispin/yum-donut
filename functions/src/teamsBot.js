@@ -2,6 +2,7 @@ const { parseTeamsDonutActivity } = require('./teamsParser');
 const { giveDonutsFromTeams } = require('./donutService');
 const { successReply, failureReply } = require('./replies');
 const { recordPendingTeamsUsers } = require('./pendingMappings');
+const { rememberTeam } = require('./teamsRoster');
 
 function redactMentionText(text) {
   return String(text || '').replace(/<at>.*?<\/at>/gi, '<at>@</at>');
@@ -13,6 +14,12 @@ function diagnosticCodePoints(text) {
 
 async function handleTeamsTurn(context, deps) {
   const activity = context.activity;
+  // Lets the teacher's Teams screen read who is in the team. Never blocks a gift.
+  try {
+    await rememberTeam({ db: deps.db, FieldValue: deps.FieldValue, activity });
+  } catch (error) {
+    console.warn('Could not remember the Teams team:', error?.message);
+  }
   if (activity.type !== 'message') return;
 
   const parsed = parseTeamsDonutActivity(activity);

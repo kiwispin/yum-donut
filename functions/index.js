@@ -10,6 +10,7 @@ const { withPreflightCache } = require('./src/yumpals/preflightCache');
 const { yumPalsRoot } = require('./src/yumpals/paths');
 const { createStudentAccountService } = require('./src/studentAccountService');
 const { createTeamsLinkService } = require('./src/teamsLinkService');
+const { createTeamsRoster } = require('./src/teamsRoster');
 
 admin.initializeApp();
 exports.yumpalsSetHolidayMode = onCall({ region: 'us-central1' }, createHolidayMode({
@@ -98,5 +99,14 @@ const manageStudentAccount = createStudentAccountService({ authAdmin: admin.auth
 });
 exports.yumpalsManageStudentAccount = onCall({ region: 'us-central1' }, manageStudentAccount);
 
-const manageTeamsLinks = createTeamsLinkService({ db: admin.firestore(), HttpsError, FieldValue: admin.firestore.FieldValue });
-exports.teamsManageLinks = onCall({ region: 'us-central1' }, manageTeamsLinks);
+// Reads the team's members through the bot, so it needs the bot's Microsoft credentials.
+const teamsRoster = createTeamsRoster({
+  db: admin.firestore(), createAdapter,
+  appId: () => MICROSOFT_APP_ID.value(), tenantId: () => MICROSOFT_APP_TENANT_ID.value(),
+  teamsInfo: () => require('botbuilder').TeamsInfo,
+});
+const manageTeamsLinks = createTeamsLinkService({ db: admin.firestore(), HttpsError, FieldValue: admin.firestore.FieldValue, roster: teamsRoster });
+exports.teamsManageLinks = onCall({
+  region: 'us-central1',
+  secrets: [MICROSOFT_APP_ID, MICROSOFT_APP_PASSWORD, MICROSOFT_APP_TENANT_ID],
+}, manageTeamsLinks);

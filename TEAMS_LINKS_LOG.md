@@ -134,3 +134,98 @@ links it made are ordinary mapping documents and keep working.
 
 Note: another agent may be working in the main checkout. This work is in its own
 worktree and touches none of its files.
+
+# Team member list — 3 November 2026
+
+Request: after the first release, the owner found that the screen showed only 9
+people out of the whole Team. It still listed Chenuthi and Seoyeon, who have left
+the Team and are no longer on the roster. It had a stray "AppValidation", and showed
+"S" for Amelia S. The owner asked to "build it": read the real member list from
+Teams. They also said the Yum Donut roster is the source of truth for names.
+
+Branch: `claude/fervent-payne-13daed`, from `main` `180fcc3`.
+Rollback tag: `codex/teams-roster-baseline-20261103` (`180fcc3`).
+
+## Cause (from the code; reading the production data was refused)
+
+- The screen listed only Teams users the bot had recorded: someone who wrote
+  `@YumDonut`, or someone @mentioned in such a message. Nobody else could appear.
+- Records are never removed, so people who left (Chenuthi, Seoyeon) and test
+  accounts (AppValidation) stayed listed.
+- The new Teams client splits a mention of "Amelia S" into "Amelia" and "S" for the
+  same person. The bot stored each piece as her name, and the last one ("S") stuck.
+  Gifts were unaffected because recipients are de-duplicated by id.
+
+## Changes / disposition
+
+- ACCEPTED — `functions/src/teamsRoster.js`: the bot saves its Team's details
+  (`teamReference`: service address, team id, tenant, team name) on each Teams
+  activity. `createTeamsRoster` reads the Team's members page by page, or one member,
+  through the bot (`continueConversationAsync` + `TeamsInfo`). The saved details are
+  in publicly writable data, so they are checked on every use: https only, a
+  Microsoft Teams service host, no user/port, and the tenant must equal
+  `MICROSOFT_APP_TENANT_ID`. Errors are caught inside the call, so the adapter's
+  `onTurnError` never posts its apology in the Team channel.
+- ACCEPTED — `functions/src/teamsBot.js`: remembers the Team before handling each
+  turn. A failure is logged and never blocks a gift or reply.
+- ACCEPTED — `functions/src/teamsParser.js`: split mention pieces for one person
+  become one recipient named from the distinct pieces ("Amelia S").
+- ACCEPTED — `functions/src/teamsLinkService.js`:
+  - `list` returns `team` (`ok`/`unknown`/`error`), `people` (one row per current
+    member: real name, email, linked name, whether both ids are linked, on roster, has
+    an account) and `records` (bot records not belonging to any member).
+  - `link` with a `personId` re-reads the member from Teams. It writes the mapping
+    under both keys (Entra id for giving, Teams id for mentions) with Teams' own
+    name, email and ids. Linking someone else to a name that is taken still needs
+    confirmation; the same person's other key does not.
+  - `unlink` with a `personId` removes both keys. The new `forget` removes a
+    record's link and the bot's record (for people not in the Team).
+  - The `mappingKey` actions remain as a fallback until the bot has seen the Team.
+- ACCEPTED — `functions/index.js`: `teamsManageLinks` now declares the three
+  `MICROSOFT_APP_*` secrets and gets the roster reader; `botbuilder` still loads
+  lazily.
+- ACCEPTED — `src/TeamsLinksPanel.jsx`:
+  - With a known Team: "Showing everyone in <Team>: X of N linked", then "Waiting to
+    be linked", "Linked" and "Not in the Team" (Remove, Remove all).
+  - Older one-way links show "Fix link".
+  - Before the Team is known: a notice to write `@YumDonut hello` once, plus the old
+    record view with Dismiss.
+  - Name suggestions skip names already linked. `src/teamsLinks.js` now also
+    matches "First L" by surname initial (Amelia Smith → Amelia S).
+- UNCHANGED — giving rules, mapping-key format, existing links (they keep working;
+  the teacher's hand-made link shows "Fix link"), Firestore rules, Teams manifest.
+
+## Checks
+
+- `functions`: `npm test` 210 pass, 0 fail. `test/teamsLinkService.test.js` has 12
+  tests: Team list, both-key link with real gifts in both directions, fix a half
+  link, confirm a shared name, change, remove, forget a leaver, Teams down, Team
+  unknown fallback, teacher-only, malformed. `test/teamsRoster.test.js` has 8 new
+  tests: trusted hosts, remembering the Team, ignoring non-team activity, a failed
+  save still lets the bot reply, paging, a leaver reads as nobody, no channel
+  apology on error, tampered reference refused before any token is used, and split
+  mentions. `npx eslint .` clean.
+- Web: 233 pass, 0 fail. `npx eslint .` clean; `npm run build` passes.
+- Preview with fake data (desktop and phone): Team view, Remove all, Fix link,
+  Team-unknown view.
+- Not exercised: the real Teams member API (`getPagedTeamMembers`) for this Team,
+  the real Admin Settings tab, and whether mention ids match member ids in this
+  tenant. They do in Microsoft's documentation, and the tests assume so. If not,
+  current members would appear under "Not in the Team".
+
+## Release — not yet
+
+Waiting for the owner's approval. When approved:
+
+1. Merge into `main` (ordinary) and push `main`, the branch and the rollback tag.
+2. Deploy both changed functions:
+   `npx --yes firebase-tools@15.34.1 deploy --only functions:teams:teamsBot,functions:teams:teamsManageLinks --project yum-donut-school --non-interactive`.
+   `teamsManageLinks` gains secrets, so Cloud Run access may need checking again
+   (the console grant from the first release should carry over).
+3. `npm run deploy` from `main`.
+4. In the Team, write `@YumDonut hello` once, then open Admin Settings → Teams and
+   press Refresh.
+
+Rollback: redeploy `teamsBot` and `teamsManageLinks` and the site from
+`codex/teams-roster-baseline-20261103`. Links made in between are ordinary mapping
+documents and keep working.
