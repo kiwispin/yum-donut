@@ -44,3 +44,20 @@ Branch: `codex/neon-name`, from `main` `a669480` (the paid giving release).
   in neon. No console errors.
 - Not exercised: the Shop's Owned state for a student who owns an item (the sandbox
   only signs in as Alice or the teacher).
+
+## Release — 3 November 2026
+
+The owner approved the release ("Release it").
+
+- Frontend only: no function deploy and no Firestore rules change.
+- Rollback: rebuild and publish `codex/neon-name-baseline-20261103` (`a669480`,
+  the production source before this release).
+- RELEASE VERIFIED — source `43039c9` on `codex/neon-name`, merged to `main` as
+  `1e631d6`, rollback tag pushed; remote IDs verified. Published with
+  `npm run build` and `gh-pages` as `187677c`, live after ~45s. Byte-identical to the
+  build:
+  - `index.html` (MD5 `d94457d61fc5a01d3fa64b95cd7e2020`).
+  - JS `index-DuUXNxhj.js` (`d64c51b53db18adc42f51468ddcd2297`).
+  - CSS `index-AorIDkUl.css` (`abe0cb50c5aeceb21705eed03e475127`).
+  The live CSS contains the `.neon-text` dark pill and glow. Not seen live signed in
+  (the live site has no sandbox sign-in).
