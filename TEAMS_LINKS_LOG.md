@@ -213,9 +213,30 @@ Rollback tag: `codex/teams-roster-baseline-20261103` (`180fcc3`).
   tenant. They do in Microsoft's documentation, and the tests assume so. If not,
   current members would appear under "Not in the Team".
 
-## Release — not yet
+## Release — 4 November 2026
 
-Waiting for the owner's approval. When approved:
+The owner approved the release ("Release it").
+
+- SOURCE PUSHED — `2d057fa` merged into `main` as `be2c972` with an ordinary
+  `--no-ff` merge; `main` and `claude/fervent-payne-13daed` both at `be2c972`,
+  rollback tag `codex/teams-roster-baseline-20261103` at `180fcc3`. Verified with
+  `git ls-remote`.
+- DEPLOYED — `deploy --only functions:teams:teamsBot,functions:teams:teamsManageLinks`:
+  "Successful update operation" for both, "Deploy complete!". No IAM error this
+  time; the public access the owner granted is kept. An unauthenticated POST to
+  `teamsManageLinks` returns its own `PERMISSION_DENIED` teacher message, and the
+  CORS preflight from `https://kiwispin.github.io` returns 204. An empty POST to
+  `teamsBot` returns 500, as before this release (the Bot Framework rejects a body
+  with no activity).
+- WEBSITE PUBLISHED — `npm run deploy` from `main` `be2c972`; `gh-pages`
+  `d3cb974` → `0051638` (ordinary push). Live `index-Dd-OMJfH.js` (SHA-256
+  `4f68ca4616f10e88354fac0bcac0a9ed26610912219cc2f4604cd49249b75249`) and
+  `index-DEVqN6yu.css` (SHA-256 `132ced4e36e29bc6d072d144603441d49b1990d1d29581c25cb98aff53648b3b`)
+  match the local build byte for byte; the JS contains the new screen.
+- NOT VERIFIED YET — the bot saving the Team (needs one `@YumDonut` message in the
+  Team) and the real member list on the Teams tab.
+
+Plan as approved:
 
 1. Merge into `main` (ordinary) and push `main`, the branch and the rollback tag.
 2. Deploy both changed functions:
