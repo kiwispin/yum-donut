@@ -5316,7 +5316,7 @@ function PatchNotesModal({ onClose }) {
                         <h2 className="text-2xl font-bold flex items-center gap-2">
                             <Sparkles className="text-yellow-300" /> What's New
                         </h2>
-                        <p className="opacity-90 text-sm mt-1">A new Trophy Cabinet, and your YumPal has moved into a Donut!</p>
+                        <p className="opacity-90 text-sm mt-1">Shop looks that shine, a new Trophy Cabinet, and your YumPal has moved into a Donut!</p>
                     </div>
                     <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
                         <XCircle size={24} />
@@ -5325,6 +5325,16 @@ function PatchNotesModal({ onClose }) {
 
                 <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
                     <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                        <ShoppingBag className="text-pink-500" size={20} /> Shop looks got an upgrade
+                    </h3>
+                    <p className="text-slate-600 text-sm">
+                        Neon Name, Rainbow Name and Gold Border now glow and move, and your whole row on the Leaderboard lights up to match. Each Shop card shows a preview on your own name first, so you know what you’re getting.
+                    </p>
+                    <p className="text-slate-600 text-sm">
+                        Fast typing in Training earns looks too: a silver frame at 50 WPM, gold at 70 and a flame name at 90. Reach the speed on a run that still earns donuts that day.
+                    </p>
+
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2 pt-2 border-t border-slate-100">
                         <Trophy className="text-yellow-500" size={20} /> Trophy Cabinet
                     </h3>
                     <p className="text-slate-600 text-sm">
