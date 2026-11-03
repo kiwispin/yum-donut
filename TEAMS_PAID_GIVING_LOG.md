@@ -89,3 +89,19 @@ Fix (owner): create a new client secret for the app in the Azure portal (Entra I
 App registrations), store it with
 `npx --yes firebase-tools@15.34.1 functions:secrets:set MICROSOFT_APP_PASSWORD --project yum-donut-school`,
 then redeploy `functions:teams:teamsBot`.
+
+## Secret renewed — 3 November 2026
+
+- The owner created a new client secret for the app in the Azure portal (on their
+  work machine) and stored it as `MICROSOFT_APP_PASSWORD` version 2 in Secret
+  Manager; `functions:secrets:get` lists versions 1 and 2, both ENABLED. No secret
+  value was seen or handled by the agent.
+- The owner redeployed `functions:teams:teamsBot` from this worktree ("Successful
+  update operation", "Deploy complete!") so the function picks up version 2.
+- VERIFIED IN TEAMS — the owner's test gift to Aaishah got a bot reply ("I could
+  not match Aaishah to the Yum Donut roster"), so the bot can reply again. The
+  refusal itself is because Aaishah's Teams account has no mapping document yet;
+  the sender's mapping was found. A successful paid gift through Teams is still
+  not exercised.
+- Follow-up for the owner: once a successful gift is confirmed, disable (then
+  later destroy) secret version 1, and delete the expired client secret in Azure.
