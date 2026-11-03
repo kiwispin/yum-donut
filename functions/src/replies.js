@@ -29,6 +29,12 @@ function failureReply(code, details = {}) {
       return `${details.yumName || 'That person'} is not currently active in the Yum Donut roster.`;
     case 'RECIPIENT_BALANCE_CORRUPT':
       return `${details.yumName || 'That person'} has a corrupted donut balance. Ask Mr Rayner to repair it first.`;
+    case 'SENDER_NO_ACCOUNT':
+      return 'Sign in to Yum Donut once first. Gifts come out of your own donuts.';
+    case 'SENDER_BALANCE_CORRUPT':
+      return 'Your donut balance needs repair before you can give. Ask Mr Rayner to fix it.';
+    case 'NOT_ENOUGH':
+      return `You don't have ${details.requested} 🍩 to give. Gifts come out of your wallet first, then your bank.`;
     case 'SELF_GIVE':
       return 'Nice try, but you cannot give donuts to yourself.';
     case 'DAILY_LIMIT':
