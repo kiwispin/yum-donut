@@ -233,8 +233,10 @@ The owner approved the release ("Release it").
   `4f68ca4616f10e88354fac0bcac0a9ed26610912219cc2f4604cd49249b75249`) and
   `index-DEVqN6yu.css` (SHA-256 `132ced4e36e29bc6d072d144603441d49b1990d1d29581c25cb98aff53648b3b`)
   match the local build byte for byte; the JS contains the new screen.
-- NOT VERIFIED YET — the bot saving the Team (needs one `@YumDonut` message in the
-  Team) and the real member list on the Teams tab.
+- VERIFIED BY THE OWNER — after one `@YumDonut` message in the Team, Admin Settings →
+  Teams "Shows the whole Team", so the bot saved the Team and `teamsManageLinks`
+  read the real member list.
+- Still not exercised: a successful paid gift in Teams between two linked students.
 
 Plan as approved:
 
