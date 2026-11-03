@@ -13,6 +13,8 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getBankBalance, resolveBankBalance } from './bankBalance';
 import { TROPHIES, trophyCounts, payForTrophy } from './trophies.js';
 import { payForGift } from './giving.js';
+import { nameEffectClass } from './nameEffects.js';
+import './nameEffects.css';
 import { getWeekKey, stockLeft, shopLimitBlock, isFoodOpenAt, FOOD_OPEN_HOUR, FOOD_CLOSE_HOUR } from './shopLimits.js';
 import { accountEmailCandidatesForName, accountEmailForName } from './authIdentity';
 import YumPalsView from './yumpals/YumPalsView';
@@ -4074,6 +4076,9 @@ function YumDonutDashboard() {
         return <LoginScreen onLogin={handleLoginOrRegister} roster={roster} />;
     }
 
+    // Shop purchases (name effects, badges) are saved on the public profile, not the private one.
+    const myPublicProfile = users.find(u => u.name === myProfile.name);
+
     return (
         <div className={`min-h-screen font-sans text-slate-800 pb-20 md:pb-0 transition-colors duration-500 ${view === 'give' && notification?.type === 'munch' ? 'bg-red-50' : 'bg-slate-50'}`}>
 
@@ -4130,7 +4135,7 @@ function YumDonutDashboard() {
                     )}
                     <div className="hidden md:block text-right">
                         <div className="flex items-center justify-end gap-2">
-                            <p className="text-sm font-semibold">{myProfile.name}</p>
+                            <p className={`text-sm font-semibold ${nameEffectClass(myPublicProfile)}`}>{myProfile.name}</p>
 
                             <button
                                 onClick={() => setIsPixelStudioOpen(true)}
@@ -4272,7 +4277,7 @@ function YumDonutDashboard() {
                         items={currentShopItems}
                         userBalance={myProfile?.balance || 0}
                         onPurchase={handlePurchase}
-                        currentUserPublic={myProfile}
+                        currentUserPublic={myPublicProfile || myProfile}
                         raffleState={raffleState}
                         onDrawRaffle={handleDrawRaffle}
                         onRestoreRaffle={handleRestoreRaffle}
@@ -7582,8 +7587,8 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
                                                     const userData = existingUsers.find(u => u.name === name);
                                                     const bgColor = userData?.avatar_color || "#cbd5e1";
                                                     const hasGoldBorder = userData?.gold_border;
-                                                    const hasNeonName = userData?.neon_name;
                                                     const hasVerified = userData?.verified_badge;
+                                                    const nameClass = nameEffectClass(userData);
 
                                                     return (
                                                         <button
@@ -7594,7 +7599,7 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
                                                             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${hasGoldBorder ? 'gold-border' : ''}`} style={{ background: bgColor }}>
                                                                 {name[0]}
                                                             </div>
-                                                            <span className={`flex items-center gap-1 ${hasNeonName ? 'neon-text font-bold' : ''}`}>
+                                                            <span className={`flex items-center gap-1 ${nameClass && `${nameClass} font-bold`}`}>
                                                                 {name}
                                                                 {hasVerified && <span className="text-blue-500 text-[10px]">✅</span>}
                                                             </span>
@@ -7906,10 +7911,7 @@ function LeaderboardView({ users, roster, currentUserName, sponsorships, sponsor
                             </div>
                             <div className="flex-grow min-w-0">
                                 <div className="flex items-center gap-2">
-                                    <p className={`font-bold truncate ${u.flame_name ? 'flame-text' :
-                                        u.rainbow_name ? 'animate-text-rainbow bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-500 to-red-500' :
-                                            u.neon_name ? 'neon-text' : 'text-slate-800'
-                                        }`}>
+                                    <p className={`font-bold truncate ${nameEffectClass(u, 'text-slate-800')}`}>
                                         {u.name}
                                     </p>
                                     {u.verified_badge && <span className="text-blue-500 text-xs" title="Verified">✅</span>}

@@ -2,66 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-@keyframes text-rainbow {
-  0% {
-    background-position: 0% 50%;
-  }
-
-  50% {
-    background-position: 100% 50%;
-  }
-
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-.animate-text-rainbow {
-  background-size: 200% auto;
-  animation: text-rainbow 3s linear infinite;
-}
-
-.gold-border {
-  box-shadow: 0 0 0 3px #fbbf24, 0 0 10px #f59e0b;
-  border: 2px solid #fff;
-}
-
-.neon-text {
-  color: #fff;
-  text-shadow:
-    0 0 5px #fff,
-    0 0 10px #fff,
-    0 0 20px #ff00de,
-    0 0 30px #ff00de,
-    0 0 40px #ff00de;
-}
-
-.silver-border {
-  box-shadow: 0 0 0 3px #e2e8f0, 0 0 10px #94a3b8;
-  border: 2px solid #fff;
-}
-
-.flame-text {
-  color: #fff;
-  text-shadow:
-    0 0 5px #fff,
-    0 0 10px #ffea00,
-    0 0 20px #ffae00,
-    0 0 30px #ff0000,
-    0 0 40px #ff0000;
-  animation: flame-flicker 1.5s infinite alternate;
-}
-
-@keyframes flame-flicker {
-  0% {
-    text-shadow: 0 0 5px #fff, 0 0 10px #ffea00, 0 0 20px #ffae00, 0 0 30px #ff0000;
-  }
-
-  100% {
-    text-shadow: 0 0 2px #fff, 0 0 5px #ffea00, 0 0 15px #ffae00, 0 0 20px #ff0000;
-  }
-}
-
 /* --- ARCADE & CLAW MACHINE --- */
 
 .arcade-grid-bg {
