@@ -33,3 +33,24 @@ Branch: `codex/verified-seal`, from `main` `ba578a3` (the smooth neon release).
   sign-in request seen in earlier checks, not from these files.
 - Not exercised: the header seal (Mr Rayner is not verified), tap on a phone, and
   reduced motion.
+
+## Release — 3 November 2026
+
+The owner approved the release ("Release it").
+
+- Frontend only: no function deploy and no Firestore rules change.
+- `main` on GitHub had moved to `c12e31a` (the Teams paid giving release, merged
+  elsewhere) since this branch was cut. It was fast-forwarded in before merging, so
+  that work is kept. It changes only `functions/` and its log, nothing the website
+  build uses, so this publish ships only the seal.
+- Rollback: rebuild and publish `codex/verified-seal-baseline-20261103` (`ba578a3`,
+  the website source before this release; its frontend matches `c12e31a`).
+- RELEASE VERIFIED — source `cae232d` on `codex/verified-seal`, merged to `main` as
+  `7cebaf6`, rollback tag pushed; remote IDs verified. Published with
+  `npm run build` and `gh-pages` as `99f9bf5`, live after ~45s. Byte-identical to
+  the build:
+  - `index.html` (MD5 `3e59bb502ba57eb8279b4a09ac5bb2ad`).
+  - JS `index-QggKwhgx.js` (`aa6d2c4e409e6bd79e34dce6ea4b6c43`).
+  - CSS `index-B72WUvYm.css` (`44ed203cfc1e4dcc246b08b0a682ed9e`).
+  The live CSS contains `.verified-seal-shine` and `@keyframes seal-shine`. Not
+  seen live signed in.
