@@ -13,7 +13,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getBankBalance, resolveBankBalance } from './bankBalance';
 import { TROPHIES, trophyCounts, payForTrophy } from './trophies.js';
 import { payForGift } from './giving.js';
-import { nameEffectClass } from './nameEffects.js';
+import { nameEffectClass, avatarBorderClass, shopPreview } from './nameEffects.js';
 import './nameEffects.css';
 import { getWeekKey, stockLeft, shopLimitBlock, isFoodOpenAt, FOOD_OPEN_HOUR, FOOD_CLOSE_HOUR } from './shopLimits.js';
 import { accountEmailCandidatesForName, accountEmailForName } from './authIdentity';
@@ -6838,6 +6838,7 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleSta
                     // Gold Card Logic
                     const safeFeaturedIds = Array.isArray(featuredItemIds) ? featuredItemIds : [];
                     const isFeatured = safeFeaturedIds.includes(item.id);
+                    const preview = shopPreview(item.id);
 
                     return (
                         <div key={item.id} className={`flex flex-col justify-between relative overflow-hidden border-2 transition-all duration-300 rounded-xl p-6 ${isFeatured ? 'bg-gradient-to-br from-yellow-50 to-amber-100 border-yellow-400 shadow-lg scale-[1.02]' : 'bg-white border-slate-100 hover:border-pink-200'}`}>
@@ -6871,6 +6872,21 @@ function ShopView({ items, userBalance, onPurchase, currentUserPublic, raffleSta
                                 </div>
                                 <h3 className={`font-bold text-lg ${isFeatured ? 'text-yellow-900' : 'text-slate-800'}`}>{item.name}</h3>
                                 <p className={`text-sm mb-4 ${isFeatured ? 'text-yellow-800/80' : 'text-slate-500'}`}>{item.desc}</p>
+                                {preview && currentUserPublic && (
+                                    <div className="mb-4 flex items-center gap-3 rounded-lg bg-slate-50 border border-slate-100 px-3 py-2.5" aria-label={`Preview of ${item.name}`}>
+                                        <div className={avatarBorderClass(preview)}>
+                                            <PixelArtAvatar
+                                                pixels={currentUserPublic.avatar_pixels}
+                                                gridSize={currentUserPublic.avatar_grid_size || 8}
+                                                size={32}
+                                                fallbackInitials={currentUserPublic.name?.[0]}
+                                                fallbackColor={currentUserPublic.avatar_color}
+                                            />
+                                        </div>
+                                        <span className={`font-bold ${nameEffectClass(preview, 'text-slate-800')}`}>{currentUserPublic.name}</span>
+                                        {preview.verified_badge && <span className="text-blue-500 text-xs" title="Verified">✅</span>}
+                                    </div>
+                                )}
                                 {hasDailyLimit && (
                                     <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ${purchasedToday >= dailyLimit ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500'}`}>
                                         <Clock size={12} />
@@ -7586,7 +7602,6 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
                                                 {filteredRoster.map(name => {
                                                     const userData = existingUsers.find(u => u.name === name);
                                                     const bgColor = userData?.avatar_color || "#cbd5e1";
-                                                    const hasGoldBorder = userData?.gold_border;
                                                     const hasVerified = userData?.verified_badge;
                                                     const nameClass = nameEffectClass(userData);
 
@@ -7596,11 +7611,11 @@ function GiveView({ roster, existingUsers, currentUserName, onGive, onMunch, rem
                                                             onClick={() => handleUserSelect(name)}
                                                             className="w-full text-left p-3 hover:bg-pink-50 flex items-center gap-3 transition-colors"
                                                         >
-                                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${hasGoldBorder ? 'gold-border' : ''}`} style={{ background: bgColor }}>
+                                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${avatarBorderClass(userData)}`} style={{ background: bgColor }}>
                                                                 {name[0]}
                                                             </div>
-                                                            <span className={`flex items-center gap-1 ${nameClass && `${nameClass} font-bold`}`}>
-                                                                {name}
+                                                            <span className="flex items-center gap-1">
+                                                                <span className={nameClass && `${nameClass} font-bold`}>{name}</span>
                                                                 {hasVerified && <span className="text-blue-500 text-[10px]">✅</span>}
                                                             </span>
                                                         </button>
@@ -7899,7 +7914,7 @@ function LeaderboardView({ users, roster, currentUserName, sponsorships, sponsor
                                 {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}
                             </div>
                             <div className="mx-4">
-                                <div className={`${u.gold_border ? 'gold-border' : u.silver_border ? 'silver-border' : ''}`}>
+                                <div className={avatarBorderClass(u)}>
                                     <PixelArtAvatar
                                         pixels={u.avatar_pixels}
                                         gridSize={u.avatar_grid_size}
@@ -7911,7 +7926,7 @@ function LeaderboardView({ users, roster, currentUserName, sponsorships, sponsor
                             </div>
                             <div className="flex-grow min-w-0">
                                 <div className="flex items-center gap-2">
-                                    <p className={`font-bold truncate ${nameEffectClass(u, 'text-slate-800')}`}>
+                                    <p className={`font-bold ${nameEffectClass(u, 'truncate text-slate-800')}`}>
                                         {u.name}
                                     </p>
                                     {u.verified_badge && <span className="text-blue-500 text-xs" title="Verified">✅</span>}
