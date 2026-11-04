@@ -74,8 +74,46 @@ already deployed those changes to the same two YumPals endpoints, so live matche
   happy"). `donut-pal-check.mjs` 28/28 ("Nice game! +1 happy"; the next game still
   starts by itself; C stops it).
 
-## Release (each deploy shown to the owner first)
+## Release (owner: "Approved, deploy")
 
-1. Site: tag the rollback point, merge to `main`, run the tests, push, then
-   `npm run deploy`.
-2. Server: deploy only `yumpalsGetPaidCareState` and `yumpalsPurchaseCare`.
+- Rollback tag `codex/donut-pal-game-fair-baseline-20261105` → `24fde51`. `main`
+  fast-forwarded to `04e0483`. On `main`: frontend 237/237, server 218/218, both
+  lints exit 0.
+- Atomic push of `main`, `codex/yumpals-only-release` and the tag. Remote IDs
+  verified: both branches at `04e0483`, and the tag at `24fde51`.
+- The live site had been published from `main` `b6372a8` (`gh-pages` `5801d7f`).
+  The only later commit was a log, and the stylesheet name was unchanged
+  (`index-DBOHlzyJ.css`), so this publish adds only this fix.
+- 1. SITE VERIFIED (first, so the app accepts `lastGameAt` before the server
+  sends it). `npm run deploy` gave `gh-pages` `d56e215`, live after ~70s.
+  Byte-identical to the build:
+  - `index.html` (MD5 `6b4f3228c511851562b7619b793d655c`).
+  - JS `index-BCdWUihB.js` (`e19d89484e715e246123e24ba92be2ad`).
+  - CSS `index-DBOHlzyJ.css` (`0470cdeb3a784dd3d3e0dd9cd780a26c`).
+- 2. SERVER VERIFIED — `deploy --only functions:teams:yumpalsGetPaidCareState,
+  functions:teams:yumpalsPurchaseCare` (211.11 KB): "Successful update operation"
+  for both. `functions:list` shows all 12 functions: the 10 from before plus
+  `teamsManageLinks` and `yumpalsSuspendStudent`, from other sessions.
+- Live as the owner, Thursday 8:49am (`index-BCdWUihB.js`):
+  - The pal is now a teen, and it was sleepy from its 3 games earlier that morning
+    under the old rule.
+  - Lights gave "Lights off. Zzz" with the dark screen at 8:50am, a nap under the
+    new 10-minute rule.
+- LIVE CHECK VERIFIED, as the owner:
+  - The nap ended by 9:01am, about 10 minutes, with "Good nap!": awake, no longer
+    sleepy, and happy 3 → 4. Under the old 20-minute nap it would have lasted until
+    about 9:10.
+  - Three games in a row (15 guesses, every `yumpalsPurchaseCare` 200; the first
+    3,969ms as the server started up, the rest about 0.9s).
+  - The label showed "Nice game! +1 happy", then the next game's hint "A=left
+    B=right C=stop". Happy stayed 4 (already full), and weight stayed 20 (a teen's
+    minimum).
+  - After 3 games Fizzgig was not sleepy; the old rule made it sleepy at 3. C stopped
+    the game and returned to the room.
+  - Seen in passing: taps sent while a guess's reply is still pending are ignored,
+    as designed. Only taps during the reveal itself carry on to the next guess.
+- Rollback:
+  - Site: rebuild and publish `codex/donut-pal-game-fair-baseline-20261105`.
+  - Server: redeploy the two functions from that tag. A `lastGameAt` already
+    stored on a pal would then fail the older checks, so roll back the server
+    before the site.
