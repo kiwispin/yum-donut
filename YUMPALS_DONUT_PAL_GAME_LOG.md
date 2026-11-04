@@ -112,8 +112,12 @@ already deployed those changes to the same two YumPals endpoints, so live matche
     the game and returned to the room.
   - Seen in passing: taps sent while a guess's reply is still pending are ignored,
     as designed. Only taps during the reveal itself carry on to the next guess.
-- Rollback:
-  - Site: rebuild and publish `codex/donut-pal-game-fair-baseline-20261105`.
-  - Server: redeploy the two functions from that tag. A `lastGameAt` already
-    stored on a pal would then fail the older checks, so roll back the server
-    before the site.
+- Rollback (corrected): roll back the SERVER only, by redeploying the two
+  functions from `codex/donut-pal-game-fair-baseline-20261105`.
+  - The new site's checks accept replies both with and without `lastGameAt`, so it
+    can stay.
+  - Do not roll back the site on its own. Every pal that has played since this
+    deploy stores `lastGameAt`, and the older app rejects any reply containing it,
+    whichever server sends it. Those pals would show "could not be reached".
+  - If the site ever had to go back, the field would first need removing from the
+    stored pals.
