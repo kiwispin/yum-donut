@@ -14,6 +14,7 @@ const { isValidPersistedState, validateName, speciesById, validateCase, validate
 const { walletNumber, debitAfter } = require('./walletNumber');
 const { gaveOn, isCheerRestDay } = require('./givingCheer');
 const { WELCOME_BACK_MS } = require('./visitGift');
+const { validPeriods } = require('../studentSuspensionService');
 
 const ADOPTION_PRICE = 5;
 const ID = /^[A-Za-z0-9_-]{1,80}$/u;
@@ -136,12 +137,23 @@ function createPocketService({ db, refs, walletAdapter, now = Date.now, pocketRe
     }
   }
 
+  // A suspended student's breaks from the Team are rest time for their pal
+  // only, alongside Holiday Mode's.
+  function withBreaks(config, breakSnaps) {
+    if (!breakSnaps.length || !breakSnaps[0].exists) return config;
+    const { periods } = breakSnaps[0].data();
+    requireValue(validPeriods(periods), 'CORRUPT_BREAKS');
+    return { ...config, holidayPeriods: [...(config.holidayPeriods || []), ...periods] };
+  }
+
   // Every read happens here, before any write, as Firestore transactions require.
   async function load(transaction, uid, extraRefs = []) {
-    const [configSnap, petSnap, ...rest] = await readDocuments(transaction, [refs.config(uid), refs.pet(uid), ...holidayRefs(refs), ...extraRefs]);
+    const breakRefs = typeof refs.breaks === 'function' ? [refs.breaks(uid)] : [];
+    const [configSnap, petSnap, ...rest] = await readDocuments(transaction, [refs.config(uid), refs.pet(uid), ...holidayRefs(refs), ...breakRefs, ...extraRefs]);
     const holiday = rest.splice(0, holidayRefs(refs).length);
+    const breakSnaps = rest.splice(0, breakRefs.length);
     requireValue(configSnap.exists, 'CONFIG_MISSING');
-    const config = applyHolidayMode(validateConfig({ ...configSnap.data(), elapsedCare: true }), holiday);
+    const config = withBreaks(applyHolidayMode(validateConfig({ ...configSnap.data(), elapsedCare: true }), holiday), breakSnaps);
     const pet = petSnap.exists ? petSnap.data() : null;
     if (pet) requireValue(isValidPersistedState(pet, uid), 'CORRUPT_STATE');
     return { config, pet, extra: rest };

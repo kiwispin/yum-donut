@@ -60,6 +60,10 @@ test('YumPals-only release preserves every existing named action handler from th
       assert.match(current.get(name)[0], /DAILY_LIMIT/);
       continue;
     }
+    if (name === 'handleRemoveUser') { // Explicitly approved: the bin became Suspend, through the server, keeping everything.
+      assert.match(current.get(name)[0], /yumpalsSuspendStudent'\)\(\{ action: 'suspend', name \}\)/);
+      continue;
+    }
     if (name === 'handleResetPassword') {
       assert.match(current.get(name)[0], /yumpalsManageStudentAccount/);
       assert.match(current.get(name)[0], /action: 'set-password'/);

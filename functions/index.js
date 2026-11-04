@@ -9,6 +9,7 @@ const { createHolidayMode } = require('./src/yumpals/holidayMode');
 const { withPreflightCache } = require('./src/yumpals/preflightCache');
 const { yumPalsRoot } = require('./src/yumpals/paths');
 const { createStudentAccountService } = require('./src/studentAccountService');
+const { createStudentSuspensionService } = require('./src/studentSuspensionService');
 const { createTeamsLinkService } = require('./src/teamsLinkService');
 const { createTeamsRoster } = require('./src/teamsRoster');
 
@@ -98,6 +99,12 @@ const manageStudentAccount = createStudentAccountService({ authAdmin: admin.auth
   arrayRemove: (...values) => admin.firestore.FieldValue.arrayRemove(...values),
 });
 exports.yumpalsManageStudentAccount = onCall({ region: 'us-central1' }, manageStudentAccount);
+
+const suspendStudent = createStudentSuspensionService({ authAdmin: admin.auth(), db: admin.firestore(), HttpsError,
+  arrayUnion: (...values) => admin.firestore.FieldValue.arrayUnion(...values),
+  arrayRemove: (...values) => admin.firestore.FieldValue.arrayRemove(...values),
+});
+exports.yumpalsSuspendStudent = onCall({ region: 'us-central1' }, suspendStudent);
 
 // Reads the team's members through the bot, so it needs the bot's Microsoft credentials.
 const teamsRoster = createTeamsRoster({

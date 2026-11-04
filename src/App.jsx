@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import {
     getFirestore, collection, addDoc, query, orderBy, limit, where, getDocs,
     onSnapshot, doc, updateDoc, setDoc, getDoc, serverTimestamp,
-    runTransaction, arrayUnion, arrayRemove, deleteDoc, Timestamp, increment, deleteField
+    runTransaction, arrayUnion, deleteDoc, Timestamp, increment, deleteField
 } from 'firebase/firestore';
 import {
     getAuth, onAuthStateChanged,
@@ -42,7 +42,7 @@ import {
     Trophy, Gift, Activity, MessageSquare,
     LogOut, UserPlus, Heart, Zap, Search, CheckCircle, Target, Sparkles,
 
-    Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock, Users, Skull, Trash2, Clock, Calendar, Edit2, RotateCcw, Landmark, PiggyBank, ArrowRight, UserCheck, Keyboard, Shield, Settings, Gamepad2, Cable, Monitor, ClipboardList, PawPrint, Donut
+    Briefcase, Flame, CheckSquare, XCircle, ShoppingBag, Crown, Camera, Lock, Users, Skull, Trash2, PauseCircle, Clock, Calendar, Edit2, RotateCcw, Landmark, PiggyBank, ArrowRight, UserCheck, Keyboard, Shield, Settings, Gamepad2, Cable, Monitor, ClipboardList, PawPrint, Donut
 } from 'lucide-react';
 
 
@@ -1875,6 +1875,8 @@ function YumDonutDashboard() {
     const [showPatchNotes, setShowPatchNotes] = useState(false);
     const [featuredItemIds, setFeaturedItemIds] = useState([]);
     const [roster, setRoster] = useState([]);
+    // Students off the roster (removed, or suspended for a break), who keep everything they had.
+    const [offRoster, setOffRoster] = useState({ removed: [], suspended: [] });
     const [isAdminSettingsOpen, setIsAdminSettingsOpen] = useState(false);
     const [shopDailyPurchases, setShopDailyPurchases] = useState({});
     const [shopWeeklyPurchases, setShopWeeklyPurchases] = useState({});
@@ -2006,6 +2008,10 @@ function YumDonutDashboard() {
                 if (data.names && Array.isArray(data.names)) {
                     const removedNames = new Set(Array.isArray(data.removed_names) ? data.removed_names : []);
                     setRoster(data.names.filter(name => !removedNames.has(name)));
+                    setOffRoster({
+                        removed: [...removedNames],
+                        suspended: Array.isArray(data.suspended_names) ? data.suspended_names : [],
+                    });
                 } else {
                     console.warn("Roster document is missing a valid names array.");
                 }
@@ -4079,6 +4085,12 @@ function YumDonutDashboard() {
         return <LoginScreen onLogin={handleLoginOrRegister} roster={roster} />;
     }
 
+    // A student taken off the Team (still signed in on this device) waits here.
+    // The read-only sandbox is exempt: its test student is off the roster.
+    if (!isAdmin && !isSandbox && offRoster.removed.includes(myProfile.name)) {
+        return <OnABreakScreen name={myProfile.name} palResting={offRoster.suspended.includes(myProfile.name)} onLogout={handleLogout} />;
+    }
+
     // Shop purchases (name effects, badges) are saved on the public profile, not the private one.
     const myPublicProfile = users.find(u => u.name === myProfile.name);
 
@@ -4178,6 +4190,7 @@ function YumDonutDashboard() {
                 <AdminSettingsModal
                     onClose={() => setIsAdminSettingsOpen(false)}
                     roster={roster}
+                    offRoster={offRoster}
                     holidayMode={holidayMode}
                     isSandbox={isSandbox}
                     shopPrices={shopPrices}
@@ -5186,6 +5199,24 @@ function PixelStudioModal({ onClose, currentPixels, currentGridSize, onSave }) {
     );
 }
 
+// Shown to a student who is suspended (on a break from the Team) while still signed in.
+function OnABreakScreen({ name, palResting, onLogout }) {
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-pink-50 p-4">
+            <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-8 text-center">
+                <div className="text-5xl mb-3">{EMOJI}</div>
+                <h1 className="text-xl font-bold text-slate-800 mb-2">You’re on a break from the Team</h1>
+                <p className="text-sm text-slate-500 mb-6">
+                    Hi {name}! Your donuts, trophies, looks and pal are saved just as you left them{palResting ? ', and your pal is resting' : ''}. Ask Mr Rayner when you’re ready to come back.
+                </p>
+                <button onClick={onLogout} className="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-2 rounded-lg transition-colors">
+                    Sign out
+                </button>
+            </div>
+        </div>
+    );
+}
+
 function LoginScreen({ onLogin, roster }) {
     const [search, setSearch] = useState("");
     const [selectedName, setSelectedName] = useState(null);
@@ -5604,7 +5635,7 @@ function GoalSettingsTab({ goalData, onUpdateGoal, onResetGoal, onToggleGoalActi
     );
 }
 
-function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrices, shopItemOverrides, sponsorshipSlotOverrides, goalData, onUpdateGoal, onResetGoal, onToggleGoalActive, yumpalsOwnerUid, yumpalsPreviewEnabled, onToggleYumPalsPreview }) {
+function AdminSettingsModal({ onClose, roster, offRoster = { removed: [], suspended: [] }, holidayMode, isSandbox, shopPrices, shopItemOverrides, sponsorshipSlotOverrides, goalData, onUpdateGoal, onResetGoal, onToggleGoalActive, yumpalsOwnerUid, yumpalsPreviewEnabled, onToggleYumPalsPreview }) {
     const paidSettingsIdentity = useMemo(() => () => ({ uid: auth.currentUser?.uid, isAnonymous: auth.currentUser?.isAnonymous, sandbox: isSandbox }), [isSandbox]);
     const [activeTab, setActiveTab] = useState('general'); // general, roster, shop, sponsorships, goal, yumpals, teams
     const [newName, setNewName] = useState("");
@@ -5615,6 +5646,7 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
     const [editingSponsorshipSlots, setEditingSponsorshipSlots] = useState({});
     const [sponsorshipSaveStatus, setSponsorshipSaveStatus] = useState({});
     const [resettingPassword, setResettingPassword] = useState(null); // Name currently being reset
+    const [changingStatus, setChangingStatus] = useState(null); // Name being suspended or restored
 
     const handleResetPassword = async (name) => {
         if (isSandbox) {
@@ -5710,17 +5742,55 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
         }
     };
 
+    // Suspend (a break from the Team) or restore. Nothing is deleted either way.
     const handleRemoveUser = async (name) => {
-        if (!confirm(`Remove ${name} from the roster?`)) return;
+        if (isSandbox) {
+            setError("Switch to your live teacher account before suspending a student.");
+            return;
+        }
+        if (!confirm(`Suspend ${name}?\n\nThey're hidden from the Team and can't sign in, but keep their donuts, trophies, looks and pal (which pauses). You can bring them back any time.`)) return;
+        setChangingStatus(name);
         try {
-            const rosterRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'roster');
-            await setDoc(rosterRef, {
-                names: arrayRemove(name),
-                removed_names: arrayUnion(name)
-            }, { merge: true });
+            await httpsCallable(functions, 'yumpalsSuspendStudent')({ action: 'suspend', name });
+            setError("");
         } catch (e) {
             console.error(e);
-            setError("Failed to remove user.");
+            setError(e.message || `Could not suspend ${name}. Please try again.`);
+        } finally {
+            setChangingStatus(null);
+        }
+    };
+
+    const suspendedNames = offRoster.suspended.filter(name => offRoster.removed.includes(name)).sort();
+    const removedEarlier = offRoster.removed.filter(name => !offRoster.suspended.includes(name)).sort();
+    const restoreRow = (name, icon) => (
+        <div key={name} className="flex justify-between items-center p-3">
+            <span className="font-medium text-slate-500 text-sm flex items-center gap-2">{icon}{name}</span>
+            <button
+                onClick={() => handleRestoreUser(name)}
+                disabled={changingStatus === name}
+                aria-label={`Restore ${name}`}
+                className="flex items-center gap-1 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg px-2 py-1 text-xs font-bold transition-colors disabled:opacity-50"
+            >
+                <RotateCcw size={12} /> {changingStatus === name ? 'Restoring…' : 'Restore'}
+            </button>
+        </div>
+    );
+
+    const handleRestoreUser = async (name) => {
+        if (isSandbox) {
+            setError("Switch to your live teacher account before restoring a student.");
+            return;
+        }
+        setChangingStatus(name);
+        try {
+            await httpsCallable(functions, 'yumpalsSuspendStudent')({ action: 'restore', name });
+            setError("");
+        } catch (e) {
+            console.error(e);
+            setError(e.message || `Could not restore ${name}. Please try again.`);
+        } finally {
+            setChangingStatus(null);
         }
     };
 
@@ -6145,10 +6215,11 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Students ({roster.length})</span>
                                 <button
                                     onClick={async () => {
-                                        if (confirm("Reset roster to default list? This will remove custom additions and restore removed default students.")) {
+                                        if (confirm("Reset roster to default list? This will remove custom additions and restore removed default students. Suspended students stay suspended.")) {
                                             try {
                                                 const rosterRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'config', 'roster');
-                                                await setDoc(rosterRef, { names: INITIAL_ROSTER, removed_names: [] }, { merge: true });
+                                                // Suspended students come back only through Restore, which also turns their sign-in back on.
+                                                await setDoc(rosterRef, { names: INITIAL_ROSTER, removed_names: offRoster.suspended }, { merge: true });
                                             } catch (e) {
                                                 console.error(e);
                                             }
@@ -6160,7 +6231,7 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                                 </button>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
+                            <div className="flex-1 min-h-[12rem] overflow-y-auto bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
                                 {[...roster].sort().map(name => (
                                     <div key={name} className="flex justify-between items-center p-3 hover:bg-slate-50 group transition-colors">
                                         <span className="font-medium text-slate-700 text-sm">{name}</span>
@@ -6183,15 +6254,41 @@ function AdminSettingsModal({ onClose, roster, holidayMode, isSandbox, shopPrice
                                             </button>
                                             <button
                                                 onClick={() => handleRemoveUser(name)}
-                                                className="text-slate-300 hover:text-red-500 transition-colors p-1"
-                                                title="Remove User"
+                                                className="text-slate-400 hover:text-amber-600 transition-colors p-1"
+                                                aria-label={`Suspend ${name}`}
+                                                title="Suspend: a break from the Team, keeping everything"
+                                                disabled={changingStatus === name}
                                             >
-                                                <Trash2 size={16} />
+                                                {changingStatus === name ? <span className="text-sm">⏳</span> : <PauseCircle size={16} />}
                                             </button>
                                         </div>
                                     </div>
                                 ))}
                             </div>
+
+                            {suspendedNames.length > 0 && (
+                                <div className="mt-4">
+                                    <div className="mb-2 px-1">
+                                        <span className="text-xs font-bold text-amber-600 uppercase tracking-wider">Suspended ({suspendedNames.length})</span>
+                                        <p className="text-[11px] text-slate-400 mt-0.5">On a break: hidden and can’t sign in, but they keep everything and their pal rests. Restore brings them back with the same password.</p>
+                                    </div>
+                                    <div className="max-h-40 overflow-y-auto bg-amber-50/50 rounded-xl border border-amber-100 divide-y divide-amber-100">
+                                        {suspendedNames.map(name => restoreRow(name, <PauseCircle size={14} className="text-amber-500" />))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {removedEarlier.length > 0 && (
+                                <details className="mt-3 group">
+                                    <summary className="cursor-pointer select-none px-1 text-xs font-bold text-slate-400 uppercase tracking-wider hover:text-slate-600">
+                                        Removed earlier ({removedEarlier.length})
+                                    </summary>
+                                    <p className="text-[11px] text-slate-400 mt-1 px-1">Taken off before Suspend existed. Their donuts and pal were kept, so Restore brings them back too.</p>
+                                    <div className="mt-2 max-h-40 overflow-y-auto bg-slate-50 rounded-xl border border-slate-200 divide-y divide-slate-100">
+                                        {removedEarlier.map(name => restoreRow(name, null))}
+                                    </div>
+                                </details>
+                            )}
                         </div>
                     )}
 

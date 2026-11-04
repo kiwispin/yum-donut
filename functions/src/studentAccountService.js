@@ -101,6 +101,10 @@ function createStudentAccountService({ authAdmin, db, HttpsError, arrayUnion, ar
     const names = Array.isArray(rosterData.names) ? rosterData.names : [];
     const removed = Array.isArray(rosterData.removed_names) ? rosterData.removed_names : [];
     const nameKey = name.toLowerCase();
+    const suspended = Array.isArray(rosterData.suspended_names) ? rosterData.suspended_names : [];
+    if (suspended.some(entry => typeof entry === 'string' && entry.toLowerCase() === nameKey)) {
+      fail('failed-precondition', 'This student is suspended. Use Restore in the Suspended list to bring them back with everything they had.');
+    }
     const rosterMatch = names.find(entry => typeof entry === 'string' && entry.toLowerCase() === nameKey
       && !removed.includes(entry));
     if (data.action === 'set-password' && rosterMatch !== name) {
