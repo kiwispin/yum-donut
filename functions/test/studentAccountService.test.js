@@ -136,3 +136,12 @@ test('Roster membership, teacher identity, and password bounds are checked befor
   assert.equal(f.users.size, 0);
   assert.deepEqual(f.read(f.rosterPath), { names: ['Kate'], removed_names: [] });
 });
+
+test('A suspended student is sent to Restore instead of being re-added or given a new password', async () => {
+  const f = fixture(); f.seed(f.rosterPath, { names: ['Lauren'], removed_names: ['Kate'], suspended_names: ['Kate'] });
+  await assert.rejects(f.call({ action: 'add', name: 'Kate', password: 'initial-pass' }), { code: 'failed-precondition', message: /Restore/ });
+  await assert.rejects(f.call({ action: 'add', name: 'kate', password: 'initial-pass' }), { code: 'failed-precondition', message: /Restore/ });
+  await assert.rejects(f.call({ action: 'set-password', name: 'Kate', password: 'initial-pass' }), { code: 'failed-precondition', message: /Restore/ });
+  assert.equal(f.users.size, 0);
+  assert.deepEqual(f.read(f.rosterPath), { names: ['Lauren'], removed_names: ['Kate'], suspended_names: ['Kate'] });
+});

@@ -166,6 +166,29 @@ test('rest days freeze the pal; switched off, nothing can be done and nothing fa
   assert.equal(off.db.read(PET).pocket.pal.hunger, 4);
 });
 
+test('a break from the Team freezes only that student’s pal, and it carries on once restored', async () => {
+  const plain = pocketSetup(); await plain.hatched({ hunger: 4, happy: 4 });
+  plain.later(DAY); const faded = (await plain.read()).pal.state;
+  assert.ok(faded.hunger < 4 && faded.mess > 0);
+
+  const away = pocketSetup(); away.refs.breaks = uid => `fixture/breaks/${uid}`;
+  await away.hatched({ hunger: 4, happy: 4 });
+  away.db.seed('fixture/breaks/student-a', { periods: [{ from: NOW + HATCH_MS, to: null }] });
+  away.later(DAY);
+  const frozen = (await away.read()).pal.state;
+  assert.equal(frozen.hunger, 4); assert.equal(frozen.mess, 0);
+
+  // Back after the day away: the break is closed and the clock runs again.
+  away.db.seed('fixture/breaks/student-a', { periods: [{ from: NOW + HATCH_MS, to: NOW + HATCH_MS + DAY }] });
+  away.later(DAY);
+  const after = (await away.read()).pal.state;
+  assert.ok(after.hunger < 4 && after.mess > 0);
+
+  const corrupt = pocketSetup(); corrupt.refs.breaks = uid => `fixture/breaks/${uid}`;
+  corrupt.db.seed('fixture/breaks/student-a', { periods: [{ from: 'soon', to: null }] });
+  await assert.rejects(corrupt.read(), reason('CORRUPT_BREAKS'));
+});
+
 test('a giving cheer adds a free happy heart once a school day', async () => {
   const f = pocketSetup(); await f.hatched();
   f.db.seed('fixture/profiles/student-a', { given_today: 1, last_given_date: 'Mon Sep 07 2026' });

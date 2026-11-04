@@ -9,6 +9,8 @@ function createAppConnection({ db, authAdmin, HttpsError, ready, now, pocketRead
   const refs = { config: paidSettingsRefs(db).settings, pet: uid => yumPalsUserDoc(db, uid),
     holidayGlobal: () => db.doc(`artifacts/${APP_ID}/public/data/config/global`),
     holidayHistory: () => yumPalsRoot(db).collection('config').doc('holidayClock'),
+    // A suspended student's breaks from the Team, written by studentSuspensionService.
+    breaks: uid => yumPalsRoot(db).collection('breaks').doc(uid),
     receipt: (uid, id) => yumPalsUserDoc(db, uid).collection('purchases').doc(id),
     refusal: (uid, id) => yumPalsUserDoc(db, uid).collection('refusals').doc(id),
     migration: uid => yumPalsRoot(db).collection('migrations').doc(uid),
