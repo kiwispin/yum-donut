@@ -69,3 +69,38 @@ npx --yes firebase-tools@15.34.1 deploy --only functions:teams:yumpalsSuspendStu
 ```
 
 Then publish the website. First live check: suspend and restore a test student.
+
+## Release — 5 November 2026
+
+The owner approved the release ("Yes, release").
+
+- SOURCE — `333f45e` on `codex/suspend-user`, merged to `main` as `b6372a8`;
+  rollback tag `codex/suspend-user-baseline-20261105` at `5ca0646`. Remote IDs
+  verified.
+- FUNCTIONS — my deploy was blocked by this session's permissions, so the owner ran
+  `deploy --only functions:teams:yumpalsSuspendStudent,functions:teams:yumpalsManageStudentAccount,functions:teams:yumpalsGetPaidCareState,functions:teams:yumpalsPurchaseCare`.
+  The three existing functions updated; `yumpalsSuspendStudent` was created, but
+  granting it public invoke failed ("Unable to set the invoker for the IAM policy"):
+  the deploying account (k1w1cjr@gmail.com) could not change Cloud Run IAM, as with
+  `teamsManageLinks` on 3 November. `functions:list` showed all four (v2 callable,
+  us-central1); an unsigned POST to the new one returned Cloud Run's bare 403.
+- ACCESS — the owner gave k1w1cjr@gmail.com Cloud Run Admin from the project's school
+  master account and redeployed (which skipped the unchanged function), then set
+  Cloud Run → `yumpalssuspendstudent` → Security → Allow public access. An unsigned
+  POST now returns the function's own `PERMISSION_DENIED` "Only the signed-in teacher
+  can suspend or restore students.", and the CORS preflight from
+  `https://kiwispin.github.io` returns 204. The teacher check inside the function is
+  what protects it, as for every other callable.
+- WEBSITE — published after the function was callable: `npm run build` and `gh-pages`
+  from `main` `b6372a8` as `99f9bf5` → `5801d7f`, live after ~45s. Byte-identical to
+  the build:
+  - `index.html` (MD5 `a8bb15cee0150ec06a0a603358c3abcb`).
+  - JS `index-Cp4vtSa2.js` (`b6642701f606c1daa5b7f02a708d1481`), containing
+    `yumpalsSuspendStudent`, "on a break from the Team" and "Removed earlier".
+  - CSS `index-DBOHlzyJ.css` (`0470cdeb3a784dd3d3e0dd9cd780a26c`).
+- Rollback: rebuild and publish `codex/suspend-user-baseline-20261105`; redeploy
+  `yumpalsManageStudentAccount`, `yumpalsGetPaidCareState` and `yumpalsPurchaseCare`
+  from it. `yumpalsSuspendStudent` is then unused and can be left or deleted.
+- NOT YET SEEN LIVE — a real suspend and restore signed in as the teacher, the break
+  screen for a real suspended student, and a suspended student's pal resting.
+  Suggested first check: suspend and restore Alice.
