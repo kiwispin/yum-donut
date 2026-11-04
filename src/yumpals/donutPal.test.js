@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-    BASE_WEIGHT, HATCH_MS, HEAVY_OVER, NAP_MS, SNACKS_PER_DAY, act, advance, ageDays, careDays, createDonutPal, describePal,
+    BASE_WEIGHT, GAMES_BEFORE_SLEEPY, GAME_STREAK_MS, HATCH_MS, HEAVY_OVER, NAP_MS, SNACKS_PER_DAY, act, advance, ageDays, careDays, createDonutPal, describePal,
     isAsleep, isNight, needsAttention, takeEvents,
 } from './donutPal.js';
 
@@ -70,23 +70,48 @@ test('a treat costs 1 donut, adds happy and 2 weight, and stops at 3 a day or wh
     assert.match(describePal(heavy, MON_9AM), /heavy/);
 });
 
-test('the game cheers your pal on 3 wins of 5, burns weight, and 3 games make it sleepy for a nap', () => {
-    let pal = { ...hatched(), happy: 1, weight: 9 };
-    let game = act(pal, 'game', { nowMs: MON_9AM, wins: 3 });
-    assert.equal(game.pal.happy, 2); assert.equal(game.animation, 'happy'); assert.equal(game.pal.weight, 8);
-    game = act(game.pal, 'game', { nowMs: MON_9AM, wins: 2 });
-    assert.equal(game.pal.happy, 2); assert.equal(game.animation, 'shrug');
-    pal = act(game.pal, 'game', { nowMs: MON_9AM, wins: 4 }).pal;
-    assert.equal(pal.weight, 6);
-    assert.equal(pal.sleepy, true); assert.equal(needsAttention(pal, MON_9AM), true);
-    assert.equal(act(pal, 'game', { nowMs: MON_9AM, wins: 5 }).reason, 'sleepy');
-    const nap = act(pal, 'lights', { nowMs: MON_9AM });
-    assert.equal(nap.ok, true); assert.equal(isAsleep(nap.pal, MON_9AM + 60000), true);
-    assert.equal(act(nap.pal, 'meal', { nowMs: MON_9AM + 60000 }).reason, 'asleep');
-    const after = advance(nap.pal, MON_9AM + NAP_MS + 60000);
-    assert.equal(after.sleepy, false); assert.equal(after.happy, 4);
-    assert.equal(isAsleep(after, after.at), false);
+test('every game cheers your pal: +1 for playing, +2 for a win (3 of 5), and each burns weight', () => {
+    let game = act({ ...hatched(), happy: 0, weight: 9 }, 'game', { nowMs: MON_9AM, wins: 2 });
+    assert.equal(game.pal.happy, 1); assert.equal(game.animation, 'shrug'); assert.equal(game.pal.weight, 8);
+    game = act(game.pal, 'game', { nowMs: MON_9AM + 60000, wins: 3 });
+    assert.equal(game.pal.happy, 3); assert.equal(game.animation, 'happy'); assert.equal(game.pal.weight, 7);
+    game = act(game.pal, 'game', { nowMs: MON_9AM + 120000, wins: 5 });
+    assert.equal(game.pal.happy, 4, 'never above full');
     assert.equal(act({ ...hatched(), weight: BASE_WEIGHT.baby }, 'game', { nowMs: MON_9AM, wins: 0 }).pal.weight, BASE_WEIGHT.baby);
+});
+
+test('five games close together make your pal sleepy; a 10-minute nap fixes it', () => {
+    let pal = { ...hatched(), happy: 0, hunger: 2 };
+    for (let i = 0; i < GAMES_BEFORE_SLEEPY - 1; i++) pal = act(pal, 'game', { nowMs: MON_9AM + i * 5 * 60000, wins: 0 }).pal;
+    assert.equal(pal.sleepy, false, 'four games: still awake');
+    pal = act(pal, 'game', { nowMs: MON_9AM + 4 * 5 * 60000, wins: 0 }).pal;
+    assert.equal(pal.sleepy, true); assert.equal(needsAttention(pal, pal.at), true);
+    const at = MON_9AM + 25 * 60000;
+    assert.equal(act(pal, 'game', { nowMs: at, wins: 5 }).reason, 'sleepy');
+    assert.equal(act(pal, 'meal', { nowMs: at }).ok, true, 'other care still works while sleepy');
+    const nap = act(pal, 'lights', { nowMs: at });
+    assert.equal(nap.ok, true); assert.equal(isAsleep(nap.pal, at + 60000), true);
+    assert.equal(act(nap.pal, 'meal', { nowMs: at + 60000 }).reason, 'asleep');
+    assert.equal(NAP_MS, 10 * 60000);
+    const after = advance(nap.pal, at + NAP_MS + 60000);
+    assert.equal(after.sleepy, false); assert.equal(after.gamesInRow, 0); assert.equal(isAsleep(after, after.at), false);
+});
+
+test('hatching in the day counts as the morning, so it does not reset straight away', () => {
+    const pal = hatched();
+    assert.equal(pal.wakeDate, '2026-11-02');
+    const game = act(pal, 'game', { nowMs: MON_9AM + 60000, wins: 0 }).pal;
+    assert.equal(act(game, 'game', { nowMs: MON_9AM + 120000, wins: 0 }).pal.gamesInRow, 2);
+    const nightEgg = advance(createDonutPal({ name: 'Pip', nowMs: Date.parse('2026-11-02T09:00:00Z') }), Date.parse('2026-11-02T09:10:00Z'));
+    assert.equal(nightEgg.stage, 'baby'); assert.equal(Object.hasOwn(nightEgg, 'wakeDate'), false, 'never stores an empty value');
+});
+
+test('games spread out over the day never add up to sleepy', () => {
+    let pal = hatched();
+    for (let i = 0; i < 8; i++) pal = act(pal, 'game', { nowMs: MON_9AM + i * (GAME_STREAK_MS + 60000), wins: 0 }).pal;
+    assert.equal(pal.sleepy, false); assert.equal(pal.gamesInRow, 1);
+    const older = { ...hatched(), gamesInRow: 4 }; // a pal from before lastGameAt existed
+    assert.equal(act(older, 'game', { nowMs: MON_9AM, wins: 0 }).pal.sleepy, false, 'no last game time starts a new streak');
 });
 
 test('neglect makes the pal sick, never worse; medicine takes 1 to 3 doses', () => {

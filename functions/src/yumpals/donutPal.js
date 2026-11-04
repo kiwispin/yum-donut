@@ -15,11 +15,17 @@ const NEEDS_MAX = 4;
 const MESS_MAX = 3;
 const SNACK_PRICE = 1;
 const SNACKS_PER_DAY = 3;
-const NAP_MS = 20 * 60 * 1000;
+const NAP_MS = 10 * 60 * 1000;
 const HATCH_MS = 5 * 60 * 1000;
 const GAME_ROUNDS = 5;
 const GAME_WINS_NEEDED = 3;
-const GAMES_BEFORE_SLEEPY = 3;
+// Every finished game cheers the pal up; a win (3 of 5) cheers it more. Five games
+// close together (each within 15 minutes of the last) make it sleepy, so happy
+// can't be filled by playing on and on; spread-out games never add up.
+const GAME_PLAY_HAPPY = 1;
+const GAME_WIN_HAPPY = 2;
+const GAMES_BEFORE_SLEEPY = 5;
+const GAME_STREAK_MS = 15 * 60 * 1000;
 // Minutes awake (sleep pauses everything).
 // Tuned for one visit per school day (about 14 awake hours apart): each visit
 // finds a couple of hearts to fill and a mess, and only a skipped day makes the
@@ -126,6 +132,9 @@ function stepMinute(pal, ms) {
         if (ms >= pal.hatchAt) {
             // Hearts start empty, so a new baby calls for you straight away.
             Object.assign(pal, { stage: 'baby', bornAt: pal.hatchAt, hunger: 0, happy: 0, weight: BASE_WEIGHT.baby });
+            // Hatching in the day counts as this morning, so the next minute isn't
+            // treated as a new morning (which would reset the game streak).
+            if (!isNight(ms)) pal.wakeDate = aucklandDate(ms);
             pal.events.push({ type: 'hatched', at: ms });
         }
         return;
@@ -222,9 +231,11 @@ function act(pal, action, { nowMs, donuts = 0, wins = 0, isFrozen } = {}) {
             if (next.sick) return refuse(current, 'sick');
             if (next.sleepy) return refuse(current, 'sleepy');
             const won = wins >= GAME_WINS_NEEDED;
-            if (won) next.happy = Math.min(NEEDS_MAX, next.happy + 1);
+            next.happy = Math.min(NEEDS_MAX, next.happy + (won ? GAME_WIN_HAPPY : GAME_PLAY_HAPPY));
             next.weight = Math.max(BASE_WEIGHT[next.stage], next.weight - 1);
-            next.gamesInRow += 1;
+            const inStreak = Number.isSafeInteger(next.lastGameAt) && nowMs - next.lastGameAt <= GAME_STREAK_MS;
+            next.gamesInRow = (inStreak ? next.gamesInRow : 0) + 1;
+            next.lastGameAt = nowMs;
             if (next.gamesInRow >= GAMES_BEFORE_SLEEPY) next.sleepy = true;
             markCared(next, nowMs);
             return { pal: next, ok: true, animation: won ? 'happy' : 'shrug' };
@@ -287,4 +298,4 @@ function describePal(pal, ms = pal.at) {
     return `${parts.join(', ')}. Food ${pal.hunger} of 4, happy ${pal.happy} of 4, weight ${pal.weight}.`;
 }
 
-module.exports = { NEEDS_MAX, MESS_MAX, SNACK_PRICE, SNACKS_PER_DAY, NAP_MS, HATCH_MS, GAME_ROUNDS, GAME_WINS_NEEDED, GAMES_BEFORE_SLEEPY, HUNGER_EVERY, HAPPY_EVERY, MESS_EVERY, SICK_AFTER_MESS, SICK_AFTER_EMPTY, MISTAKE_AFTER, NIGHT_FROM, NIGHT_UNTIL, GROW_AT, WELL_RAISED_MAX_MISTAKES, BASE_WEIGHT, HEAVY_OVER, aucklandParts, isNight, aucklandDate, createDonutPal, isAsleep, isHeavy, careDays, ageDays, needsAttention, advance, takeEvents, act, REFUSALS, describePal };
+module.exports = { NEEDS_MAX, MESS_MAX, SNACK_PRICE, SNACKS_PER_DAY, NAP_MS, HATCH_MS, GAME_ROUNDS, GAME_WINS_NEEDED, GAME_PLAY_HAPPY, GAME_WIN_HAPPY, GAMES_BEFORE_SLEEPY, GAME_STREAK_MS, HUNGER_EVERY, HAPPY_EVERY, MESS_EVERY, SICK_AFTER_MESS, SICK_AFTER_EMPTY, MISTAKE_AFTER, NIGHT_FROM, NIGHT_UNTIL, GROW_AT, WELL_RAISED_MAX_MISTAKES, BASE_WEIGHT, HEAVY_OVER, aucklandParts, isNight, aucklandDate, createDonutPal, isAsleep, isHeavy, careDays, ageDays, needsAttention, advance, takeEvents, act, REFUSALS, describePal };

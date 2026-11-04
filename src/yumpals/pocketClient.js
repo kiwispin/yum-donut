@@ -29,8 +29,11 @@ export function validName(value) {
 const PAL_KEYS = ['version', 'name', 'species', 'stage', 'form', 'hatchAt', 'bornAt', 'hunger', 'happy', 'weight', 'mess', 'sick', 'doses',
     'sleepy', 'napUntil', 'lightsOff', 'gamesInRow', 'snackDate', 'snacks', 'caredDates', 'mistakes', 'timers', 'at', 'events'];
 
+// Added later, so older pals may not have them yet.
+const OPTIONAL_PAL_KEYS = ['wakeDate', 'lastGameAt'];
+
 export function validPalState(s) {
-    return plain(s) && Object.keys(s).every(key => PAL_KEYS.includes(key) || key === 'wakeDate') && PAL_KEYS.every(key => Object.hasOwn(s, key))
+    return plain(s) && Object.keys(s).every(key => PAL_KEYS.includes(key) || OPTIONAL_PAL_KEYS.includes(key)) && PAL_KEYS.every(key => Object.hasOwn(s, key))
         && s.version === 2 && typeof s.name === 'string' && SPECIES.includes(s.species) && STAGES.includes(s.stage)
         && (s.stage === 'adult' ? ['good', 'scruffy'].includes(s.form) : s.form === null)
         && time(s.hatchAt) && (s.bornAt === null || time(s.bornAt)) && time(s.at) && time(s.napUntil)
@@ -38,7 +41,7 @@ export function validPalState(s) {
         && typeof s.sick === 'boolean' && int(s.doses, 0, 3) && typeof s.sleepy === 'boolean' && typeof s.lightsOff === 'boolean'
         && int(s.gamesInRow, 0, 1000) && (s.snackDate === '' || DATE.test(s.snackDate)) && int(s.snacks, 0, SNACKS_PER_DAY)
         && Array.isArray(s.caredDates) && s.caredDates.length <= 60 && s.caredDates.every(d => DATE.test(d))
-        && int(s.mistakes, 0, 100000) && optionalDate(s.wakeDate)
+        && int(s.mistakes, 0, 100000) && optionalDate(s.wakeDate) && (s.lastGameAt === undefined || time(s.lastGameAt))
         && exact(s.timers, TIMERS) && TIMERS.every(key => int(s.timers[key], 0, 100000)) && Array.isArray(s.events) && s.events.length === 0;
 }
 

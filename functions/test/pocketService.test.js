@@ -116,7 +116,7 @@ test('a cupcake treat costs exactly 1 donut, with a receipt; no donuts, no treat
   assert.equal(broke.outcome.reason, 'donuts'); assert.equal(g.db.read(WALLET).balance, 0);
 });
 
-test('the game is fair: the server picks every turn, and 3 wins of 5 cheer the pal up', async () => {
+test('the game is fair: the server picks every turn, and 3 wins of 5 cheer the pal up most (+2)', async () => {
   const targets = ['left', 'left', 'right', 'left', 'right'];
   const f = pocketSetup({ targets }); await f.hatched({ happy: 1 });
   const outcomes = [];
@@ -126,7 +126,8 @@ test('the game is fair: the server picks every turn, and 3 wins of 5 cheer the p
   const last = outcomes.at(-1);
   assert.equal(last.game.complete, true); assert.equal(last.game.wins, 3); assert.equal(last.animation, 'happy');
   const saved = f.db.read(PET).pocket;
-  assert.equal(saved.pal.happy, 2); assert.equal(saved.game, null); assert.equal(saved.pal.gamesInRow, 1);
+  assert.equal(saved.pal.happy, 3); assert.equal(saved.game, null); assert.equal(saved.pal.gamesInRow, 1);
+  assert.equal(saved.pal.lastGameAt, NOW + HATCH_MS, 'the last game time is kept for the streak');
   await assert.rejects(f.act('guess', { gameId: 'game-2', round: 2, choice: 'left' }), reason('GAME_ROUND_CONFLICT'));
   const g = pocketSetup(); await g.hatched({ sick: true, doses: 1 });
   const refused = await g.act('guess', { gameId: 'game-1', round: 0, choice: 'left' });

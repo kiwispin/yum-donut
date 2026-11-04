@@ -283,7 +283,8 @@ export function animationFrames(pal, type, { reducedMotion = false } = {}) {
                 at('eatOpen').draw(PROPS[half], 22, 10), at('eatShut').draw(PROPS[empty], 22, 10), at('happy')].map(f => f.rows());
         }
         case 'no': return ['left', 'right', 'left', 'right'].map(face => at(face, 8).rows());
-        case 'shrug': return [at('sad', 8), at('idle', 8), at('sad', 8)].map(f => f.rows());
+        // A lost game still cheers the pal up a little.
+        case 'shrug': return [at('idle', 8), at('happy', 8).draw(PROPS.heartEmpty, 24, 2), at('happy', 8)].map(f => f.rows());
         case 'happy':
         case 'napped': return [0, 1, 2, 3].map(i => at('happy', 4).draw(i % 2 ? PROPS.heart : PROPS.heartEmpty, 24, 2).rows());
         case 'clean': {

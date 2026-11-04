@@ -23,7 +23,7 @@ export const EVENT_TEXT = {
         : event.form === 'scruffy' ? 'Grew up scruffy!' : 'All grown up!',
 };
 export const SUCCESS = {
-    eat: 'Yum!', snack: 'Cupcake! -1 donut', happy: 'You won! +1 happy', shrug: 'Close! Need 3 of 5.',
+    eat: 'Yum!', snack: 'Cupcake! -1 donut', happy: 'You won! +2 happy', shrug: 'Nice game! +1 happy',
     clean: 'All clean!', medicine: 'All better!', dose: 'One more dose!', lightsOff: 'Lights off. Zzz', lightsOn: 'Lights on!',
 };
 // One short line for every reason the rules or the server can give.
@@ -123,16 +123,19 @@ function guess(state, side, id) {
 }
 
 function finishAnimation(state, ctx) {
-    if (state.anim.then === 'game' && act(ctx.pal, 'game', { nowMs: ctx.now, wins: 0 }).ok) {
-        return { ...state, mode: 'game', anim: null, game: newGame(ctx.id), message: GAME_HINT };
+    if (state.anim.then === 'game') {
+        const next = act(ctx.pal, 'game', { nowMs: ctx.now, wins: 0 });
+        if (next.ok) return { ...state, mode: 'game', anim: null, game: newGame(ctx.id), message: GAME_HINT };
+        return { ...state, mode: 'room', anim: null, message: UI_REFUSALS[next.reason] || UI_REFUSALS.unknown };
     }
     return { ...state, mode: 'room', anim: null };
 }
 
-// The next game starts by itself unless the pal is now sleepy.
-export function gameMessage(ending, pal) {
+// The game's result always shows first; if the pal is now sleepy, the next game
+// doesn't start and "Sleepy! Lights off?" follows once the result has played.
+export function gameMessage(ending) {
     if (!ending.ok) return UI_REFUSALS[ending.reason] || UI_REFUSALS.unknown;
-    return pal.sleepy ? 'Sleepy! Lights off?' : SUCCESS[ending.animation];
+    return SUCCESS[ending.animation];
 }
 
 // ctx: { pal, now, donuts, id (a fresh id for a new game), random, reducedMotion }
@@ -152,7 +155,7 @@ export function donutUiReducer(state, action) {
                 if (ending) {
                     const pal = ending.pal || ctx.pal;
                     const score = drawGameScore(game.results.filter(Boolean).length, GAME_ROUNDS);
-                    return play(next, [score, score, score, ...animationFrames(pal, ending.ok ? ending.animation : 'no')], gameMessage(ending, pal), 'game');
+                    return play(next, [score, score, score, ...animationFrames(pal, ending.ok ? ending.animation : 'no')], gameMessage(ending), 'game');
                 }
                 return { ...next, game };
             }
@@ -231,7 +234,7 @@ export function allCaptions(name = 'Abcdefghijklmnop') {
     return [...new Set([
         ...Object.values(SUCCESS), ...Object.values(UI_REFUSALS), GAME_HINT, ...Object.values(SOUND_TEXT),
         ...Object.values(ICON_LABELS),
-        ...['happy', 'shrug'].flatMap(animation => [gameMessage({ ok: true, animation }, pal), gameMessage({ ok: true, animation }, { ...pal, sleepy: true })]),
+        ...['happy', 'shrug'].map(animation => gameMessage({ ok: true, animation })),
         ...events.map(([type, event = {}]) => EVENT_TEXT[type](pal, event)),
         ...gifts.flatMap(giftMessages),
     ])];

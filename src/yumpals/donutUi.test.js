@@ -71,6 +71,19 @@ test('a quick tap during the reveal is not lost: it ends the reveal and sends th
     assert.equal(s.mode, 'anim');
 });
 
+test('a game that makes the pal sleepy shows its result first, then Sleepy', () => {
+    const sleepy = baby({ sleepy: true });
+    let s = run(INITIAL_UI, ['A'], ['A'], ['B']);
+    for (let round = 0; round < 5; round++) {
+        s = run(s, ['A']);
+        s = run(s, ['result', { seq: s.intent.seq, result: { ok: true, target: 'right', complete: round === 4, animation: round === 4 ? 'shrug' : 'wrong', pal: sleepy } }]);
+        s = run(s, ['tick'], ['tick'], ['tick']);
+    }
+    assert.equal(s.mode, 'anim'); assert.equal(s.message, 'Nice game! +1 happy');
+    for (let i = 0; i < 12 && s.mode === 'anim'; i++) s = run(s, ['tick', {}, ctx(sleepy)]);
+    assert.equal(s.mode, 'room'); assert.equal(s.message, 'Sleepy! Lights off?');
+});
+
 test('C leaves a game even while a guess is on its way; its late answer is ignored', () => {
     let s = run(INITIAL_UI, ['A'], ['A'], ['B'], ['A']);
     const seq = s.intent.seq;

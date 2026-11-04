@@ -40,7 +40,7 @@ try {
   for (let round = 0; round < 5; round++) { await press(round % 2 ? 'A' : 'B'); await page.waitForTimeout(1600); }
   await page.waitForTimeout(400);
   const gameText = await caption();
-  check('game ends with a result', gameText.startsWith('You won!') || gameText.startsWith('Close!'), gameText);
+  check('game ends with a result', gameText.startsWith('You won!') || gameText.startsWith('Nice game!'), gameText);
   await settle();
   check('the next game starts by itself', (await page.locator('.donut-button').first().getAttribute('aria-label')) === 'A: guess left');
   await press('C');

@@ -49,7 +49,7 @@ try {
   for (let round = 0; round < 5; round++) { await press(round % 2 ? 'A' : 'B'); await page.waitForTimeout(1700); }
   await page.waitForTimeout(400);
   const gameText = await caption();
-  check('a 5-round game on the server ends with a result', gameText.startsWith('You won!') || gameText.startsWith('Close!'), gameText);
+  check('a 5-round game on the server ends with a result', gameText.startsWith('You won!') || gameText.startsWith('Nice game!'), gameText);
   await settle(); await press('C');
   await page.evaluate(() => window.__fakeServer.failNextAct());
   await page.clock.fastForward('06:01:00'); // six hours: hungry again await page.waitForTimeout(600); await settle();

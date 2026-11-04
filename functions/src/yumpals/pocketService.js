@@ -40,6 +40,7 @@ function validPal(pal) {
     && (pal.snackDate === '' || DATE.test(pal.snackDate)) && integer(pal.snacks, 0, rules.SNACKS_PER_DAY)
     && Array.isArray(pal.caredDates) && pal.caredDates.length <= 60 && pal.caredDates.every(date => DATE.test(date))
     && integer(pal.mistakes, 0, 100000) && optionalDate(pal.wakeDate)
+    && (pal.lastGameAt === undefined || time(pal.lastGameAt))
     && exact(pal.timers, TIMERS) && TIMERS.every(key => integer(pal.timers[key], 0, 100000))
     && Array.isArray(pal.events) && pal.events.length === 0;
 }
