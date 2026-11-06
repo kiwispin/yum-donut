@@ -5351,7 +5351,7 @@ function PatchNotesModal({ onClose }) {
                         <h2 className="text-2xl font-bold flex items-center gap-2">
                             <Sparkles className="text-yellow-300" /> What's New
                         </h2>
-                        <p className="opacity-90 text-sm mt-1">Shop looks that shine, a new Trophy Cabinet, and your YumPal has moved into a Donut!</p>
+                        <p className="opacity-90 text-sm mt-1">Giving that means more, a new Trophy Cabinet, and your YumPal has moved into a Donut!</p>
                     </div>
                     <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
                         <XCircle size={24} />
@@ -5360,6 +5360,16 @@ function PatchNotesModal({ onClose }) {
 
                 <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
                     <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                        <Heart className="text-pink-500" size={20} /> Giving now means more
+                    </h3>
+                    <p className="text-slate-600 text-sm">
+                        Donuts you give now come out of your own donuts: your wallet first, then your bank. Each one goes straight to your teammate, so no donuts are lost from the crew. They just move to someone who earned them.
+                    </p>
+                    <p className="text-slate-600 text-sm">
+                        Why? Gifts used to make brand-new donuts out of thin air, so the crew ended up with far more donuts than things to spend them on. Now a donut from you is a real thank-you. You can still give up to 5 a day, and every donut you give counts toward your Leaderboard rank.
+                    </p>
+
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2 pt-2 border-t border-slate-100">
                         <ShoppingBag className="text-pink-500" size={20} /> Shop looks got an upgrade
                     </h3>
                     <p className="text-slate-600 text-sm">
@@ -5407,7 +5417,7 @@ function PatchNotesModal({ onClose }) {
                         <Heart className="text-pink-500" size={20} /> Giving cheers up your pal
                     </h3>
                     <p className="text-slate-600 text-sm">
-                        The first donut you give a teammate each school day makes your YumPal happy. Next time you open YumPals, they’ll cheer and get a free Happy heart. It doesn’t cost any donuts.
+                        The first donut you give a teammate each school day makes your YumPal happy. Next time you open YumPals, they’ll cheer and get a free Happy heart.
                     </p>
 
                     <h3 className="font-bold text-slate-800 flex items-center gap-2 pt-2 border-t border-slate-100">
