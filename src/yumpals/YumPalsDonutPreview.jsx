@@ -83,7 +83,7 @@ export default function YumPalsDonutPreview() {
 
     return (
         <DonutDevice name={pal.name} glaze={casing} stage={pal.stage} rows={device.rows} describe={describePal(pal, now)} attention={needsAttention(pal, now)}
-            selectedIcon={device.ui.mode === 'room' ? device.ui.selected : -1} help={device.help} caption={device.ui.message} sound={sound}
+            selectedIcon={device.ui.mode === 'room' ? device.ui.selected : -1} help={device.help} caption={device.caption} sound={sound}
             onPress={device.press} onPick={device.pick}
             onToggleSound={() => { device.say(sound ? 'Sound off.' : 'Sound on.'); setSound(!sound); }}>
             <HowToPlay />

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { HATCH_MS, advance, createDonutPal } from './donutPal.js';
-import { INITIAL_UI, MAX_CAPTION, allCaptions, donutUiReducer, screenRows } from './donutUi.js';
+import { INITIAL_UI, MAX_CAPTION, allCaptions, donutUiReducer, screenRows, statusCaption } from './donutUi.js';
 import { donutPalShown } from './donutRollout.js';
 
 const NOW = Date.parse('2026-11-01T20:00:00Z'); // Monday 9am Auckland.
@@ -113,4 +113,16 @@ test('every caption is one short line (at most 22 characters), so the strip neve
     const captions = allCaptions();
     assert.ok(captions.length > 40);
     assert.deepEqual(captions.filter(text => text.length > MAX_CAPTION), []);
+});
+
+test('each Status page is named in the caption with its value', () => {
+    const born = Date.UTC(2026, 0, 5, 0); const day = 86400000;
+    const pal = { bornAt: born, weight: 21, hunger: 1, happy: 3, at: born + 9 * day };
+    assert.equal(statusCaption(pal, 0), 'Age 9 days, weight 21');
+    assert.equal(statusCaption({ ...pal, at: born + day }, 0), 'Age 1 day, weight 21');
+    assert.equal(statusCaption({ ...pal, at: born + 120 * day, weight: 99 }, 0), 'Age 120, weight 99');
+    assert.equal(statusCaption(pal, 1), 'Food: 1 of 4');
+    assert.equal(statusCaption(pal, 2), 'Happy: 3 of 4');
+    assert.equal(statusCaption(pal, 3, { donuts: 16 }), 'Donuts: 16');
+    assert.equal(statusCaption({ stage: 'egg', at: born }, 0), 'Age 0 days, weight 0');
 });

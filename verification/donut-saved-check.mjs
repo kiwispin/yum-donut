@@ -37,6 +37,17 @@ try {
   await icon('Food'); await press('A'); await press('B'); await page.waitForTimeout(400);
   check('a treat spends 1 donut on the server', (await caption()) === 'Cupcake! -1 donut' && (await server()).wallet === before.wallet - 1, JSON.stringify(await server()));
   await settle();
+  // Each Status page names itself in the caption, with its value, then B leaves.
+  await icon('Status');
+  const pages = [];
+  for (let i = 0; i < 4; i++) {
+    pages.push(await caption());
+    if (process.env.SCREENSHOT_DIR) await page.locator('.pack-card').screenshot({ path: `${shots}/status-page-${i + 1}.png` });
+    await press('B');
+  }
+  const wallet = (await server()).wallet;
+  check('Status pages are named with their values', /^Age 0 days, weight \d+$/u.test(pages[0]) && pages[1] === 'Food: 2 of 4'
+    && pages[2] === 'Happy: 1 of 4' && pages[3] === `Donuts: ${wallet}` && (await caption()) === '', pages.join(' | '));
   let refusedSent = null;
   for (let i = 0; i < 5 && refusedSent === null; i++) {
     const sent = (await server()).acts;

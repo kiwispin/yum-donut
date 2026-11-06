@@ -3,7 +3,7 @@
 // and its donuts with every action, and carries out `intent` (a care action or a
 // game guess) itself: the preview with the local rules, the real handheld on the
 // server. Refusals the rules can predict are shown at once, with no request.
-import { GAME_ROUNDS, REFUSALS, act, aucklandParts } from './donutPal.js';
+import { GAME_ROUNDS, NEEDS_MAX, REFUSALS, act, ageDays, aucklandParts } from './donutPal.js';
 import {
     ICON_LABELS, ICON_ORDER, STATUS_PAGES, animationFrames, drawClock, drawFoodMenu, drawGame, drawGameScore, drawRoom, drawStatus, walkRange,
 } from './donutPalArt.js';
@@ -65,6 +65,20 @@ export function giftMessages(view) {
     }
     if (view.cheer) messages.push(view.cheer.gain ? 'Giving cheer: +1 happy' : 'Thanks for giving!');
     return messages;
+}
+
+// Each Status page is named in the caption with its value, since the screen shows
+// only small icons and hearts: "Age 9 days, weight 21", "Food: 1 of 4",
+// "Happy: 3 of 4", "Donuts: 16". Worked out as it is drawn, so it stays current.
+export function statusCaption(pal, page, { donuts = 0, ms = pal.at } = {}) {
+    if (page === 0) {
+        const age = ageDays(pal, ms); const weight = pal.weight || 0;
+        const full = `Age ${age} ${age === 1 ? 'day' : 'days'}, weight ${weight}`;
+        return full.length <= MAX_CAPTION ? full : `Age ${age}, weight ${weight}`;
+    }
+    if (page === 1) return `Food: ${pal.hunger || 0} of ${NEEDS_MAX}`;
+    if (page === 2) return `Happy: ${pal.happy || 0} of ${NEEDS_MAX}`;
+    return `Donuts: ${donuts}`;
 }
 
 export const INITIAL_UI = { mode: 'room', selected: -1, cursor: 0, page: 0, game: null, anim: null, x: 8, tick: 0, message: '', intent: null, seq: 0 };
@@ -235,6 +249,7 @@ export function screenRows(ui, { pal, now, donuts, reducedMotion }) {
 
 // Every message the caption box can show, with the longest pal name, so the box
 // can be sized to fit them all (verification/caption-sizes).
+const BORN = Date.UTC(2026, 0, 5, 0); const DAY_MS = 86400000;
 export function allCaptions(name = 'Abcdefghijklmnop') {
     const pal = { name, sleepy: false };
     const events = [['hatched'], ['sick'], ['napped'], ...['child', 'teen'].map(stage => ['grew', { stage }]),
@@ -248,5 +263,9 @@ export function allCaptions(name = 'Abcdefghijklmnop') {
         ...['happy', 'shrug'].map(animation => gameMessage({ ok: true, animation })),
         ...events.map(([type, event = {}]) => EVENT_TEXT[type](pal, event)),
         ...gifts.flatMap(giftMessages),
+        // The longest Status captions.
+        ...[[{ bornAt: BORN, weight: 99 }, 0, BORN + 99 * DAY_MS], [{ bornAt: BORN, weight: 99 }, 0, BORN + 9999 * DAY_MS],
+            [{ hunger: NEEDS_MAX }, 1], [{ happy: NEEDS_MAX }, 2], [{}, 3, 0, 99999]]
+            .map(([state, page, ms = 0, donuts = 0]) => statusCaption({ ...state, at: ms }, page, { donuts, ms })),
     ])];
 }

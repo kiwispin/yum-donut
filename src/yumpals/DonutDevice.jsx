@@ -181,7 +181,7 @@ export function HowToPlay() {
                 <Step n={2} icon="food" title="Feed it">Meals are free. A cupcake treat costs 1 donut (up to 3 a day) and adds weight.</Step>
                 <Step n={3} icon="play" title="Play left or right">Guess which way your pal turns: <Btn>A</Btn> left, <Btn>B</Btn> right. Every game cheers it up, and winning 3 of 5 cheers it up more. Games burn off weight. Lots of games close together make it sleepy.</Step>
                 <Step n={4} icon="medicine" title="Keep it well"><b>Clean</b> up messes and give <b>Medicine</b> when it is sick (sometimes 2 or 3 doses). Sleepy? Turn the <b>Lights</b> off for a nap. From 9pm to 7am it sleeps.</Step>
-                <Step n={5} icon="status" title="Watch it grow">Egg, baby, child, teen, adult. Few care mistakes and it grows into a well-raised adult; lots, and it turns out scruffy. It never gets worse than sick. <b>Status</b> shows how it is doing.</Step>
+                <Step n={5} icon="status" title="Watch it grow">Egg, baby, child, teen, adult. Few care mistakes and it grows into a well-raised adult; lots, and it turns out scruffy. It never gets worse than sick. <b>Status</b> shows its age and weight, how full and how happy it is (filled hearts), and your donuts.</Step>
             </ol>
             <aside className="box-tip">
                 <b>Top tip!</b>

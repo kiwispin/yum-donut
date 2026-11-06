@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useReducer, useRef } from 'react';
-import { BUTTON_HELP, INITIAL_UI, TICK_MS, donutUiReducer, screenRows } from './donutUi.js';
+import { BUTTON_HELP, INITIAL_UI, TICK_MS, donutUiReducer, screenRows, statusCaption } from './donutUi.js';
 
 export function makeOperationId() {
     const raw = globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
@@ -38,6 +38,8 @@ export function useDonutUi({ pal, now, getNow, donuts, perform, reducedMotion = 
     return {
         ui,
         rows: screenRows(ui, { pal, now, donuts, reducedMotion }),
+        // What the caption strip shows: the Status page's name and value, or the latest message.
+        caption: ui.mode === 'status' ? statusCaption(pal, ui.page, { donuts, ms: now }) : ui.message,
         help: BUTTON_HELP[ui.mode] || BUTTON_HELP.room,
         busy: Boolean(ui.intent),
         press: name => send(name),

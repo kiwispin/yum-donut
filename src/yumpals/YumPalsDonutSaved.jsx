@@ -188,7 +188,7 @@ export default function YumPalsDonutSaved({ ownerUid, transport, storage = globa
         return <Adopt price={view.prices.adoption} balance={view.wallet.available ? view.wallet.balance : 0} busy={adopting} onAdopt={adopt}
             error={error ? LOAD_ERRORS[error] || error : null} />;
     }
-    const caption = !view.enabled ? 'YumPals is resting right now.' : device.ui.message;
+    const caption = !view.enabled ? 'YumPals is resting right now.' : device.caption;
     return (
         <DonutDevice name={view.pal.name} glaze={view.pal.casing} color={view.pal.color} stage={pal.stage} rows={device.rows} describe={describePal(pal, clock)} attention={view.enabled && needsAttention(pal, clock)}
             selectedIcon={device.ui.mode === 'room' ? device.ui.selected : -1} help={device.help} caption={caption} sound={sound}
