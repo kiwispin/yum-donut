@@ -59,4 +59,33 @@ only). Branch `codex/yumpals-status-captions`. Site only; no server change.
 
 ## Release
 
-- Not yet released. To be shown to the owner first.
+- Owner: "Approved, publish". Before releasing: `origin/main` was still `8e426e6` and
+  `gh-pages` still `d8cc807` (the adoption preview), so nothing else was waiting
+  to go out.
+- Rollback tag `codex/status-captions-baseline-20261106` → `8e426e6`. `main`
+  fast-forwarded to `0625f9c`.
+- On `main`: frontend 241/241, server 218/218, both lints exit 0.
+- Atomic push of `main`, `codex/yumpals-only-release`, the work branch (with
+  upstream) and the tag. Remote IDs verified: all three branches at `0625f9c`, and
+  the tag at `8e426e6`.
+- PUBLISHED AND VERIFIED — `npm run deploy` gave `gh-pages` `de9cab4`, live after
+  ~65s. Byte-identical to the build:
+  - `index.html` (MD5 `04a618cfbf53d1cd4ddb531ec52414f6`).
+  - JS `index-WVjMiVp9.js` (`bb9f49edbc476144af842a91d9041927`).
+  - CSS `index-BrrDcGg4.css` (`c7293a537a48f015b2ef212f3b3166b2`, unchanged from the
+    last release, as expected).
+- LIVE VERIFIED as the owner (`index-WVjMiVp9.js`):
+  - Fizzgig, now a well teen, read "Age 8 days, weight 24", "Food: 4 of 4",
+    "Happy: 4 of 4", "Donuts: 19". That matches the screen's own description
+    ("Food 4 of 4, happy 4 of 4, weight 24").
+  - The icon name "Status" showed first. B on the last page went back to the room
+    with an empty caption, and C cancels.
+  - Every `yumpalsGetPaidCareState` read returned 200.
+  - The pane was too short to screenshot the caption strip; the text was read
+    from the page. The look was checked in the local screenshots.
+- Seen in passing, not from this change: two direct Firestore `documents:commit`
+  writes returned 400 about 2 seconds after the page loaded, before YumPals was
+  touched. Later commits succeeded. YumPals reads and acts only through Functions,
+  and this change adds no writes. Not investigated further.
+- Rollback: rebuild and publish `codex/status-captions-baseline-20261106`. Site
+  only; nothing stored changes.
