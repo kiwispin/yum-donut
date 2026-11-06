@@ -60,6 +60,20 @@ Branch `codex/yumpals-adopt-preview`. Site only; no server change.
 
 ## Release
 
-- Not deployed yet. Shown to the owner first. Plan: tag the rollback point, merge to
-  `main`, run the tests, push, `npm run deploy`, then check that the live files
-  match and that a pal's sticker shows its colour.
+- Owner: "Approved, publish". Rollback tag `codex/adopt-preview-baseline-20261106`
+  → `7c81f27`. `main` fast-forwarded to `56febe2`.
+- On `main`: frontend 240/240, server 218/218, lint exit 0. Atomic push of `main`,
+  `codex/yumpals-only-release` and the tag. Remote IDs verified: both branches at
+  `56febe2`, and the tag at `7c81f27`.
+- PUBLISHED AND VERIFIED — `npm run deploy` gave `gh-pages` `d8cc807`, live after
+  ~40s. Byte-identical to the build:
+  - `index.html` (MD5 `f5f71b54e975ed404ea8e227704d26c6`).
+  - JS `index-HUrbftId.js` (`a856540e45325fa2500bec9635f59458`).
+  - CSS `index-BrrDcGg4.css` (`c7293a537a48f015b2ef212f3b3166b2`).
+- The live page loads the new script with no console errors.
+- Not yet seen live: the owner's pal sticker in its chosen colour. The browser pane
+  had lost the YumDonut sign-in, and I don't enter passwords. The same code path
+  was measured on the test page (blue sticker, white text). To check on the owner's
+  next visit.
+- Rollback: rebuild and publish `codex/adopt-preview-baseline-20261106`. Site
+  only; nothing stored changes.
