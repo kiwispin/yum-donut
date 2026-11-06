@@ -72,3 +72,13 @@ Branch: `codex/giving-whats-new`, from `main` `3dc00c7`.
   donuts" is removed from "Giving cheers up your pal", since gifts now do.
 - Checks: 241 pass, 0 fail; lint clean. Local dev server: the panel opens with the
   new section first and no console errors.
+- Release approved by the owner ("Release it"). Frontend only. Rollback: rebuild and
+  publish `codex/giving-whats-new-baseline-20261106` (`3dc00c7`).
+- RELEASE VERIFIED — source `884ba94` on `codex/giving-whats-new`, merged to `main`
+  as `0071e81`, rollback tag pushed; remote IDs verified. Published with
+  `npm run deploy` as `gh-pages` `8ef7220`, live after ~50s. Byte-identical to the
+  build:
+  - `index.html` (MD5 `edafa3de66920a667eea1082c41672f4`).
+  - JS `index-75lYkv6q.js` (`f9c2d46a067184d4fe0e25839e022bf3`).
+  - CSS `index-BrrDcGg4.css` (`c7293a537a48f015b2ef212f3b3166b2`).
+  The live bundle contains "Giving now means more". Not seen live signed in.
