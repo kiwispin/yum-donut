@@ -71,9 +71,11 @@ Branch `codex/yumpals-adopt-preview`. Site only; no server change.
   - JS `index-HUrbftId.js` (`a856540e45325fa2500bec9635f59458`).
   - CSS `index-BrrDcGg4.css` (`c7293a537a48f015b2ef212f3b3166b2`).
 - The live page loads the new script with no console errors.
-- Not yet seen live: the owner's pal sticker in its chosen colour. The browser pane
-  had lost the YumDonut sign-in, and I don't enter passwords. The same code path
-  was measured on the test page (blue sticker, white text). To check on the owner's
-  next visit.
+- LIVE VERIFIED (after the owner signed in again; `index-HUrbftId.js`): the owner's
+  pal "Fizzgig" shows its chosen colour on the name sticker, rgb(194, 157, 56).
+  Because that colour is light, the text switched to ink, rgb(59, 47, 69), as
+  designed. The screenshot was inspected. The label also played today's giving
+  cheer ("Giving cheer: +1 happy"). The pal was a sick teen with 3 messes; I left
+  that for the owner to care for.
 - Rollback: rebuild and publish `codex/adopt-preview-baseline-20261106`. Site
   only; nothing stored changes.
