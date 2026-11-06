@@ -85,7 +85,20 @@ only). Branch `codex/yumpals-status-captions`. Site only; no server change.
     from the page. The look was checked in the local screenshots.
 - Seen in passing, not from this change: two direct Firestore `documents:commit`
   writes returned 400 about 2 seconds after the page loaded, before YumPals was
-  touched. Later commits succeeded. YumPals reads and acts only through Functions,
-  and this change adds no writes. Not investigated further.
+  touched. Later commits succeeded. This change adds no writes.
+  - CORRECTED (owner asked whether to look into it): I first said YumPals makes no
+    direct database writes. That was wrong.
+  - At load the app runs one client-side transaction, the YumPals wallet sync
+    (`App.jsx` → `synchronizePetWallet` in `src/yumpals/syncWallet.js`). It runs
+    every time the public profile snapshot fires. It reads the public and private
+    wallet, copies the balance only if they differ, and always commits.
+  - At load that snapshot can fire more than once (cached, then from the server),
+    so overlapping transactions can conflict. Firestore then rejects the stale
+    commit with a 400 and the SDK retries it. The pattern seen (400, 400, then 200s)
+    matches.
+  - On a reload, every `batchGet` and `commit` returned 200, with no 400s and no
+    console messages. The SDK's "wallet synchronization could not be confirmed"
+    warning never appeared.
+  - Judged harmless; no change made.
 - Rollback: rebuild and publish `codex/status-captions-baseline-20261106`. Site
   only; nothing stored changes.
