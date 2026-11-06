@@ -56,3 +56,19 @@ The owner approved the release ("Release it").
   - CSS `index-OpsmyNCt.css` (`eccb77a99785e1455dbfa54ab771f4fc`).
   The live bundle contains "Gifts come out of your donuts" and "Comes out of your
   wallet first". Not seen live signed in.
+
+## What's New — 6 November 2026
+
+A student asked whether givers lose donuts if nobody gives back. The owner asked to
+explain the reason in What's New.
+
+Branch: `codex/giving-whats-new`, from `main` `3dc00c7`.
+
+- ACCEPTED — a first section, "Giving now means more": gifts come out of your
+  wallet, then bank; each goes straight to a teammate, so the crew loses none;
+  gifts used to create donuts from nothing, so there were far more donuts than
+  things to buy; up to 5 a day still, and giving counts toward Leaderboard rank.
+- ACCEPTED — the subtitle starts "Giving that means more"; "It doesn't cost any
+  donuts" is removed from "Giving cheers up your pal", since gifts now do.
+- Checks: 241 pass, 0 fail; lint clean. Local dev server: the panel opens with the
+  new section first and no console errors.
