@@ -10,6 +10,17 @@ import {
 
 export const TICK_MS = 450;
 export const GLAZES = { berry: '#f48fb1', mint: '#8fe0c4', sky: '#8ecbf5', sun: '#ffd36e' };
+// The name sticker takes the pal's chosen colour, with ink or white text,
+// whichever reads better on it. Anything that isn't a #rrggbb colour keeps the
+// sticker's own yellow.
+export function stickerColours(hex) {
+    if (typeof hex !== 'string' || !/^#[0-9a-f]{6}$/iu.test(hex)) return null;
+    const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255)
+        .map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    const light = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    return { background: hex, color: light > 0.35 ? '#3b2f45' : '#ffffff' };
+}
+
 // The retail card behind each glaze: a contrasting colour, like a toy line's colourways.
 export const CARDS = { berry: '#bfe3ff', mint: '#ffd6e5', sky: '#ffe8a3', sun: '#e2d4ff' };
 // Caption text is short, like an old handheld game: one line, at most 22

@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
 import { advance, describePal, needsAttention, takeEvents } from './donutPal.js';
 import { EVENT_TEXT, SOUND_TEXT, TICK_MS, giftMessages } from './donutUi.js';
 import { useDonutUi, makeOperationId } from './useDonutUi.js';
 import DonutDevice, { HowToPlay } from './DonutDevice.jsx';
 import { validName } from './pocketClient.js';
+import { ADULT_START, previewFrame } from './adoptPreview.js';
 import { markPalVisited } from './visitReminder.js';
 
 // The real Donut pal: the server keeps the pal and decides every action; this
@@ -24,19 +25,37 @@ const soundKey = uid => `yumpals-donut-sound-${uid}`;
 function read(storage, key) { try { return storage?.getItem(key) ?? null; } catch { return null; } }
 function write(storage, key, value) { try { storage?.setItem(key, value); } catch { /* fine */ } }
 
-function Adopt({ price, balance, busy, onAdopt }) {
+// The preview loop's clock; picking a kind jumps to its adult, the stage where
+// kinds look different.
+function previewReducer(state, action) {
+    if (action.type === 'kind') return { species: action.species, tick: ADULT_START };
+    return { ...state, tick: state.tick + 1 };
+}
+
+function Adopt({ price, balance, busy, onAdopt, error }) {
     const [name, setName] = useState('');
-    const [species, setSpecies] = useState('mossbit');
+    const [{ species, tick }, dispatchPreview] = useReducer(previewReducer, { species: 'mossbit', tick: 0 });
     const [casing, setCasing] = useState('berry');
     const [color, setColor] = useState(COLOURS[0]);
     const valid = validName(name);
     const enough = balance >= price;
+    const reducedMotion = Boolean(globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+    useEffect(() => {
+        const id = setInterval(() => dispatchPreview({ type: 'tick' }), TICK_MS);
+        return () => clearInterval(id);
+    }, []);
+    const frame = previewFrame(species, tick, reducedMotion);
+    const noop = () => {};
     return (
+        <DonutDevice preview name={valid || 'Your pal'} glaze={casing} color={color} stage={frame.stage} rows={frame.rows}
+            describe={`Preview: your pal as ${frame.stage === 'adult' ? 'an adult' : `a ${frame.stage}`}`} attention={false}
+            selectedIcon={-1} help={['A', 'B', 'C']} caption={frame.caption} sound={false} onPress={noop} onPick={noop} onToggleSound={noop}>
         <form className="donut-adopt" onSubmit={event => { event.preventDefault(); if (valid && enough && !busy) onAdopt({ name: valid, species, casing, color }); }}>
             <h2 className="donut-adopt-title">Adopt a Donut pal</h2>
+            <p className="donut-adopt-note">Try your choices on the donut above. Nothing is spent until you adopt.</p>
             <label>Name <input value={name} maxLength={16} onChange={event => setName(event.target.value)} /></label>
             <fieldset><legend>Kind</legend>
-                {SPECIES.map(([id, label]) => <label key={id}><input type="radio" name="species" checked={species === id} onChange={() => setSpecies(id)} /> {label}</label>)}
+                {SPECIES.map(([id, label]) => <label key={id}><input type="radio" name="species" checked={species === id} onChange={() => dispatchPreview({ type: 'kind', species: id })} /> {label}</label>)}
             </fieldset>
             <fieldset><legend>Glaze</legend>
                 {GLAZE_NAMES.map(([id, label]) => <label key={id}><input type="radio" name="glaze" checked={casing === id} onChange={() => setCasing(id)} /> {label}</label>)}
@@ -47,7 +66,9 @@ function Adopt({ price, balance, busy, onAdopt }) {
             </fieldset>
             <button type="submit" disabled={!valid || !enough || busy}>Adopt an egg for {price} donuts</button>
             {!enough && <p>You need {price} donuts to adopt.</p>}
+            {error && <p className="donut-status-text" aria-live="polite">{error}</p>}
         </form>
+        </DonutDevice>
     );
 }
 
@@ -164,14 +185,12 @@ export default function YumPalsDonutSaved({ ownerUid, transport, storage = globa
             {error && <button type="button" className="donut-retry" onClick={() => { setError(null); void load(); }}>Try again</button>}</section>;
     }
     if (!view.pal || !pal) {
-        return <section className="donut-pal">
-            <Adopt price={view.prices.adoption} balance={view.wallet.available ? view.wallet.balance : 0} busy={adopting} onAdopt={adopt} />
-            {error && <p className="donut-status-text" aria-live="polite">{LOAD_ERRORS[error] || error}</p>}
-        </section>;
+        return <Adopt price={view.prices.adoption} balance={view.wallet.available ? view.wallet.balance : 0} busy={adopting} onAdopt={adopt}
+            error={error ? LOAD_ERRORS[error] || error : null} />;
     }
     const caption = !view.enabled ? 'YumPals is resting right now.' : device.ui.message;
     return (
-        <DonutDevice name={view.pal.name} glaze={view.pal.casing} stage={pal.stage} rows={device.rows} describe={describePal(pal, clock)} attention={view.enabled && needsAttention(pal, clock)}
+        <DonutDevice name={view.pal.name} glaze={view.pal.casing} color={view.pal.color} stage={pal.stage} rows={device.rows} describe={describePal(pal, clock)} attention={view.enabled && needsAttention(pal, clock)}
             selectedIcon={device.ui.mode === 'room' ? device.ui.selected : -1} help={device.help} caption={caption} sound={sound}
             onPress={device.press} onPick={device.pick} onToggleSound={toggleSound}>
             <HowToPlay />

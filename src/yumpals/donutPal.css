@@ -451,6 +451,8 @@
   padding: 6px 10px;
   font: inherit;
 }
+.donut-adopt { margin-top: 10px; }
+.donut-adopt-note { margin: -4px 0 0; font-size: 0.9rem; color: #5c4b66; }
 .donut-adopt-title { margin: 0; font: 700 22px/1.2 var(--round); color: var(--pack-ink); }
 .donut-adopt fieldset { display: flex; flex-wrap: wrap; gap: 10px; border: 0; padding: 0; margin: 0; }
 .donut-adopt legend { font-weight: 700; margin-bottom: 4px; }

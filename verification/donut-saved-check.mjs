@@ -70,7 +70,8 @@ try {
   check('no pal: the adoption form, disabled until named', await adopt.getByRole('button', { name: /Adopt an egg/ }).isDisabled());
   await adopt.getByLabel('Name').fill('Sprinkle'); await adopt.getByLabel('Pufflet').check(); await adopt.getByLabel('Lemon').check();
   await adopt.getByRole('button', { name: /Adopt an egg/ }).click();
-  await adopt.locator('.donut-lcd').waitFor();
+  // The adoption page has its own preview donut, so wait for the real pal.
+  await adopt.waitForFunction(() => /Sprinkle is/.test(document.querySelector('.donut-lcd')?.getAttribute('aria-label') || ''), null, { timeout: 8000 }).catch(() => {});
   check('adopting gives an egg and spends 5 donuts', (await adopt.locator('.donut-lcd').getAttribute('aria-label')).includes('Sprinkle is an egg')
     && await adopt.evaluate(() => window.__fakeServer.state.wallet) === 0);
 

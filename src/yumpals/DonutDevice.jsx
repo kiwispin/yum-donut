@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import { Gamepad2, Sprout, Utensils } from 'lucide-react';
 import PixelDrawing from './PixelDrawing.jsx';
 import { ICONS, ICON_LABELS, ICON_ORDER } from './donutPalArt.js';
-import { CARDS, GLAZES } from './donutUi.js';
+import { CARDS, GLAZES, stickerColours } from './donutUi.js';
 import '@fontsource/baloo-2/latin-500.css';
 import '@fontsource/baloo-2/latin-700.css';
 import './donutPal.css';
@@ -56,17 +56,18 @@ function Icon({ id, index, selected, onPick }) {
     );
 }
 
-export default function DonutDevice({ name, glaze, stage, rows, describe, attention, selectedIcon, help, caption, sound, onPress, onPick, onToggleSound, children }) {
+// `preview` shows the device without working buttons (the adoption form's preview).
+export default function DonutDevice({ name, glaze, color, stage, rows, describe, attention, selectedIcon, help, caption, sound, onPress, onPick, onToggleSound, preview = false, children }) {
     // C is "held" while a pointer is down on it or the C key is down.
     const cPointers = useRef(new Set());
     const cKey = useRef(false);
-    const handlers = useRef({ onPress, onToggleSound });
-    useLayoutEffect(() => { handlers.current = { onPress, onToggleSound }; });
+    const handlers = useRef({ onPress, onToggleSound, preview });
+    useLayoutEffect(() => { handlers.current = { onPress, onToggleSound, preview }; });
 
     useEffect(() => {
         const onKey = event => {
             const press = KEYS[event.key.toLowerCase()];
-            if (!press || ignoreKey(event)) return;
+            if (!press || ignoreKey(event) || handlers.current.preview) return;
             event.preventDefault();
             const toggle = press === 'A' && (cPointers.current.size > 0 || cKey.current);
             if (press === 'C') cKey.current = true;
@@ -110,10 +111,11 @@ export default function DonutDevice({ name, glaze, stage, rows, describe, attent
             <p className="pack-sub" aria-hidden="true">Your pocket Donut pal</p>
             <div className="pack-bubble">
             <span className="pack-shine" aria-hidden="true" />
-            <h2 className="donut-pal-name">{name}</h2>
+            <h2 className="donut-pal-name" style={stickerColours(color) || undefined}>{name}</h2>
             {BURST[stage] && <span className="pack-burst" aria-hidden="true">
                 <svg viewBox="0 0 100 100"><polygon points={STAR} /></svg><span>{BURST[stage]}</span></span>}
-            <div className="donut-device">
+            {/* In preview the device is a picture: no focus, taps or keys. */}
+            <div className="donut-device" inert={preview || undefined}>
                 <span className="donut-loop" aria-hidden="true" />
                 <div className="donut-body" aria-hidden="true">
                     <span className="donut-glaze" />
