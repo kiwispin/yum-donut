@@ -49,5 +49,13 @@ Rollback tag: `codex/teams-emoji-log-baseline-20261107` (`9158bde`).
 Approved with the logging ("Yes, add logging"; the proposal was to redeploy
 `teamsBot` only).
 
+- SOURCE PUSHED — merged into `main` as `2a6d769` (ordinary `--no-ff` merge);
+  `main` and `claude/fervent-payne-13daed` both at `2a6d769`, rollback tag at
+  `9158bde`. Verified with `git ls-remote`. `main` already held other sessions'
+  released Functions work (student suspension, Donut pal); no Teams file had changed.
+- DEPLOYED — `deploy --only functions:teams:teamsBot`: "Successful update
+  operation", "Deploy complete!". An empty POST still returns 500, as before.
+- No website change.
+
 Next: when the next `NO_DONUTS` refusal arrives, read its `html` entry, add that
 form to `teamsParser.js` with a test, and redeploy `teamsBot`.
