@@ -69,3 +69,18 @@ Checks:
   donuts added to your wallet" and "That's today's 3-donut arcade limit." No console
   errors.
 - Not exercised: a real Claw play from GRAB through a saved win.
+
+Release — 23 November 2026. The owner approved it ("Release it").
+
+- Frontend only: no function deploy and no Firestore rules change. Between the
+  previous live build (`0071e81`) and this release's base, only logs and Teams bot
+  function files changed, so this is the only website change.
+- Rollback: rebuild and publish `codex/claw-shows-paid-baseline-20261123` (`2bfaa20`).
+- RELEASE VERIFIED — source `7a72dbd` on `codex/claw-shows-paid`, merged to `main` as
+  `ce70534`, rollback tag pushed; remote IDs verified. Published with `npm run deploy`
+  as `gh-pages` `604b79d`, live after ~40s. Byte-identical to the build:
+  - `index.html` (MD5 `e68e4501cffc9a32d1adccb697837af2`).
+  - JS `index-DbKu9dTO.js` (`fc7c90c0220c03ff929e4ead3ce14479`).
+  - CSS `index-BBcyT2o4.css` (`7c32359cb887e5dd29a091571a7ca6ec`).
+  The live bundle contains the new prize wording. Not seen live signed in, and no
+  real Claw play has run through it yet.
