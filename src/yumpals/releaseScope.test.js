@@ -41,6 +41,13 @@ test('YumPals-only release preserves every existing named action handler from th
       assert.match(current.get(name)[0], /arcade_earned_today/);
       continue;
     }
+    if (name === 'handlePlay') { // Explicitly approved: the Claw keeps what its win paid, for the prize screen.
+      const restored = current.get(name).map(body => body
+        .replace(/\s*setPayout\(undefined\);/u, '')
+        .replace(/Promise\.resolve\(onWin\(wonPrize\)\)\.then\(.*\);/u, 'onWin(wonPrize);'));
+      assert.deepEqual(restored, bodies);
+      continue;
+    }
     if (name === 'handlePayInterest') { // Explicitly approved: bank interest is switched off.
       assert.equal(current.has(name), false);
       continue;
