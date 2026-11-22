@@ -34,7 +34,7 @@ import { synchronizePetWallet } from './yumpals/syncWallet.js';
 import { canShowYumPalsPreview } from './yumpals/previewGate.js';
 import AppNavigation from './yumpals/AppNavigation.jsx';
 import VisionMixerModal from './arcade/VisionMixerModal.jsx';
-import { ARCADE_DAILY_CAP, ARCADE_HOLDING_CAP, arcadeEarnedOn, capArcadePrize, donutsHeld, isJarFull } from './arcade/arcadeCap.js';
+import { ARCADE_DAILY_CAP, ARCADE_HOLDING_CAP, arcadeEarnedOn, arcadePayoutText, capArcadePrize, donutsHeld, isJarFull } from './arcade/arcadeCap.js';
 import { PAL_VISITED_EVENT, palGiftWaiting } from './yumpals/visitReminder.js';
 import './yumpals/appSurround.css';
 import { useSavedVisibility } from './yumpals/useSavedVisibility.js';
@@ -1224,8 +1224,10 @@ function ClawMachine({ user, onWin, lastPlayed }) {
     const [isPlaying, setIsPlaying] = useState(false);
     const [clawState, setClawState] = useState('idle'); // idle, dropping, grabbing, rising
     const [prize, setPrize] = useState(null);
+    const [payout, setPayout] = useState(undefined); // What the win actually paid, once saved
     const [showConfetti, setShowConfetti] = useState(false);
     const [justPlayed, setJustPlayed] = useState(false);
+    const payoutText = arcadePayoutText(payout);
 
     // Cooldown Logic (Midnight Reset)
     const today = new Date().toDateString();
@@ -1242,6 +1244,7 @@ function ClawMachine({ user, onWin, lastPlayed }) {
         setIsPlaying(true);
         setClawState('dropping');
         setPrize(null);
+        setPayout(undefined);
         setShowConfetti(false);
 
         // 1. Determine Prize Immediately
@@ -1275,7 +1278,7 @@ function ClawMachine({ user, onWin, lastPlayed }) {
             setJustPlayed(true); // Immediate memory lock
             setLocalLock(true); // Immediate storage lock
             localStorage.setItem(lockKey, 'true'); // Persist lock
-            onWin(wonPrize);
+            Promise.resolve(onWin(wonPrize)).then(result => setPayout(result ?? null), () => setPayout(null));
         }, 5500);
     };
 
@@ -1418,9 +1421,11 @@ function ClawMachine({ user, onWin, lastPlayed }) {
                     <div className="bg-white border-4 border-yellow-400 p-6 rounded-2xl shadow-2xl text-center transform animate-in zoom-in duration-300 pointer-events-auto max-w-xs w-full">
                         <div className="text-6xl mb-4 animate-bounce">{prize.icon}</div>
                         <h3 className="text-2xl font-black text-slate-800 mb-2">YOU WON!</h3>
-                        <p className="text-slate-500 font-medium mb-6">
+                        <p className="text-slate-500 font-medium mb-2">
                             You grabbed a <span className="text-pink-500 font-bold">{prize.label}</span>!
                         </p>
+                        <p className="text-lg font-black text-slate-800">{payoutText.headline}</p>
+                        <p className="text-xs text-slate-500 mt-1 mb-6 min-h-4">{payoutText.note}</p>
                         <button
                             onClick={() => {
                                 // Prize is already claimed via onWin in the timeout, just close modal
@@ -2843,9 +2848,10 @@ function YumDonutDashboard() {
         const publicRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'users', myProfile.name);
 
         const won = prize.type === 'donut' ? prize.amount : 10; // Golden Ticket
+        let result = null; // Returned so a prize screen can say what was paid
 
         try {
-            const result = await runTransaction(db, async (transaction) => {
+            result = await runTransaction(db, async (transaction) => {
                 const userDoc = await transaction.get(userRef);
                 const publicDoc = await transaction.get(publicRef);
                 if (!userDoc.exists()) throw "User profile not found";
@@ -2894,18 +2900,18 @@ function YumDonutDashboard() {
                     balance: currentPublicBalance + paid,
                     lifetime_received: currentPublicLifetimeReceived + paid
                 });
-                return { paid, jarFull: isJarFull(held) };
+                return { paid, jarFull: isJarFull(held), limited: paid < won };
             });
             const amount = result.paid;
 
             // 4. Post-Transaction UI & Logs
             if (result.jarFull) {
                 showNotification(`Nice win! Your donut jar is full (${ARCADE_HOLDING_CAP}+), so the Arcade is just for glory until you spend some. A trophy would make room!`);
-                return;
+                return result;
             }
             if (amount === 0) {
                 showNotification(`Nice win! You've already earned today's ${ARCADE_DAILY_CAP} arcade donuts, so this one's just for glory.`);
-                return;
+                return result;
             }
 
             const limitNote = amount < won ? ` That's today's ${ARCADE_DAILY_CAP}-donut arcade limit.` : '';
@@ -2942,6 +2948,7 @@ function YumDonutDashboard() {
                 showNotification("Error claiming prize. Please try again.");
             }
         }
+        return result;
     };
 
     const CORE_VALUES = {

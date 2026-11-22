@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ARCADE_DAILY_CAP, ARCADE_HOLDING_CAP, arcadeEarnedOn, capArcadePrize, donutsHeld, isJarFull } from './arcadeCap.js';
+import { ARCADE_DAILY_CAP, ARCADE_HOLDING_CAP, arcadeEarnedOn, arcadePayoutText, capArcadePrize, donutsHeld, isJarFull } from './arcadeCap.js';
 
 test('the daily arcade allowance is three donuts and the jar holds 150', () => {
     assert.equal(ARCADE_DAILY_CAP, 3);
@@ -44,4 +44,20 @@ test('prizes are trimmed to what is left of the allowance', () => {
     assert.equal(capArcadePrize(10, 1), 2);
     assert.equal(capArcadePrize(1, 3), 0);
     assert.equal(capArcadePrize(1, 7), 0);
+});
+
+test('the prize screen says what was actually paid', () => {
+    assert.deepEqual(arcadePayoutText({ paid: 1, jarFull: false, limited: false }), { headline: '+1 donut added to your wallet', note: '' });
+    assert.deepEqual(arcadePayoutText({ paid: 3, jarFull: false, limited: true }), { headline: '+3 donuts added to your wallet', note: "That's today's 3-donut arcade limit." });
+});
+
+test('the prize screen explains a win that pays nothing', () => {
+    assert.equal(arcadePayoutText({ paid: 0, jarFull: true, limited: true }).headline, 'Just for glory');
+    assert.match(arcadePayoutText({ paid: 0, jarFull: true, limited: true }).note, /jar is full \(150\+\)/);
+    assert.match(arcadePayoutText({ paid: 0, jarFull: false, limited: true }).note, /already earned today's 3/);
+});
+
+test('the prize screen never claims a payout before it is saved or after it fails', () => {
+    assert.equal(arcadePayoutText(undefined).headline, 'Adding it up...');
+    assert.equal(arcadePayoutText(null).headline, "This prize couldn't be added");
 });

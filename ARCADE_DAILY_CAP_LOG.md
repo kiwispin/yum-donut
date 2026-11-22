@@ -39,3 +39,33 @@ Arcade payouts by: 2/day 60%, 3/day 41%, 4/day 26%, 5/day 15%.
 - `npx eslint .`: clean.
 - Not checked in a browser: the Arcade needs a signed-in account, and the dev server
   writes to the live project.
+
+## Claw prize screen shows the amount paid — 23 November 2026
+
+Report: "Amelia just got a box of donuts but was only awarded 1." The record shows
+her Box at 7:26:17 paid 3, the most the daily cap allows (Chloe's and Kate's Boxes
+also paid 3). Her wallet probably read 1 from 7:32:14 to 7:35:25, after she banked 2
+of the 3; that is worked back from her logged entries and current 9. The Claw's
+result card named the prize with no amount, so the owner asked to show it.
+
+Branch: `codex/claw-shows-paid`, from `main` `2bfaa20`.
+
+- ACCEPTED — `handleWinBonus` returns what the win paid (`paid`, `jarFull`,
+  `limited`), or null when it could not be saved. Payouts are unchanged.
+- ACCEPTED — the Claw result card shows `arcadePayoutText` (`src/arcade/arcadeCap.js`):
+  "Adding it up...", then "+n donut(s) added to your wallet", with "That's today's
+  3-donut arcade limit." when trimmed; "Just for glory" with the reason when it pays
+  nothing; "This prize couldn't be added" on failure.
+- ACCEPTED — `releaseScope.test.js` names the Claw's `handlePlay` change and still
+  pins the rest of that handler.
+- NOT CHANGED — other games' result screens, and any student's balance.
+
+Checks:
+
+- `node --test src/*.test.js src/arcade/*.test.js src/yumpals/*.test.js`: 244 pass,
+  0 fail (3 new). `npx eslint .`: clean.
+- Local dev server: the capped Box card was displayed by setting the Claw's local
+  state, with no GRAB and no write. It reads "You grabbed a Box of Donuts!", "+3
+  donuts added to your wallet" and "That's today's 3-donut arcade limit." No console
+  errors.
+- Not exercised: a real Claw play from GRAB through a saved win.

@@ -23,3 +23,20 @@ export const isJarFull = (held) => held >= ARCADE_HOLDING_CAP;
 export const capArcadePrize = (prize, earned, held = 0, cap = ARCADE_DAILY_CAP) => (
     isJarFull(held) ? 0 : Math.max(0, Math.min(prize, cap - earned))
 );
+
+// What a prize screen says was actually paid. undefined means the win is still
+// being saved; null means it couldn't be.
+export const arcadePayoutText = (result) => {
+    if (result === undefined) return { headline: 'Adding it up...', note: '' };
+    if (result === null) return { headline: "This prize couldn't be added", note: '' };
+    if (result.jarFull) {
+        return { headline: 'Just for glory', note: `Your donut jar is full (${ARCADE_HOLDING_CAP}+). Spend some to win donuts again.` };
+    }
+    if (result.paid === 0) {
+        return { headline: 'Just for glory', note: `You've already earned today's ${ARCADE_DAILY_CAP} arcade donuts.` };
+    }
+    return {
+        headline: `+${result.paid} donut${result.paid > 1 ? 's' : ''} added to your wallet`,
+        note: result.limited ? `That's today's ${ARCADE_DAILY_CAP}-donut arcade limit.` : ''
+    };
+};
